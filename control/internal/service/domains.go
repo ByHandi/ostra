@@ -44,28 +44,11 @@ func (s *Service) CreateDomain(ctx context.Context, domain, bucketName string) (
 		return store.Domain{}, err
 	}
 	bucketName = strings.TrimSpace(bucketName)
-	if bucketName == "" {
-		return store.Domain{}, invalid("bucket", "bucket is required")
-	}
-
-	bucket, err := s.garage.GetBucketByAlias(ctx, bucketName)
-	if garage.IsNotFound(err) {
-		return store.Domain{}, invalid("bucket", "bucket %q not found", bucketName)
-	}
+	bucket, err := s.lookupBucket(ctx, bucketName)
 	if err != nil {
 		return store.Domain{}, err
 	}
-
-	if _, err := s.q.GetDomainByName(ctx, domain); err == nil {
-		return store.Domain{}, conflict("domain", "domain %s is already registered", domain)
-	} else if !errors.Is(err, sql.ErrNoRows) {
-		return store.Domain{}, err
-	}
-
-	// The domain is already an alias of another bucket (e.g. added manually via the CLI).
-	if other, err := s.garage.GetBucketByAlias(ctx, domain); err == nil && other.ID != bucket.ID {
-		return store.Domain{}, conflict("domain", "domain %s is already used as the name of another bucket", domain)
-	} else if err != nil && !garage.IsNotFound(err) {
+	if err := s.ensureDomainAvailable(ctx, domain, bucket.ID); err != nil {
 		return store.Domain{}, err
 	}
 
@@ -91,6 +74,39 @@ func (s *Service) CreateDomain(ctx context.Context, domain, bucketName string) (
 		return s.verify(ctx, row)
 	}
 	return row, nil
+}
+
+// lookupBucket resolves the bucket a domain is registered for, as a form error when it is missing.
+func (s *Service) lookupBucket(ctx context.Context, name string) (garage.BucketInfo, error) {
+	if name == "" {
+		return garage.BucketInfo{}, invalid("bucket", "bucket is required")
+	}
+	bucket, err := s.garage.GetBucketByAlias(ctx, name)
+	if garage.IsNotFound(err) {
+		return bucket, invalid("bucket", "bucket %q not found", name)
+	}
+	return bucket, err
+}
+
+// ensureDomainAvailable rejects a domain that is already registered, or that is already an
+// alias of a different bucket (e.g. added manually via the CLI).
+func (s *Service) ensureDomainAvailable(ctx context.Context, domain, bucketID string) error {
+	if _, err := s.q.GetDomainByName(ctx, domain); err == nil {
+		return conflict("domain", "domain %s is already registered", domain)
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+
+	other, err := s.garage.GetBucketByAlias(ctx, domain)
+	switch {
+	case garage.IsNotFound(err):
+		return nil
+	case err != nil:
+		return err
+	case other.ID != bucketID:
+		return conflict("domain", "domain %s is already used as the name of another bucket", domain)
+	}
+	return nil
 }
 
 // VerifyDomain runs the DNS check right now. Domains in error status are retried too.

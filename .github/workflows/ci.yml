@@ -39,6 +39,11 @@ jobs:
           fi
       - run: go vet ./...
       - run: go test -race ./...
+      # Same limits as the pre-commit hook and the frontends' ESLint rules.
+      - name: Cyclomatic complexity (max 12)
+        run: go run github.com/fzipp/gocyclo/cmd/gocyclo@v0.6.0 -over 12 -ignore '_test|internal/store/' .
+      - name: Cognitive complexity (max 15)
+        run: go run github.com/uudashr/gocognit/cmd/gocognit@v1.3.0 -over 15 -ignore '_test|internal/store/' .
       - name: govulncheck
         run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
 

@@ -1,0 +1,6 @@
+npx lint-staged
+
+# Same type check as CI, only when the dashboard is part of the commit.
+if git diff --cached --name-only | grep -q '^web/'; then
+  npm --prefix web run typecheck
+fi

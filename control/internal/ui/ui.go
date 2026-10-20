@@ -43,20 +43,8 @@ func Handler() http.Handler {
 		h.Set("Referrer-Policy", "same-origin")
 
 		name := strings.TrimPrefix(path.Clean("/"+r.URL.Path), "/")
-		if name != "" && name != "index.html" {
-			if info, err := fs.Stat(files, name); err == nil && !info.IsDir() {
-				if strings.HasPrefix(name, "assets/") {
-					// File names under assets/ contain a content hash from Vite.
-					h.Set("Cache-Control", "public, max-age=31536000, immutable")
-				}
-				http.ServeFileFS(w, r, files, name)
-				return
-			}
-			// Missing assets must 404, not serve index.html (which would be executed as JS).
-			if strings.HasPrefix(name, "assets/") || path.Ext(name) != "" {
-				http.NotFound(w, r)
-				return
-			}
+		if name != "" && name != "index.html" && serveFile(w, r, files, name) {
+			return
 		}
 
 		if index == nil {
@@ -70,4 +58,23 @@ func Handler() http.Handler {
 		h.Set("Cache-Control", "no-cache")
 		w.Write(index)
 	})
+}
+
+// serveFile answers requests for real files: the file itself, or a 404 for a missing asset.
+// It returns false for anything else, which the caller treats as an SPA route.
+func serveFile(w http.ResponseWriter, r *http.Request, files fs.FS, name string) bool {
+	if info, err := fs.Stat(files, name); err == nil && !info.IsDir() {
+		if strings.HasPrefix(name, "assets/") {
+			// File names under assets/ contain a content hash from Vite.
+			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		}
+		http.ServeFileFS(w, r, files, name)
+		return true
+	}
+	// Missing assets must 404, not serve index.html (which would be executed as JS).
+	if strings.HasPrefix(name, "assets/") || path.Ext(name) != "" {
+		http.NotFound(w, r)
+		return true
+	}
+	return false
 }

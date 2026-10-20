@@ -16,6 +16,14 @@ updates:
         patterns: ["*"]
 
   - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      tooling:
+        patterns: ["*"]
+
+  - package-ecosystem: npm
     directory: /web
     schedule:
       interval: monthly
