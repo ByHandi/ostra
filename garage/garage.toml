@@ -1,0 +1,28 @@
+# Konfigurasi Garage single-node untuk development lokal.
+# rpc_secret, admin_token, dan metrics_token diisi lewat env
+# (GARAGE_RPC_SECRET, GARAGE_ADMIN_TOKEN, GARAGE_METRICS_TOKEN) dari .env.
+
+metadata_dir = "/var/lib/garage/meta"
+data_dir = "/var/lib/garage/data"
+db_engine = "lmdb"
+
+# 1 = tanpa replikasi. Untuk production multi-node, naikkan ke 3.
+replication_factor = 1
+
+rpc_bind_addr = "[::]:3901"
+rpc_public_addr = "127.0.0.1:3901"
+
+[s3_api]
+s3_region = "garage"
+api_bind_addr = "[::]:3900"
+# Virtual-hosted style: <bucket>.s3.localhost
+root_domain = ".s3.localhost"
+
+[s3_web]
+bind_addr = "[::]:3902"
+# <bucket>.web.localhost, atau Host = alias bucket (custom domain)
+root_domain = ".web.localhost"
+index = "index.html"
+
+[admin]
+api_bind_addr = "[::]:3903"

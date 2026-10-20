@@ -1,0 +1,7 @@
+.env
+*.db
+*.db-*
+
+# Hasil build dashboard (di-embed ke binary Go); .gitkeep supaya go:embed tetap jalan tanpa build.
+control/internal/ui/dist/*
+!control/internal/ui/dist/.gitkeep

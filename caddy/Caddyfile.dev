@@ -1,0 +1,26 @@
+# Mode development: semua sertifikat diterbitkan CA lokal Caddy (bukan Let's Encrypt).
+{
+	local_certs
+	on_demand_tls {
+		ask http://control:9000/caddy/ask
+	}
+}
+
+# S3 API (path-style dan virtual-hosted style)
+s3.localhost, *.s3.localhost {
+	reverse_proxy garage:3900
+}
+
+# Control-plane: JSON API di /api (dashboard menyusul di hari ke-3)
+console.localhost {
+	reverse_proxy control:8080
+}
+
+# Semua domain lain: custom domain per bucket.
+# Sertifikat dibuat on-demand, hanya kalau control-plane mengizinkan lewat /caddy/ask.
+https:// {
+	tls {
+		on_demand
+	}
+	reverse_proxy garage:3902
+}

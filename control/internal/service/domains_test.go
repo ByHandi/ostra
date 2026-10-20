@@ -1,0 +1,407 @@
+package service
+
+import (
+	"context"
+	"errors"
+	"net/http"
+	"path/filepath"
+	"slices"
+	"testing"
+
+	"github.com/handi7/storage-edge/control/internal/garage"
+	"github.com/handi7/storage-edge/control/internal/store"
+)
+
+// fakeGarage meniru perilaku admin API Garage yang relevan, termasuk 500 saat
+// RemoveAlias untuk alias yang tidak ada.
+type fakeGarage struct {
+	buckets map[string]*garage.BucketInfo // by id
+	keys    map[string]*garage.KeyInfo    // by id
+	failAll error
+}
+
+func newFakeGarage(names ...string) *fakeGarage {
+	g := &fakeGarage{buckets: map[string]*garage.BucketInfo{}, keys: map[string]*garage.KeyInfo{}}
+	for _, n := range names {
+		id := "id-" + n
+		g.buckets[id] = &garage.BucketInfo{Bucket: garage.Bucket{ID: id, GlobalAliases: []string{n}}}
+	}
+	return g
+}
+
+func notFoundErr() error { return &garage.Error{Status: http.StatusNotFound, Code: "NoSuchBucket"} }
+
+func (g *fakeGarage) ListBuckets(context.Context) ([]garage.Bucket, error) {
+	var out []garage.Bucket
+	for _, b := range g.buckets {
+		out = append(out, b.Bucket)
+	}
+	return out, g.failAll
+}
+
+func (g *fakeGarage) GetBucket(_ context.Context, id string) (garage.BucketInfo, error) {
+	if g.failAll != nil {
+		return garage.BucketInfo{}, g.failAll
+	}
+	if b, ok := g.buckets[id]; ok {
+		return *b, nil
+	}
+	return garage.BucketInfo{}, notFoundErr()
+}
+
+func (g *fakeGarage) GetBucketByAlias(_ context.Context, alias string) (garage.BucketInfo, error) {
+	if g.failAll != nil {
+		return garage.BucketInfo{}, g.failAll
+	}
+	for _, b := range g.buckets {
+		if b.HasAlias(alias) {
+			return *b, nil
+		}
+	}
+	return garage.BucketInfo{}, notFoundErr()
+}
+
+func (g *fakeGarage) CreateBucket(ctx context.Context, alias string) (garage.BucketInfo, error) {
+	if _, err := g.GetBucketByAlias(ctx, alias); err == nil {
+		return garage.BucketInfo{}, &garage.Error{Status: http.StatusConflict, Code: "BucketAlreadyExists"}
+	}
+	b := &garage.BucketInfo{Bucket: garage.Bucket{ID: "id-" + alias, GlobalAliases: []string{alias}}}
+	g.buckets[b.ID] = b
+	return *b, nil
+}
+
+func (g *fakeGarage) AddAlias(ctx context.Context, bucketID, alias string) error {
+	if g.failAll != nil {
+		return g.failAll
+	}
+	if other, err := g.GetBucketByAlias(ctx, alias); err == nil && other.ID != bucketID {
+		return &garage.Error{Status: http.StatusBadRequest, Code: "InvalidRequest", Message: "alias points to different bucket"}
+	}
+	b := g.buckets[bucketID]
+	if !b.HasAlias(alias) {
+		b.GlobalAliases = append(b.GlobalAliases, alias)
+	}
+	return nil
+}
+
+func (g *fakeGarage) RemoveAlias(_ context.Context, bucketID, alias string) error {
+	b := g.buckets[bucketID]
+	i := slices.Index(b.GlobalAliases, alias)
+	if i < 0 {
+		return &garage.Error{Status: http.StatusInternalServerError, Code: "InternalError"}
+	}
+	b.GlobalAliases = slices.Delete(b.GlobalAliases, i, i+1)
+	return nil
+}
+
+func (g *fakeGarage) EnableWebsite(_ context.Context, bucketID string) error {
+	if g.failAll != nil {
+		return g.failAll
+	}
+	g.buckets[bucketID].WebsiteAccess = true
+	return nil
+}
+
+func (g *fakeGarage) Health(context.Context) (garage.ClusterHealth, error) {
+	return garage.ClusterHealth{Status: "healthy"}, g.failAll
+}
+
+func (g *fakeGarage) DeleteBucket(_ context.Context, id string) error {
+	b, ok := g.buckets[id]
+	if !ok {
+		return notFoundErr()
+	}
+	if b.Objects > 0 {
+		return &garage.Error{Status: http.StatusConflict, Code: "BucketNotEmpty"}
+	}
+	delete(g.buckets, id)
+	return nil
+}
+
+func (g *fakeGarage) ListKeys(context.Context) ([]garage.Key, error) {
+	var out []garage.Key
+	for _, k := range g.keys {
+		out = append(out, garage.Key{ID: k.AccessKeyID, Name: k.Name})
+	}
+	return out, nil
+}
+
+// GetKey menurunkan daftar bucket dari izin yang tercatat di bucket, seperti Garage.
+func (g *fakeGarage) GetKey(_ context.Context, id string) (garage.KeyInfo, error) {
+	k, ok := g.keys[id]
+	if !ok {
+		return garage.KeyInfo{}, &garage.Error{Status: http.StatusNotFound, Code: "NoSuchAccessKey"}
+	}
+	out := garage.KeyInfo{AccessKeyID: k.AccessKeyID, Name: k.Name}
+	for _, b := range g.buckets {
+		for _, bk := range b.Keys {
+			if bk.AccessKeyID == id {
+				out.Buckets = append(out.Buckets, garage.KeyBucket{ID: b.ID, GlobalAliases: b.GlobalAliases, Permissions: bk.Permissions})
+			}
+		}
+	}
+	return out, nil
+}
+
+func (g *fakeGarage) CreateKey(_ context.Context, name string) (garage.KeyInfo, error) {
+	k := &garage.KeyInfo{AccessKeyID: "GK" + name, Name: name}
+	g.keys[k.AccessKeyID] = k
+	return garage.KeyInfo{AccessKeyID: k.AccessKeyID, Name: name, SecretAccessKey: "secret-" + name}, nil
+}
+
+func (g *fakeGarage) DeleteKey(_ context.Context, id string) error {
+	if _, ok := g.keys[id]; !ok {
+		return &garage.Error{Status: http.StatusNotFound, Code: "NoSuchAccessKey"}
+	}
+	delete(g.keys, id)
+	return nil
+}
+
+func (g *fakeGarage) setPerm(bucketID, keyID string, p garage.Permissions, value bool) {
+	b := g.buckets[bucketID]
+	i := slices.IndexFunc(b.Keys, func(k garage.BucketKey) bool { return k.AccessKeyID == keyID })
+	if i < 0 {
+		b.Keys = append(b.Keys, garage.BucketKey{AccessKeyID: keyID, Name: g.keys[keyID].Name})
+		i = len(b.Keys) - 1
+	}
+	perm := &b.Keys[i].Permissions
+	if p.Read {
+		perm.Read = value
+	}
+	if p.Write {
+		perm.Write = value
+	}
+	if p.Owner {
+		perm.Owner = value
+	}
+	if *perm == (garage.Permissions{}) {
+		b.Keys = slices.Delete(b.Keys, i, i+1)
+	}
+}
+
+func (g *fakeGarage) AllowBucketKey(_ context.Context, bucketID, keyID string, p garage.Permissions) error {
+	g.setPerm(bucketID, keyID, p, true)
+	return nil
+}
+
+func (g *fakeGarage) DenyBucketKey(_ context.Context, bucketID, keyID string, p garage.Permissions) error {
+	g.setPerm(bucketID, keyID, p, false)
+	return nil
+}
+
+type fakeDNS struct{ err error }
+
+func (f *fakeDNS) Check(context.Context, string, string) error { return f.err }
+
+func newTestService(t *testing.T, g *fakeGarage, dns *fakeDNS, verify bool) *Service {
+	t.Helper()
+	sqlDB, err := store.Open(context.Background(), filepath.Join(t.TempDir(), "test.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { sqlDB.Close() })
+	return New(store.New(sqlDB), g, dns, Options{
+		DNSVerify:       verify,
+		ReservedDomains: []string{"domainku.com"},
+		WebRootDomain:   ".web.domainku.com",
+	})
+}
+
+func wantKind(t *testing.T, err error, kind Kind) {
+	t.Helper()
+	var de *Error
+	if !errors.As(err, &de) || de.Kind != kind {
+		t.Fatalf("error = %v, want kind %d", err, kind)
+	}
+}
+
+func TestDomainLifecycle(t *testing.T) {
+	ctx := context.Background()
+	g := newFakeGarage("assets")
+	dns := &fakeDNS{err: errors.New("record TXT belum ada")}
+	svc := newTestService(t, g, dns, true)
+
+	d, err := svc.CreateDomain(ctx, " CDN.Brand.com. ", "assets")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d.Domain != "cdn.brand.com" || d.Status != StatusPending || d.VerifyToken == "" {
+		t.Fatalf("Create() = %+v", d)
+	}
+
+	// DNS belum siap: tetap pending, pesan error disimpan, alias belum dipasang.
+	d, err = svc.VerifyDomain(ctx, d.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d.Status != StatusPending || d.LastError == "" || g.buckets["id-assets"].HasAlias("cdn.brand.com") {
+		t.Fatalf("Verify() sebelum DNS siap = %+v", d)
+	}
+	if ok, _ := svc.AllowCertificate(ctx, "cdn.brand.com"); ok {
+		t.Fatal("domain pending tidak boleh dapat sertifikat")
+	}
+
+	// DNS siap: worker mengaktifkan domain.
+	dns.err = nil
+	svc.verifyPending(ctx)
+	d, _ = svc.GetDomain(ctx, d.ID)
+	b := g.buckets["id-assets"]
+	if d.Status != StatusActive || !b.HasAlias("cdn.brand.com") || !b.WebsiteAccess {
+		t.Fatalf("setelah verifikasi: domain=%+v bucket=%+v", d, b)
+	}
+	if ok, _ := svc.AllowCertificate(ctx, "CDN.brand.com"); !ok {
+		t.Fatal("domain aktif harus dapat sertifikat")
+	}
+
+	// Duplikat ditolak.
+	_, err = svc.CreateDomain(ctx, "cdn.brand.com", "assets")
+	wantKind(t, err, KindConflict)
+
+	// Bucket list memakai alias non-domain sebagai nama.
+	buckets, err := svc.ListBuckets(ctx)
+	if err != nil || len(buckets) != 1 || buckets[0].Name != "assets" {
+		t.Fatalf("ListBuckets() = %+v, %v", buckets, err)
+	}
+
+	// Hapus melepas alias.
+	if err := svc.DeleteDomain(ctx, d.ID); err != nil {
+		t.Fatal(err)
+	}
+	if b.HasAlias("cdn.brand.com") {
+		t.Fatal("alias masih terpasang setelah domain dihapus")
+	}
+	_, err = svc.GetDomain(ctx, d.ID)
+	wantKind(t, err, KindNotFound)
+}
+
+func TestCreateWithoutDNSVerifyActivatesImmediately(t *testing.T) {
+	g := newFakeGarage("assets")
+	svc := newTestService(t, g, &fakeDNS{err: errors.New("tidak boleh dipanggil")}, false)
+
+	d, err := svc.CreateDomain(context.Background(), "cdn.brand.localhost", "assets")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d.Status != StatusActive {
+		t.Fatalf("status = %s, want active", d.Status)
+	}
+}
+
+func TestCreateRejects(t *testing.T) {
+	ctx := context.Background()
+	g := newFakeGarage("assets", "other")
+	g.AddAlias(ctx, "id-other", "taken.brand.com")
+	svc := newTestService(t, g, &fakeDNS{}, true)
+
+	tests := []struct {
+		domain, bucket string
+		kind           Kind
+	}{
+		{"cdn.brand.com", "tidak-ada", KindInvalid},
+		{"cdn.brand.com", " ", KindInvalid},
+		{"assets.web.domainku.com", "assets", KindInvalid},
+		{"domainku.com", "assets", KindInvalid},
+		{"taken.brand.com", "assets", KindConflict},
+	}
+	for _, tt := range tests {
+		_, err := svc.CreateDomain(ctx, tt.domain, tt.bucket)
+		wantKind(t, err, tt.kind)
+	}
+}
+
+func TestActivateErrors(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("garage menolak alias", func(t *testing.T) {
+		g := newFakeGarage("assets", "other")
+		svc := newTestService(t, g, &fakeDNS{}, true)
+		d, err := svc.CreateDomain(ctx, "cdn.brand.com", "assets")
+		if err != nil {
+			t.Fatal(err)
+		}
+		// Bucket lain mengambil alias setelah domain didaftarkan.
+		g.AddAlias(ctx, "id-other", "cdn.brand.com")
+
+		d, err = svc.VerifyDomain(ctx, d.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if d.Status != StatusError || d.LastError == "" {
+			t.Fatalf("Verify() = %+v, want status error", d)
+		}
+	})
+
+	t.Run("garage down tetap pending", func(t *testing.T) {
+		g := newFakeGarage("assets")
+		svc := newTestService(t, g, &fakeDNS{}, true)
+		d, err := svc.CreateDomain(ctx, "cdn.brand.com", "assets")
+		if err != nil {
+			t.Fatal(err)
+		}
+		g.failAll = &garage.Error{Status: http.StatusServiceUnavailable, Code: "Unavailable"}
+
+		d, err = svc.VerifyDomain(ctx, d.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if d.Status != StatusPending || d.LastError == "" {
+			t.Fatalf("Verify() = %+v, want pending dengan pesan error", d)
+		}
+	})
+}
+
+func TestReconcileRestoresAlias(t *testing.T) {
+	ctx := context.Background()
+	g := newFakeGarage("assets")
+	svc := newTestService(t, g, &fakeDNS{}, false)
+	d, err := svc.CreateDomain(ctx, "cdn.brand.com", "assets")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Alias hilang dari Garage (mis. dihapus manual).
+	g.RemoveAlias(ctx, "id-assets", "cdn.brand.com")
+	svc.reconcile(ctx)
+	if !g.buckets["id-assets"].HasAlias("cdn.brand.com") {
+		t.Fatal("reconcile tidak memasang ulang alias")
+	}
+
+	// Bucket dihapus: domain jadi error.
+	delete(g.buckets, "id-assets")
+	svc.reconcile(ctx)
+	d, _ = svc.GetDomain(ctx, d.ID)
+	if d.Status != StatusError {
+		t.Fatalf("status = %s, want error", d.Status)
+	}
+
+	// Hapus domain yang bucket-nya sudah hilang tetap berhasil.
+	if err := svc.DeleteDomain(ctx, d.ID); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestAllowCertificateWebRoot(t *testing.T) {
+	ctx := context.Background()
+	g := newFakeGarage("assets", "private")
+	g.buckets["id-assets"].WebsiteAccess = true
+	svc := newTestService(t, g, &fakeDNS{}, true)
+
+	tests := map[string]bool{
+		"assets.web.domainku.com":   true,
+		"private.web.domainku.com":  false, // website tidak aktif
+		"missing.web.domainku.com":  false,
+		"a.assets.web.domainku.com": false,
+		"web.domainku.com":          false,
+		"random.example.com":        false,
+		"":                          false,
+	}
+	for host, want := range tests {
+		got, err := svc.AllowCertificate(ctx, host)
+		if err != nil {
+			t.Fatalf("AllowCertificate(%q): %v", host, err)
+		}
+		if got != want {
+			t.Errorf("AllowCertificate(%q) = %v, want %v", host, got, want)
+		}
+	}
+}

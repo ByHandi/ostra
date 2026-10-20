@@ -1,0 +1,12 @@
+dist/
+node_modules/
+coverage/
+.pnpm-store/
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+
+# TanStack Router
+.tanstack/
+src/routeTree.gen.ts
+

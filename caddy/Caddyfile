@@ -1,0 +1,25 @@
+# Mode production: sertifikat dari Let's Encrypt.
+# Butuh env ACME_EMAIL, S3_DOMAIN (mis. s3.domainku.com), CONSOLE_DOMAIN (mis. console.domainku.com).
+# Catatan: wildcard *.s3.domainku.com butuh DNS challenge (build Caddy dengan plugin DNS provider),
+# jadi di sini S3 API hanya path-style.
+{
+	email {$ACME_EMAIL}
+	on_demand_tls {
+		ask http://control:9000/caddy/ask
+	}
+}
+
+{$S3_DOMAIN} {
+	reverse_proxy garage:3900
+}
+
+{$CONSOLE_DOMAIN} {
+	reverse_proxy control:8080
+}
+
+https:// {
+	tls {
+		on_demand
+	}
+	reverse_proxy garage:3902
+}
