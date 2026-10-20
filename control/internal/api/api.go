@@ -29,6 +29,11 @@ type Options struct {
 	// CookieSecure=false is only for development over http://.
 	CookieSecure bool
 	Version      Version
+	// DownloadSecret signs object browser download links (the JWT secret is fine: a
+	// separate key is derived from it).
+	DownloadSecret string
+	// MaxUploadBytes caps one object browser upload; 0 means no limit.
+	MaxUploadBytes int64
 	// UI serves the dashboard for all paths outside /api.
 	UI http.Handler
 }
@@ -40,18 +45,20 @@ type Version struct {
 }
 
 type Handler struct {
-	svc     *service.Service
-	auth    *auth.Service
-	limiter *auth.LoginLimiter
-	opts    Options
+	svc       *service.Service
+	auth      *auth.Service
+	limiter   *auth.LoginLimiter
+	downloads downloadTokens
+	opts      Options
 }
 
 func NewHandler(svc *service.Service, authSvc *auth.Service, opts Options) *Handler {
 	return &Handler{
-		svc:     svc,
-		auth:    authSvc,
-		limiter: auth.NewLoginLimiter(12*time.Second, 5),
-		opts:    opts,
+		svc:       svc,
+		auth:      authSvc,
+		limiter:   auth.NewLoginLimiter(12*time.Second, 5),
+		downloads: newDownloadTokens(opts.DownloadSecret, downloadLinkTTL),
+		opts:      opts,
 	}
 }
 
@@ -72,6 +79,8 @@ func (h *Handler) Public() http.Handler {
 		r.Post("/auth/login", h.login)
 		r.Post("/auth/refresh-token", h.refresh)
 		r.Post("/auth/logout", h.logout)
+		// Authorized by the signed token in the URL, not by a session (see download.go).
+		r.Get("/downloads/{token}", h.download)
 
 		r.Group(func(r chi.Router) {
 			r.Use(h.requireUser)
@@ -88,6 +97,10 @@ func (h *Handler) Public() http.Handler {
 			r.Post("/buckets", h.createBucket)
 			r.Get("/buckets/{id}", h.getBucket)
 			r.Delete("/buckets/{id}", h.deleteBucket)
+			r.Get("/buckets/{id}/objects", h.listObjects)
+			r.Put("/buckets/{id}/objects", h.uploadObject)
+			r.Delete("/buckets/{id}/objects", h.deleteObjects)
+			r.Post("/buckets/{id}/objects/download-link", h.createDownloadLink)
 
 			r.Get("/keys", h.listKeys)
 			r.Post("/keys", h.createKey)

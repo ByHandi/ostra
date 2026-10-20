@@ -32,6 +32,9 @@ type BucketKeyAccess struct {
 type BucketDetail struct {
 	Bucket
 	Keys []BucketKeyAccess `json:"keys"`
+	// PublicBaseURL is where the bucket's files can be read publicly, e.g.
+	// "https://cdn.example.com", or "" when the bucket is not public.
+	PublicBaseURL string `json:"publicBaseUrl"`
 }
 
 func (s *Service) ListBuckets(ctx context.Context) ([]Bucket, error) {
@@ -80,11 +83,40 @@ func (s *Service) GetBucket(ctx context.Context, id string) (BucketDetail, error
 		return BucketDetail{}, err
 	}
 
+	sysID, err := s.systemKeyID(ctx)
+	if err != nil {
+		return BucketDetail{}, err
+	}
 	keys := make([]BucketKeyAccess, 0, len(info.Keys))
 	for _, k := range info.Keys {
+		if k.AccessKeyID == sysID {
+			continue
+		}
 		keys = append(keys, BucketKeyAccess{KeyID: k.AccessKeyID, KeyName: k.Name, Permissions: k.Permissions})
 	}
-	return BucketDetail{Bucket: toBucket(info, isDomain), Keys: keys}, nil
+
+	detail := BucketDetail{Bucket: toBucket(info, isDomain), Keys: keys}
+	if detail.PublicBaseURL, err = s.publicBaseURL(ctx, detail.Bucket); err != nil {
+		return BucketDetail{}, err
+	}
+	return detail, nil
+}
+
+// publicBaseURL prefers an active custom domain, then <bucket>.<web root domain>.
+func (s *Service) publicBaseURL(ctx context.Context, b Bucket) (string, error) {
+	rows, err := s.q.ListDomainsByBucket(ctx, b.ID)
+	if err != nil {
+		return "", err
+	}
+	for _, d := range rows {
+		if d.Status == StatusActive {
+			return "https://" + d.Domain, nil
+		}
+	}
+	if b.WebsiteAccess && s.opts.WebRootDomain != "" {
+		return "https://" + b.Name + s.opts.WebRootDomain, nil
+	}
+	return "", nil
 }
 
 func (s *Service) CreateBucket(ctx context.Context, name string) (Bucket, error) {

@@ -30,6 +30,8 @@ export interface BucketKeyAccess {
 export interface BucketDetail extends Bucket {
   keys: BucketKeyAccess[];
   domainRecords: Domain[];
+  /** Where the bucket's files are publicly readable, e.g. "https://cdn.example.com"; "" if private. */
+  publicBaseUrl: string;
 }
 
 export interface AccessKey {

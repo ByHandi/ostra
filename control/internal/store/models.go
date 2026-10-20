@@ -32,6 +32,12 @@ type Session struct {
 	CreatedAt string `json:"createdAt"`
 }
 
+type Setting struct {
+	Key       string `json:"key"`
+	Value     string `json:"value"`
+	UpdatedAt string `json:"updatedAt"`
+}
+
 type User struct {
 	ID           int64  `json:"id"`
 	Email        string `json:"email"`
