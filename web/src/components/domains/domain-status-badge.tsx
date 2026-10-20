@@ -3,8 +3,8 @@ import Icon from "@/components/ui/icon";
 import type { DomainStatus } from "@/lib/api/storage";
 
 const STATUS = {
-  active: { label: "Aktif", variant: "success", icon: "circle-check" },
-  pending: { label: "Menunggu DNS", variant: "warning", icon: "clock" },
+  active: { label: "Active", variant: "success", icon: "circle-check" },
+  pending: { label: "Awaiting DNS", variant: "warning", icon: "clock" },
   error: { label: "Error", variant: "destructive", icon: "circle-alert" },
 } as const;
 

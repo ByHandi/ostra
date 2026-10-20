@@ -42,7 +42,7 @@ export function CreateBucketDialog() {
     onSuccess: async (bucket) => {
       await queryClient.invalidateQueries({ queryKey: storageKeys.buckets });
       queryClient.invalidateQueries({ queryKey: storageKeys.overview });
-      toast.success(`Bucket ${bucket.name} dibuat`);
+      toast.success(`Bucket ${bucket.name} created`);
       setOpen(false);
       reset();
       navigate({ to: "/buckets/$bucketId", params: { bucketId: bucket.id } });
@@ -62,40 +62,40 @@ export function CreateBucketDialog() {
     >
       <DialogTrigger asChild>
         <Button size="sm" startContent={<Icon name="plus" className="size-4" />}>
-          Bucket baru
+          New bucket
         </Button>
       </DialogTrigger>
       <DialogContent>
         <form onSubmit={onSubmit} className="flex flex-col gap-6">
           <DialogHeader>
-            <DialogTitle>Bucket baru</DialogTitle>
+            <DialogTitle>New bucket</DialogTitle>
             <DialogDescription>
-              Nama bucket dipakai di S3 API dan tidak bisa diubah setelah dibuat.
+              The bucket name is used in the S3 API and can't be changed after creation.
             </DialogDescription>
           </DialogHeader>
 
           <InputText.WithRHF
             control={control}
             name="name"
-            label="Nama"
+            label="Name"
             placeholder="assets"
             autoComplete="off"
             autoFocus
             required
-            description="3–63 karakter: huruf kecil, angka, titik, atau tanda hubung."
+            description="3–63 characters: lowercase letters, numbers, dots, or hyphens."
             rules={{
-              pattern: { value: NAME_PATTERN, message: "Format nama bucket tidak valid" },
+              pattern: { value: NAME_PATTERN, message: "Invalid bucket name format" },
             }}
           />
 
           <DialogFooter>
             <DialogClose asChild>
               <Button type="button" variant="outline">
-                Batal
+                Cancel
               </Button>
             </DialogClose>
-            <Button type="submit" isLoading={formState.isSubmitting} loadingText="Membuat">
-              Buat bucket
+            <Button type="submit" isLoading={formState.isSubmitting} loadingText="Creating">
+              Create bucket
             </Button>
           </DialogFooter>
         </form>

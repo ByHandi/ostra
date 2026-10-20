@@ -15,30 +15,30 @@ interface Stat {
 function stats(o: Overview): Stat[] {
   return [
     {
-      label: "Penyimpanan",
+      label: "Storage",
       value: formatBytes(o.bytes),
-      hint: `${formatNumber(o.objects)} objek`,
+      hint: `${formatNumber(o.objects)} objects`,
       icon: "hard-drive",
     },
     {
-      label: "Bucket",
+      label: "Buckets",
       value: formatNumber(o.buckets),
-      hint: "total bucket",
+      hint: "total buckets",
       icon: "archive",
     },
     {
-      label: "Custom domain",
+      label: "Custom domains",
       value: formatNumber(o.domains.active),
       hint:
         o.domains.pending || o.domains.error
-          ? `${o.domains.pending} menunggu DNS · ${o.domains.error} error`
-          : "semua aktif",
+          ? `${o.domains.pending} awaiting DNS · ${o.domains.error} error`
+          : "all active",
       icon: "globe",
     },
     {
-      label: "Access key",
+      label: "Access keys",
       value: formatNumber(o.keys),
-      hint: "untuk S3 API",
+      hint: "for the S3 API",
       icon: "key-round",
     },
   ];
@@ -65,7 +65,7 @@ function StatCards({ overview }: { overview: Overview }) {
 
 function StatCardsSkeleton() {
   return (
-    <div className={GRID} role="status" aria-label="Memuat statistik">
+    <div className={GRID} role="status" aria-label="Loading statistics">
       {Array.from({ length: 4 }, (_, i) => (
         <div key={i} className="flex flex-col gap-3 rounded-lg border p-4">
           <div className="flex items-center justify-between">

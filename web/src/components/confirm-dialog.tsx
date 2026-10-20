@@ -55,7 +55,7 @@ export function ConfirmDialog({
         <DialogFooter>
           <DialogClose asChild>
             <Button variant="outline" disabled={pending}>
-              Batal
+              Cancel
             </Button>
           </DialogClose>
           <Button variant="destructive" onClick={confirm} isLoading={pending}>

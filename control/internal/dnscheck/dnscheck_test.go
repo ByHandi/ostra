@@ -22,7 +22,7 @@ func (f fakeResolver) LookupTXT(_ context.Context, name string) ([]string, error
 	return nil, notFound(name)
 }
 
-// Meniru net.Resolver: tanpa CNAME, LookupCNAME mengembalikan nama itu sendiri (dengan titik).
+// Mimics net.Resolver: without a CNAME, LookupCNAME returns the name itself (with a trailing dot).
 func (f fakeResolver) LookupCNAME(_ context.Context, host string) (string, error) {
 	if v, ok := f.cname[host]; ok {
 		return v, nil
@@ -54,41 +54,41 @@ func TestCheck(t *testing.T) {
 		wantErr string
 	}{
 		{
-			name: "cname ke edge",
+			name: "cname to edge",
 			res:  fakeResolver{txt: txtOK, cname: map[string]string{"cdn.brand.com": "Edge.Example.com."}, hosts: edgeHosts},
 		},
 		{
-			name: "A record sama dengan IP edge",
+			name: "A record matches edge IP",
 			res: fakeResolver{txt: txtOK, hosts: map[string][]string{
 				"edge.example.com": {"203.0.113.10"},
 				"cdn.brand.com":    {"203.0.113.10"},
 			}},
 		},
 		{
-			name:    "TXT belum ada",
+			name:    "TXT missing",
 			res:     fakeResolver{cname: map[string]string{"cdn.brand.com": "edge.example.com."}, hosts: edgeHosts},
-			wantErr: "belum berisi",
+			wantErr: "does not contain",
 		},
 		{
-			name: "TXT salah token",
+			name: "TXT with wrong token",
 			res: fakeResolver{
-				txt:   map[string][]string{"_storage-edge.cdn.brand.com": {TXTValue("lain")}},
+				txt:   map[string][]string{"_storage-edge.cdn.brand.com": {TXTValue("other")}},
 				cname: map[string]string{"cdn.brand.com": "edge.example.com."}, hosts: edgeHosts,
 			},
-			wantErr: "belum berisi",
+			wantErr: "does not contain",
 		},
 		{
-			name: "mengarah ke tempat lain",
+			name: "points elsewhere",
 			res: fakeResolver{txt: txtOK, hosts: map[string][]string{
 				"edge.example.com": {"203.0.113.10"},
 				"cdn.brand.com":    {"198.51.100.1"},
 			}},
-			wantErr: "belum diarahkan",
+			wantErr: "does not point to the edge",
 		},
 		{
-			name:    "domain belum punya record",
+			name:    "domain has no records yet",
 			res:     fakeResolver{txt: txtOK, hosts: edgeHosts},
-			wantErr: "belum diarahkan",
+			wantErr: "does not point to the edge",
 		},
 	}
 	for _, tt := range tests {

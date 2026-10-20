@@ -14,7 +14,7 @@ import {
 import type { AccessKey } from "@/lib/api/storage";
 import { formatDate } from "@/lib/format";
 
-const COLUMNS = ["Nama", "Access key ID", "Dibuat"];
+const COLUMNS = ["Name", "Access key ID", "Created"];
 
 function KeyTable({ keys }: { keys: AccessKey[] }) {
   return (
@@ -37,11 +37,11 @@ function KeyTable({ keys }: { keys: AccessKey[] }) {
                   className="inline-flex items-center gap-2 font-medium hover:underline"
                 >
                   <Icon name="key-round" className="size-4 text-muted-foreground" />
-                  {k.name || "Tanpa nama"}
+                  {k.name || "Unnamed"}
                 </Link>
                 {k.expired && (
                   <Badge variant="destructive" className="ml-2">
-                    Kedaluwarsa
+                    Expired
                   </Badge>
                 )}
               </TableCell>

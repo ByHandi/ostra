@@ -5,15 +5,15 @@ import type { DnsRecord } from "@/lib/api/storage";
 
 const HINT: Record<DnsRecord["type"], string> = {
   CNAME:
-    "Mengarahkan domain ke edge. Untuk apex domain, pakai ALIAS/ANAME atau A record ke IP edge.",
-  TXT: "Membuktikan domain ini milikmu.",
+    "Points the domain at the edge. For an apex domain, use ALIAS/ANAME or an A record to the edge IP.",
+  TXT: "Proves that you own this domain.",
 };
 
 function DnsRecords({ records }: { records: DnsRecord[] }) {
   return (
     <Section
-      title="Record DNS"
-      description="Pasang kedua record ini di penyedia DNS domainmu. Pengecekan otomatis berjalan tiap 30 detik."
+      title="DNS records"
+      description="Add both records at your domain's DNS provider. Checks run automatically every 30 seconds."
     >
       <div className="flex flex-col gap-3">
         {records.map((r) => (
@@ -24,8 +24,8 @@ function DnsRecords({ records }: { records: DnsRecord[] }) {
               </span>
               <span className="text-xs text-muted-foreground">{HINT[r.type]}</span>
             </div>
-            <Field label="Nama" value={r.name} />
-            <Field label="Nilai" value={r.value} />
+            <Field label="Name" value={r.name} />
+            <Field label="Value" value={r.value} />
           </div>
         ))}
       </div>
@@ -40,14 +40,14 @@ function Field({ label, value }: { label: string; value: string }) {
       <code className="min-w-0 truncate font-mono text-xs" title={value}>
         {value}
       </code>
-      <CopyButton value={value} label={`Salin ${label.toLowerCase()}`} />
+      <CopyButton value={value} label={`Copy ${label.toLowerCase()}`} />
     </div>
   );
 }
 
 function DnsRecordsSkeleton() {
   return (
-    <div className="flex flex-col gap-4 rounded-lg border p-4" role="status" aria-label="Memuat">
+    <div className="flex flex-col gap-4 rounded-lg border p-4" role="status" aria-label="Loading">
       <div className="space-y-2">
         <Skeleton className="h-4 w-24" />
         <Skeleton className="h-3.5 w-80 max-w-full" />

@@ -19,7 +19,7 @@ function Domains() {
     <>
       <AppHeader
         title="Custom Domains"
-        description="Sajikan isi bucket secara publik lewat domainmu sendiri, dengan HTTPS otomatis."
+        description="Serve a bucket's contents publicly on your own domain, with automatic HTTPS."
         endContent={<CreateDomainDialog />}
       />
 
@@ -31,8 +31,8 @@ function Domains() {
         ) : domains.data.length === 0 ? (
           <EmptyState
             icon="globe"
-            title="Belum ada custom domain"
-            description="Daftarkan domain, pasang dua record DNS, dan domain aktif otomatis setelah terverifikasi."
+            title="No custom domains yet"
+            description="Add a domain, set up two DNS records, and the domain goes live automatically once verified."
             action={<CreateDomainDialog />}
           />
         ) : (

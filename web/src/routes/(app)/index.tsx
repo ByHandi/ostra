@@ -21,7 +21,7 @@ function Dashboard() {
 
   return (
     <>
-      <AppHeader title="Dashboard" description="Ringkasan storage dan custom domain." />
+      <AppHeader title="Dashboard" description="Overview of storage and custom domains." />
 
       <div className="flex flex-col gap-6 p-4 md:p-6">
         {overview.isPending ? (
@@ -43,11 +43,11 @@ function Dashboard() {
         ) : (
           needsAttention.length > 0 && (
             <Section
-              title="Domain yang perlu perhatian"
-              description="Domain ini belum aktif. Pastikan record DNS-nya sudah terpasang."
+              title="Domains that need attention"
+              description="These domains aren't active yet. Make sure their DNS records are in place."
               action={
                 <Button variant="outline" size="sm" asChild>
-                  <Link to="/domains">Semua domain</Link>
+                  <Link to="/domains">All domains</Link>
                 </Button>
               }
             >

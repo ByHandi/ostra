@@ -35,7 +35,7 @@ func (h *Handler) createBucket(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, http.StatusCreated, b, err)
 }
 
-// bucketDetailResponse menambahkan detail custom domain (status, DNS) ke detail bucket.
+// bucketDetailResponse adds custom domain details (status, DNS) to the bucket detail.
 type bucketDetailResponse struct {
 	service.BucketDetail
 	DomainRecords []domainResponse `json:"domainRecords"`
@@ -219,7 +219,7 @@ func nullable(s string, valid bool) *string {
 func parseID(w http.ResponseWriter, r *http.Request) (int64, bool) {
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil || id <= 0 {
-		writeFail(w, http.StatusNotFound, "not_found", "domain tidak ditemukan", nil)
+		writeFail(w, http.StatusNotFound, "not_found", "domain not found", nil)
 		return 0, false
 	}
 	return id, true

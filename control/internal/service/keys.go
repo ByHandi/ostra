@@ -26,7 +26,7 @@ type AccessKeyDetail struct {
 	Buckets []KeyBucketAccess `json:"buckets"`
 }
 
-// CreatedKey hanya dikembalikan sekali, saat key dibuat. Secret tidak bisa dibaca lagi.
+// CreatedKey is returned only once, when the key is created. The secret cannot be read again.
 type CreatedKey struct {
 	AccessKeyDetail
 	SecretAccessKey string `json:"secretAccessKey"`
@@ -47,7 +47,7 @@ func (s *Service) ListKeys(ctx context.Context) ([]AccessKey, error) {
 func (s *Service) GetKey(ctx context.Context, id string) (AccessKeyDetail, error) {
 	info, err := s.garage.GetKey(ctx, id)
 	if garage.IsNotFound(err) {
-		return AccessKeyDetail{}, notFound("access key tidak ditemukan")
+		return AccessKeyDetail{}, notFound("access key not found")
 	}
 	if err != nil {
 		return AccessKeyDetail{}, err
@@ -58,10 +58,10 @@ func (s *Service) GetKey(ctx context.Context, id string) (AccessKeyDetail, error
 func (s *Service) CreateKey(ctx context.Context, name string) (CreatedKey, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
-		return CreatedKey{}, invalid("name", "nama key wajib diisi")
+		return CreatedKey{}, invalid("name", "key name is required")
 	}
 	if utf8.RuneCountInString(name) > 100 {
-		return CreatedKey{}, invalid("name", "nama key maksimal 100 karakter")
+		return CreatedKey{}, invalid("name", "key name must be at most 100 characters")
 	}
 	info, err := s.garage.CreateKey(ctx, name)
 	if err != nil {
@@ -77,20 +77,20 @@ func (s *Service) CreateKey(ctx context.Context, name string) (CreatedKey, error
 func (s *Service) DeleteKey(ctx context.Context, id string) error {
 	err := s.garage.DeleteKey(ctx, id)
 	if garage.IsNotFound(err) {
-		return notFound("access key tidak ditemukan")
+		return notFound("access key not found")
 	}
 	return err
 }
 
-// SetKeyPermissions menyamakan izin key di bucket dengan p: izin true diberikan, izin false dicabut.
+// SetKeyPermissions makes the key's permissions on the bucket match p: true permissions are granted, false ones revoked.
 func (s *Service) SetKeyPermissions(ctx context.Context, keyID, bucketID string, p garage.Permissions) (AccessKeyDetail, error) {
 	if _, err := s.garage.GetKey(ctx, keyID); garage.IsNotFound(err) {
-		return AccessKeyDetail{}, notFound("access key tidak ditemukan")
+		return AccessKeyDetail{}, notFound("access key not found")
 	} else if err != nil {
 		return AccessKeyDetail{}, err
 	}
 	if _, err := s.garage.GetBucket(ctx, bucketID); garage.IsNotFound(err) {
-		return AccessKeyDetail{}, invalid("bucketId", "bucket tidak ditemukan")
+		return AccessKeyDetail{}, invalid("bucketId", "bucket not found")
 	} else if err != nil {
 		return AccessKeyDetail{}, err
 	}

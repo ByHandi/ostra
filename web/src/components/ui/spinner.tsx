@@ -9,7 +9,7 @@ function Spinner({ className, size = 18, ...props }: SpinnerProps) {
     <Icon
       name="loader-2"
       role="status"
-      aria-label="Memuat"
+      aria-label="Loading"
       className={cn("animate-spin", className)}
       size={size}
       {...props}

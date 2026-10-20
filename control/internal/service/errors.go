@@ -10,8 +10,8 @@ const (
 	KindConflict
 )
 
-// Error adalah kesalahan yang aman ditampilkan ke user. API memetakan Kind ke status HTTP,
-// dan Field (kalau ada) ke error per-field di form.
+// Error is an error that is safe to show to the user. The API maps Kind to an HTTP status,
+// and Field (if set) to a per-field error in the form.
 type Error struct {
 	Kind    Kind
 	Field   string

@@ -6,7 +6,7 @@ import (
 )
 
 func TestValidateDomain(t *testing.T) {
-	reserved := []string{"domainku.com", "edge.example.net"}
+	reserved := []string{"example.com", "edge.example.net"}
 
 	valid := []string{
 		"cdn.brand.com",
@@ -30,8 +30,8 @@ func TestValidateDomain(t *testing.T) {
 		"cdn_x.brand.com",
 		"cdn.brand.123",
 		strings.Repeat("a", 60) + ".com",
-		"domainku.com",
-		"s3.domainku.com",
+		"example.com",
+		"s3.example.com",
 		"edge.example.net",
 	}
 	for _, d := range invalidDomains {

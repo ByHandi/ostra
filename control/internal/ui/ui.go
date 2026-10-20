@@ -1,8 +1,8 @@
-// Package ui melayani dashboard (hasil build web/) yang di-embed ke binary.
+// Package ui serves the dashboard (the web/ build output) embedded into the binary.
 //
-// Hasil `npm run build` di web/ ditulis ke dist/web. dist/.gitkeep (di-commit) menjaga
-// go:embed tetap bisa di-compile walau dashboard belum di-build; dalam kondisi itu
-// handler menampilkan halaman petunjuk alih-alih gagal.
+// `npm run build` in web/ writes its output to dist/web. dist/.gitkeep (committed) keeps
+// go:embed compiling even when the dashboard has not been built; in that case the
+// handler shows an instructions page instead of failing.
 package ui
 
 import (
@@ -16,8 +16,8 @@ import (
 //go:embed all:dist
 var dist embed.FS
 
-// csp mengizinkan hanya aset dari origin sendiri. style 'unsafe-inline' diperlukan
-// karena komponen Radix/shadcn memasang style inline untuk posisi popover.
+// csp only allows assets from our own origin. style 'unsafe-inline' is required
+// because Radix/shadcn components set inline styles to position popovers.
 const csp = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; " +
 	"img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; " +
 	"frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
@@ -46,13 +46,13 @@ func Handler() http.Handler {
 		if name != "" && name != "index.html" {
 			if info, err := fs.Stat(files, name); err == nil && !info.IsDir() {
 				if strings.HasPrefix(name, "assets/") {
-					// Nama file di assets/ mengandung hash konten dari Vite.
+					// File names under assets/ contain a content hash from Vite.
 					h.Set("Cache-Control", "public, max-age=31536000, immutable")
 				}
 				http.ServeFileFS(w, r, files, name)
 				return
 			}
-			// Aset yang hilang harus 404, bukan index.html (yang akan dieksekusi sebagai JS).
+			// Missing assets must 404, not serve index.html (which would be executed as JS).
 			if strings.HasPrefix(name, "assets/") || path.Ext(name) != "" {
 				http.NotFound(w, r)
 				return
@@ -62,10 +62,10 @@ func Handler() http.Handler {
 		if index == nil {
 			h.Set("Content-Type", "text/plain; charset=utf-8")
 			w.WriteHeader(http.StatusServiceUnavailable)
-			w.Write([]byte("Dashboard belum di-build. Jalankan `npm run build` di folder web/.\n"))
+			w.Write([]byte("Dashboard has not been built yet. Run `npm run build` in the web/ folder.\n"))
 			return
 		}
-		// Rute SPA: selalu index.html, tanpa cache supaya deploy baru langsung terpakai.
+		// SPA routes: always index.html, uncached so a new deploy takes effect immediately.
 		h.Set("Content-Type", "text/html; charset=utf-8")
 		h.Set("Cache-Control", "no-cache")
 		w.Write(index)

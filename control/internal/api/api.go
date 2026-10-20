@@ -1,4 +1,4 @@
-// Package api melayani JSON API dan dashboard (publik), serta endpoint internal untuk Caddy.
+// Package api serves the JSON API and dashboard (public), plus internal endpoints for Caddy.
 package api
 
 import (
@@ -20,20 +20,20 @@ import (
 )
 
 type Options struct {
-	// Health dipanggil /healthz; error berarti control-plane tidak sehat (mis. database tidak bisa diakses).
+	// Health is called by /healthz; an error means the control-plane is unhealthy (e.g. the database is unreachable).
 	Health func(context.Context) error
 
 	EdgeHostname string
-	// TrustedProxies menentukan dari mana X-Forwarded-For boleh dipercaya (lihat clientIP).
+	// TrustedProxies determines where X-Forwarded-For may be trusted from (see clientIP).
 	TrustedProxies []netip.Prefix
-	// CookieSecure=false hanya untuk development lewat http://.
+	// CookieSecure=false is only for development over http://.
 	CookieSecure bool
 	Version      Version
-	// UI melayani dashboard untuk semua path di luar /api.
+	// UI serves the dashboard for all paths outside /api.
 	UI http.Handler
 }
 
-// Version adalah info build yang ditampilkan di dashboard.
+// Version is the build info shown in the dashboard.
 type Version struct {
 	Version string `json:"version"`
 	Commit  string `json:"commit"`
@@ -55,7 +55,7 @@ func NewHandler(svc *service.Service, authSvc *auth.Service, opts Options) *Hand
 	}
 }
 
-// Public adalah router yang di-expose lewat Caddy (console domain).
+// Public is the router exposed via Caddy (console domain).
 func (h *Handler) Public() http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.Recoverer)
@@ -63,10 +63,10 @@ func (h *Handler) Public() http.Handler {
 	r.Get("/healthz", h.healthz)
 	r.Route("/api", func(r chi.Router) {
 		r.NotFound(func(w http.ResponseWriter, r *http.Request) {
-			writeFail(w, http.StatusNotFound, "not_found", "endpoint tidak ditemukan", nil)
+			writeFail(w, http.StatusNotFound, "not_found", "endpoint not found", nil)
 		})
 		r.MethodNotAllowed(func(w http.ResponseWriter, r *http.Request) {
-			writeFail(w, http.StatusMethodNotAllowed, "method_not_allowed", "method tidak didukung", nil)
+			writeFail(w, http.StatusMethodNotAllowed, "method_not_allowed", "method not supported", nil)
 		})
 
 		r.Post("/auth/login", h.login)
@@ -109,7 +109,7 @@ func (h *Handler) Public() http.Handler {
 	return r
 }
 
-// Internal hanya untuk jaringan internal (Caddy). Jangan di-reverse-proxy ke publik.
+// Internal is only for the internal network (Caddy). Do not reverse-proxy it to the public.
 func (h *Handler) Internal() http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.Recoverer)
@@ -118,14 +118,14 @@ func (h *Handler) Internal() http.Handler {
 	return r
 }
 
-// healthz sengaja tidak mengecek Garage: kalau Garage mati, me-restart control-plane
-// tidak memperbaiki apa-apa. Yang dicek hanya hal yang memang milik proses ini.
+// healthz deliberately does not check Garage: if Garage is down, restarting the control-plane
+// fixes nothing. It only checks things that actually belong to this process.
 func (h *Handler) healthz(w http.ResponseWriter, r *http.Request) {
 	if h.opts.Health != nil {
 		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
 		defer cancel()
 		if err := h.opts.Health(ctx); err != nil {
-			slog.Error("healthcheck gagal", "err", err)
+			slog.Error("healthcheck failed", "err", err)
 			http.Error(w, "unhealthy", http.StatusServiceUnavailable)
 			return
 		}
@@ -133,21 +133,21 @@ func (h *Handler) healthz(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("ok"))
 }
 
-// caddyAsk: 200 = Caddy boleh menerbitkan sertifikat untuk ?domain=, selain itu ditolak.
+// caddyAsk: 200 = Caddy may issue a certificate for ?domain=, anything else is a refusal.
 func (h *Handler) caddyAsk(w http.ResponseWriter, r *http.Request) {
 	domain := r.URL.Query().Get("domain")
 	ok, err := h.svc.AllowCertificate(r.Context(), domain)
 	if err != nil {
-		slog.Error("ask: gagal cek domain", "domain", domain, "err", err)
+		slog.Error("ask: failed to check domain", "domain", domain, "err", err)
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
 	if !ok {
-		slog.Info("ask: ditolak", "domain", domain)
+		slog.Info("ask: denied", "domain", domain)
 		http.Error(w, "domain not allowed", http.StatusNotFound)
 		return
 	}
-	slog.Info("ask: diizinkan", "domain", domain)
+	slog.Info("ask: allowed", "domain", domain)
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -157,15 +157,15 @@ func (h *Handler) requireUser(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
 		if !ok || token == "" {
-			writeFail(w, http.StatusUnauthorized, "unauthorized", "silakan login", nil)
+			writeFail(w, http.StatusUnauthorized, "unauthorized", "please log in", nil)
 			return
 		}
 		user, err := h.auth.Authenticate(r.Context(), token)
 		if err != nil {
 			if err != auth.ErrInvalidToken {
-				slog.Error("autentikasi gagal", "err", err)
+				slog.Error("authentication failed", "err", err)
 			}
-			writeFail(w, http.StatusUnauthorized, "unauthorized", "sesi tidak valid, silakan login lagi", nil)
+			writeFail(w, http.StatusUnauthorized, "unauthorized", "invalid session, please log in again", nil)
 			return
 		}
 		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), ctxKey{}, user)))
@@ -177,10 +177,10 @@ func currentUser(r *http.Request) store.User {
 	return u
 }
 
-// clientIP menentukan IP client untuk rate limit. X-Forwarded-For hanya dibaca kalau
-// koneksi datang dari proxy tepercaya; daftarnya ditelusuri dari kanan dan entri pertama
-// yang bukan proxy tepercaya dianggap client. Dengan begitu client tidak bisa memalsukan
-// IP-nya dengan mengirim header sendiri.
+// clientIP determines the client IP for rate limiting. X-Forwarded-For is only read if
+// the connection comes from a trusted proxy; the list is walked from the right and the first
+// entry that is not a trusted proxy is taken as the client. That way a client cannot spoof
+// its IP by sending the header itself.
 func (h *Handler) clientIP(r *http.Request) string {
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
@@ -199,14 +199,14 @@ func (h *Handler) clientIP(r *http.Request) string {
 	for i := len(hops) - 1; i >= 0; i-- {
 		addr, err := netip.ParseAddr(strings.TrimSpace(hops[i]))
 		if err != nil {
-			break // entri rusak: berhenti, jangan percaya apa pun di kirinya
+			break // malformed entry: stop, trust nothing to its left
 		}
 		if !h.trusted(addr) {
 			return addr.String()
 		}
 		leftmost = addr.String()
 	}
-	// Semua hop tepercaya (mis. client di jaringan privat yang sama): pakai yang paling kiri.
+	// All hops are trusted (e.g. a client on the same private network): use the leftmost one.
 	if leftmost != "" {
 		return leftmost
 	}
@@ -227,7 +227,7 @@ func decode(w http.ResponseWriter, r *http.Request, v any) bool {
 	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(v); err != nil {
-		writeFail(w, http.StatusBadRequest, "validation", "body JSON tidak valid: "+err.Error(), nil)
+		writeFail(w, http.StatusBadRequest, "validation", "invalid JSON body: "+err.Error(), nil)
 		return false
 	}
 	return true

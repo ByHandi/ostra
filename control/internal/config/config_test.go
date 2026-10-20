@@ -17,12 +17,12 @@ func TestDevSettingsGuard(t *testing.T) {
 		name, edge, dnsVerify, cookieSecure string
 		wantErr                             bool
 	}{
-		{"production default", "edge.domainku.com", "", "", false},
-		{"dev di localhost", "edge.localhost", "off", "false", false},
-		{"dev di .test", "edge.storage.test", "off", "", false},
-		{"DNS_VERIFY=off di domain asli", "edge.domainku.com", "off", "", true},
-		{"COOKIE_SECURE=false di domain asli", "edge.domainku.com", "", "false", true},
-		{"localhost palsu", "edge.localhost.domainku.com", "off", "", true},
+		{"production default", "edge.example.com", "", "", false},
+		{"dev on localhost", "edge.localhost", "off", "false", false},
+		{"dev on .test", "edge.storage.test", "off", "", false},
+		{"DNS_VERIFY=off on a real domain", "edge.example.com", "off", "", true},
+		{"COOKIE_SECURE=false on a real domain", "edge.example.com", "", "false", true},
+		{"fake localhost", "edge.localhost.example.com", "off", "", true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -38,7 +38,7 @@ func TestDevSettingsGuard(t *testing.T) {
 }
 
 func TestTrustedProxies(t *testing.T) {
-	setRequired(t, "edge.domainku.com")
+	setRequired(t, "edge.example.com")
 
 	cfg, err := Load()
 	if err != nil {
@@ -58,9 +58,9 @@ func TestTrustedProxies(t *testing.T) {
 		t.Fatalf("TrustedProxies = %v", cfg.TrustedProxies)
 	}
 
-	t.Setenv("TRUSTED_PROXIES", "bukan-ip")
+	t.Setenv("TRUSTED_PROXIES", "not-an-ip")
 	if _, err := Load(); err == nil {
-		t.Fatal("TRUSTED_PROXIES tidak valid harus error")
+		t.Fatal("invalid TRUSTED_PROXIES must return an error")
 	}
 }
 

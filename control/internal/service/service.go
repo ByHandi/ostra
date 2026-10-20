@@ -1,4 +1,4 @@
-// Package service berisi logika bisnis control-plane: bucket, access key, dan custom domain.
+// Package service contains the control-plane business logic: buckets, access keys, and custom domains.
 package service
 
 import (
@@ -9,7 +9,7 @@ import (
 	"github.com/handi7/storage-edge/control/internal/store"
 )
 
-// Garage adalah bagian admin API Garage yang dipakai service. *garage.Client memenuhinya.
+// Garage is the part of the Garage admin API used by the service. *garage.Client implements it.
 type Garage interface {
 	Health(ctx context.Context) (garage.ClusterHealth, error)
 
@@ -35,11 +35,11 @@ type DNSChecker interface {
 }
 
 type Options struct {
-	// DNSVerify=false langsung mengaktifkan domain tanpa cek DNS (development).
+	// DNSVerify=false activates domains immediately without a DNS check (development).
 	DNSVerify       bool
 	ReservedDomains []string
-	// WebRootDomain, mis. ".web.domainku.com". <bucket><WebRootDomain> boleh dapat sertifikat
-	// kalau bucket-nya ada dan website-nya aktif.
+	// WebRootDomain, e.g. ".web.example.com". <bucket><WebRootDomain> may get a certificate
+	// if the bucket exists and its website is enabled.
 	WebRootDomain string
 }
 
@@ -58,8 +58,8 @@ func New(q store.Querier, g Garage, dns DNSChecker, opts Options) *Service {
 	return &Service{q: q, garage: g, dns: dns, opts: opts}
 }
 
-// registeredDomains mengembalikan set custom domain, dipakai untuk memisahkan
-// nama bucket dari alias yang sebenarnya custom domain.
+// registeredDomains returns the set of custom domains, used to tell bucket names
+// apart from aliases that are actually custom domains.
 func (s *Service) registeredDomains(ctx context.Context) (map[string]bool, error) {
 	rows, err := s.q.ListDomains(ctx)
 	if err != nil {
@@ -72,7 +72,7 @@ func (s *Service) registeredDomains(ctx context.Context) (map[string]bool, error
 	return set, nil
 }
 
-// bucketName memilih alias yang bukan custom domain sebagai nama tampilan.
+// bucketName picks an alias that is not a custom domain as the display name.
 func bucketName(id string, aliases []string, isDomain map[string]bool) string {
 	for _, a := range aliases {
 		if !isDomain[a] {

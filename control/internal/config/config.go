@@ -1,4 +1,4 @@
-// Package config membaca konfigurasi control-plane dari environment.
+// Package config reads the control-plane configuration from the environment.
 package config
 
 import (
@@ -10,15 +10,15 @@ import (
 	"time"
 )
 
-// defaultTrustedProxies mencakup loopback dan jaringan privat, tempat Caddy bawaan
-// (jaringan Docker) berada. Ganti lewat TRUSTED_PROXIES kalau ada proxy lain di depan.
+// defaultTrustedProxies covers loopback and private networks, where the bundled Caddy
+// (Docker network) lives. Override via TRUSTED_PROXIES if another proxy sits in front.
 const defaultTrustedProxies = "127.0.0.0/8,::1/128,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,fc00::/7"
 
 type Config struct {
-	// ListenAddr melayani API publik (lewat Caddy di console domain).
+	// ListenAddr serves the public API (via Caddy on the console domain).
 	ListenAddr string
-	// InternalAddr melayani endpoint yang hanya untuk Caddy (/caddy/ask).
-	// Jangan di-expose lewat reverse proxy.
+	// InternalAddr serves endpoints meant only for Caddy (/caddy/ask).
+	// Do not expose it through the reverse proxy.
 	InternalAddr string
 
 	DBPath string
@@ -26,27 +26,27 @@ type Config struct {
 	GarageAdminURL   string
 	GarageAdminToken string
 
-	// JWTSecret menandatangani access token dashboard (minimal 32 karakter).
+	// JWTSecret signs dashboard access tokens (at least 32 characters).
 	JWTSecret  string
 	AccessTTL  time.Duration
 	RefreshTTL time.Duration
-	// CookieSecure=false hanya untuk development lewat http:// (mis. Vite dev server).
+	// CookieSecure=false is only for development over http:// (e.g. the Vite dev server).
 	CookieSecure bool
 
-	// EdgeHostname adalah target CNAME untuk custom domain, mis. edge.domainku.com.
+	// EdgeHostname is the CNAME target for custom domains, e.g. edge.example.com.
 	EdgeHostname string
-	// WebRootDomain sama dengan s3_web.root_domain di garage.toml, mis. .web.domainku.com.
+	// WebRootDomain equals s3_web.root_domain in garage.toml, e.g. .web.example.com.
 	WebRootDomain string
-	// ReservedDomains tidak boleh didaftarkan sebagai custom domain (beserta subdomainnya).
+	// ReservedDomains cannot be registered as custom domains (nor can their subdomains).
 	ReservedDomains []string
 
-	// DNSVerify=false melewati pengecekan DNS. Hanya untuk development.
+	// DNSVerify=false skips DNS checks. Development only.
 	DNSVerify bool
-	// DNSServer, mis. 1.1.1.1:53. Kosong = resolver sistem.
+	// DNSServer, e.g. 1.1.1.1:53. Empty = system resolver.
 	DNSServer string
 
-	// TrustedProxies: hanya request dari alamat ini yang header X-Forwarded-For-nya dipercaya
-	// untuk menentukan IP client (dipakai rate limit login).
+	// TrustedProxies: only requests from these addresses have their X-Forwarded-For header trusted
+	// to determine the client IP (used by the login rate limit).
 	TrustedProxies []netip.Prefix
 
 	VerifyInterval    time.Duration
@@ -108,7 +108,7 @@ func Load() (Config, error) {
 		}
 	}
 	if len(missing) > 0 {
-		return cfg, fmt.Errorf("env wajib belum diisi: %s", strings.Join(missing, ", "))
+		return cfg, fmt.Errorf("required env not set: %s", strings.Join(missing, ", "))
 	}
 
 	if err := checkDevSettings(cfg); err != nil {
@@ -124,8 +124,8 @@ func env(key, fallback string) string {
 	return fallback
 }
 
-// checkDevSettings mencegah setting development terbawa ke production: DNS_VERIFY=off dan
-// COOKIE_SECURE=false hanya diterima kalau control-plane jelas berjalan di domain lokal.
+// checkDevSettings keeps development settings from leaking into production: DNS_VERIFY=off and
+// COOKIE_SECURE=false are only accepted when the control-plane clearly runs on a local domain.
 func checkDevSettings(cfg Config) error {
 	var unsafe []string
 	if !cfg.DNSVerify {
@@ -137,11 +137,11 @@ func checkDevSettings(cfg Config) error {
 	if len(unsafe) == 0 || IsDevDomain(cfg.EdgeHostname) {
 		return nil
 	}
-	return fmt.Errorf("%s hanya boleh dipakai untuk development (EDGE_HOSTNAME berakhiran .localhost atau .test), "+
-		"bukan %q", strings.Join(unsafe, " dan "), cfg.EdgeHostname)
+	return fmt.Errorf("%s may only be used for development (EDGE_HOSTNAME ending in .localhost or .test), "+
+		"not %q", strings.Join(unsafe, " and "), cfg.EdgeHostname)
 }
 
-// IsDevDomain melaporkan apakah domain hanya bisa diakses secara lokal.
+// IsDevDomain reports whether domain is only reachable locally.
 func IsDevDomain(domain string) bool {
 	domain = strings.TrimSuffix(strings.ToLower(domain), ".")
 	for _, tld := range []string{"localhost", "test"} {
@@ -152,7 +152,7 @@ func IsDevDomain(domain string) bool {
 	return false
 }
 
-// ParsePrefixes membaca daftar CIDR atau alamat IP tunggal yang dipisah koma.
+// ParsePrefixes parses a comma-separated list of CIDRs or single IP addresses.
 func ParsePrefixes(list string) ([]netip.Prefix, error) {
 	var out []netip.Prefix
 	for _, item := range strings.Split(list, ",") {
@@ -175,7 +175,7 @@ func ParsePrefixes(list string) ([]netip.Prefix, error) {
 		out = append(out, netip.PrefixFrom(addr, addr.BitLen()))
 	}
 	if len(out) == 0 {
-		return nil, errors.New("tidak ada alamat yang valid")
+		return nil, errors.New("no valid addresses")
 	}
 	return out, nil
 }

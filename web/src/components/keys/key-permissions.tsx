@@ -25,9 +25,9 @@ import {
 } from "@/lib/api/storage";
 
 const PERMS: { key: keyof Permissions; label: string; hint: string }[] = [
-  { key: "read", label: "Read", hint: "Membaca dan me-list objek" },
-  { key: "write", label: "Write", hint: "Mengunggah dan menghapus objek" },
-  { key: "owner", label: "Owner", hint: "Mengubah pengaturan bucket" },
+  { key: "read", label: "Read", hint: "Read and list objects" },
+  { key: "write", label: "Write", hint: "Upload and delete objects" },
+  { key: "owner", label: "Owner", hint: "Change bucket settings" },
 ];
 
 const COLUMNS = ["Bucket", ...PERMS.map((p) => p.label)];
@@ -44,8 +44,8 @@ function KeyPermissions({ accessKey, buckets }: KeyPermissionsProps) {
     return (
       <EmptyState
         icon="archive"
-        title="Belum ada bucket"
-        description="Buat bucket dulu, lalu beri key ini akses ke sana."
+        title="No buckets yet"
+        description="Create a bucket first, then give this key access to it."
       />
     );
   }
@@ -96,7 +96,7 @@ function PermissionRow({ keyId, bucket, permissions }: PermissionRowProps) {
       queryClient.invalidateQueries({ queryKey: storageKeys.bucket(bucket.id) });
     },
     onError: (error) => {
-      toast.error(error instanceof ApiError ? error.message : "Gagal menyimpan izin");
+      toast.error(error instanceof ApiError ? error.message : "Couldn't save permissions");
     },
   });
 
@@ -121,7 +121,7 @@ function PermissionRow({ keyId, bucket, permissions }: PermissionRowProps) {
         <TableCell key={p.key} className="text-center">
           <Checkbox
             className="mx-auto"
-            aria-label={`${p.label} untuk ${bucket.name}`}
+            aria-label={`${p.label} for ${bucket.name}`}
             checked={shown[p.key]}
             disabled={mutation.isPending}
             onCheckedChange={(checked) => mutation.mutate({ ...shown, [p.key]: checked === true })}

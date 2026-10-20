@@ -12,14 +12,14 @@ import (
 	"github.com/handi7/storage-edge/control/db"
 )
 
-// Open membuka database SQLite di path dan menjalankan migrasi yang di-embed.
+// Open opens the SQLite database at path and runs the embedded migrations.
 func Open(ctx context.Context, path string) (*sql.DB, error) {
 	dsn := "file:" + path + "?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=foreign_keys(1)"
 	sqlDB, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, err
 	}
-	// SQLite hanya punya satu writer; satu koneksi menghindari SQLITE_BUSY.
+	// SQLite has only one writer; a single connection avoids SQLITE_BUSY.
 	sqlDB.SetMaxOpenConns(1)
 
 	migrations, err := fs.Sub(db.Migrations, "migrations")
@@ -34,7 +34,7 @@ func Open(ctx context.Context, path string) (*sql.DB, error) {
 	}
 	if _, err := provider.Up(ctx); err != nil {
 		sqlDB.Close()
-		return nil, fmt.Errorf("migrasi database: %w", err)
+		return nil, fmt.Errorf("migrate database: %w", err)
 	}
 	return sqlDB, nil
 }

@@ -1,4 +1,4 @@
-// Package dnscheck memverifikasi bahwa custom domain dimiliki user dan diarahkan ke edge.
+// Package dnscheck verifies that a custom domain is owned by the user and points to the edge.
 package dnscheck
 
 import (
@@ -11,21 +11,21 @@ import (
 	"time"
 )
 
-// TXTPrefix adalah label tempat token verifikasi dipasang: _storage-edge.<domain>.
+// TXTPrefix is the label where the verification token is placed: _storage-edge.<domain>.
 const TXTPrefix = "_storage-edge."
 
-// TXTValue adalah isi record TXT yang diharapkan untuk sebuah token.
+// TXTValue is the expected TXT record content for a token.
 func TXTValue(token string) string { return "storage-edge-verify=" + token }
 
-// Resolver adalah subset net.Resolver yang dipakai, supaya bisa di-fake di test.
+// Resolver is the subset of net.Resolver in use, so it can be faked in tests.
 type Resolver interface {
 	LookupTXT(ctx context.Context, name string) ([]string, error)
 	LookupCNAME(ctx context.Context, host string) (string, error)
 	LookupHost(ctx context.Context, host string) ([]string, error)
 }
 
-// NewResolver membuat resolver. Kalau server diisi (mis. "1.1.1.1:53"), semua query
-// dikirim ke sana; berguna supaya hasil tidak tertahan cache DNS lokal.
+// NewResolver creates a resolver. If server is set (e.g. "1.1.1.1:53"), all queries
+// are sent there; useful so results are not held back by a local DNS cache.
 func NewResolver(server string) Resolver {
 	if server == "" {
 		return net.DefaultResolver
@@ -48,17 +48,17 @@ func NewChecker(r Resolver, edgeHostname string) *Checker {
 	return &Checker{resolver: r, edge: normalize(edgeHostname)}
 }
 
-// Check mengembalikan nil kalau TXT verifikasi cocok dan domain mengarah ke edge.
-// Pesan error ditulis untuk ditampilkan ke user.
+// Check returns nil if the verification TXT matches and the domain points to the edge.
+// Error messages are written to be shown to the user.
 func (c *Checker) Check(ctx context.Context, domain, token string) error {
 	domain = normalize(domain)
 
 	txts, err := c.resolver.LookupTXT(ctx, TXTPrefix+domain)
 	if err != nil && !isNotFound(err) {
-		return fmt.Errorf("gagal membaca TXT %s%s: %w", TXTPrefix, domain, err)
+		return fmt.Errorf("failed to read TXT %s%s: %w", TXTPrefix, domain, err)
 	}
 	if !slices.Contains(txts, TXTValue(token)) {
-		return fmt.Errorf("record TXT %s%s belum berisi %q", TXTPrefix, domain, TXTValue(token))
+		return fmt.Errorf("TXT record %s%s does not contain %q yet", TXTPrefix, domain, TXTValue(token))
 	}
 
 	if err := c.checkRouting(ctx, domain); err != nil {
@@ -67,17 +67,17 @@ func (c *Checker) Check(ctx context.Context, domain, token string) error {
 	return nil
 }
 
-// checkRouting menerima CNAME langsung ke edge, atau A/AAAA yang sama dengan IP edge
-// (untuk apex domain yang memakai CNAME flattening/ALIAS).
+// checkRouting accepts a CNAME directly to the edge, or A/AAAA records matching the edge IPs
+// (for apex domains using CNAME flattening/ALIAS).
 func (c *Checker) checkRouting(ctx context.Context, domain string) error {
-	notRouted := fmt.Errorf("%s belum diarahkan ke edge: buat CNAME ke %s", domain, c.edge)
+	notRouted := fmt.Errorf("%s does not point to the edge yet: create a CNAME to %s", domain, c.edge)
 
 	cname, err := c.resolver.LookupCNAME(ctx, domain)
 	if err == nil && normalize(cname) == c.edge {
 		return nil
 	}
 	if err != nil && !isNotFound(err) {
-		return fmt.Errorf("gagal membaca CNAME %s: %w", domain, err)
+		return fmt.Errorf("failed to read CNAME %s: %w", domain, err)
 	}
 
 	domainIPs, err := c.resolver.LookupHost(ctx, domain)
@@ -85,11 +85,11 @@ func (c *Checker) checkRouting(ctx context.Context, domain string) error {
 		if isNotFound(err) {
 			return notRouted
 		}
-		return fmt.Errorf("gagal membaca A/AAAA %s: %w", domain, err)
+		return fmt.Errorf("failed to read A/AAAA %s: %w", domain, err)
 	}
 	edgeIPs, err := c.resolver.LookupHost(ctx, c.edge)
 	if err != nil {
-		return fmt.Errorf("gagal membaca IP edge %s: %w", c.edge, err)
+		return fmt.Errorf("failed to read edge IPs %s: %w", c.edge, err)
 	}
 	for _, ip := range domainIPs {
 		if slices.Contains(edgeIPs, ip) {

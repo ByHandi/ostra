@@ -14,7 +14,7 @@ import {
 import type { Domain } from "@/lib/api/storage";
 import { formatRelative } from "@/lib/format";
 
-const COLUMNS = ["Domain", "Bucket", "Status", "Dicek"];
+const COLUMNS = ["Domain", "Bucket", "Status", "Last checked"];
 
 interface DomainTableProps {
   domains: Domain[];
