@@ -1,0 +1,12 @@
+{
+  "name": "storage-edge",
+  "private": true,
+  "description": "Repository tooling (git hooks). The dashboard has its own package in web/.",
+  "scripts": {
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0"
+  }
+}

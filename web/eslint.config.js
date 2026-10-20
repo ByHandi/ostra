@@ -2,6 +2,7 @@ import js from "@eslint/js";
 import eslintConfigPrettier from "eslint-config-prettier/flat";
 import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
+import sonarjs from "eslint-plugin-sonarjs";
 import { defineConfig, globalIgnores } from "eslint/config";
 import globals from "globals";
 import tseslint from "typescript-eslint";
@@ -30,6 +31,25 @@ export default defineConfig([
     rules: {
       "sort-imports": "off",
       "import/order": "off",
+    },
+  },
+  {
+    // Same limits as the other team frontends: split a function once it branches
+    // this much, instead of raising the limit.
+    files: ["**/*.{ts,tsx}"],
+    plugins: { sonarjs },
+    rules: {
+      complexity: ["error", 15],
+      "sonarjs/cognitive-complexity": ["error", 15],
+    },
+  },
+  {
+    // shadcn primitives and the template's form wrappers. ESLint's `complexity` counts every
+    // prop default and `?.`, so these simple, prop-heavy components score high without having
+    // branching logic worth splitting. Cognitive complexity still applies to them.
+    files: ["src/components/ui/**/*.tsx", "src/components/form/**/*.tsx"],
+    rules: {
+      complexity: "off",
     },
   },
   {

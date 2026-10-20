@@ -95,21 +95,16 @@ function onSessionExpired(): void {
   }
 }
 
-async function request<T = unknown, M = unknown>(
-  method: string,
-  path: string,
-  init: RequestInit = {},
-  isRetry = false,
-): Promise<ApiEnvelope<T, M>> {
+/** Sends the request with the access token attached. Throws only on transport failure. */
+async function send(method: string, path: string, init: RequestInit): Promise<Response> {
   const headers = new Headers(init.headers);
   headers.set("Accept", "application/json");
 
   const token = getAccessToken();
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
-  let res: Response;
   try {
-    res = await fetch(endpoint(path), {
+    return await fetch(endpoint(path), {
       ...init,
       method,
       headers,
@@ -118,6 +113,33 @@ async function request<T = unknown, M = unknown>(
   } catch (cause) {
     throw new ApiError("Can't reach the server", 0, { cause });
   }
+}
+
+/** Turns a response into a success envelope, or throws `ApiError` for anything else. */
+async function readEnvelope<T, M>(res: Response): Promise<ApiEnvelope<T, M>> {
+  if (res.status === 204) return { success: true };
+
+  const body = (await res.json().catch(() => null)) as ApiEnvelope<T, M> | null;
+  if (res.ok && body?.success) return body;
+
+  const error = body?.error;
+  throw new ApiError(
+    error?.message ?? body?.message ?? `Request failed (${res.status})`,
+    res.status,
+    {
+      type: error?.type,
+      fieldErrors: error?.errors ?? null,
+    },
+  );
+}
+
+async function request<T = unknown, M = unknown>(
+  method: string,
+  path: string,
+  init: RequestInit = {},
+  isRetry = false,
+): Promise<ApiEnvelope<T, M>> {
+  const res = await send(method, path, init);
 
   if (res.status === 401 && !isRetry && !skipsRefresh(path)) {
     if (await refreshSession()) {
@@ -128,19 +150,7 @@ async function request<T = unknown, M = unknown>(
     throw new ApiError("Your session has expired. Please sign in again.", 401);
   }
 
-  if (res.status === 204) return { success: true };
-
-  const body = (await res.json().catch(() => null)) as ApiEnvelope<T, M> | null;
-
-  if (!res.ok || !body?.success) {
-    throw new ApiError(
-      body?.error?.message ?? body?.message ?? `Request failed (${res.status})`,
-      res.status,
-      { type: body?.error?.type, fieldErrors: body?.error?.errors ?? null },
-    );
-  }
-
-  return body;
+  return readEnvelope<T, M>(res);
 }
 
 function withBody(method: string) {

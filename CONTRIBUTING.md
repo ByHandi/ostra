@@ -13,6 +13,7 @@ conventions the codebase follows.
 ## Development setup
 
 ```bash
+npm install                    # repo root: installs the git pre-commit hook (husky)
 ./scripts/gen-env.sh --dev     # local .env, uses docker-compose.dev.yml
 docker compose up -d --build
 ./scripts/init-dev.sh          # sample bucket, key, admin account, custom domain
@@ -21,6 +22,33 @@ docker compose up -d --build
 Then open http://127.0.0.1:8080 and log in with `DEV_ADMIN_EMAIL` / `DEV_ADMIN_PASSWORD` from
 `.env`. For dashboard work with hot reload, run `npm run dev` in `web/` (it proxies `/api` to the
 control-plane). See the [README](README.md#local-development) for more.
+
+## Pre-commit hook
+
+`npm install` at the repo root sets up a husky pre-commit hook that runs on the staged files:
+
+- `web/`: Prettier and `eslint --fix` (lint-staged config in `web/package.json`), then
+  `npm run typecheck` when the commit touches `web/`.
+- `control/`: `gofmt -w`, `go vet`, and the complexity limits below.
+- `scripts/`: shellcheck (the same pinned version as CI, via Docker).
+
+Formatting fixes are applied and re-staged automatically; anything else blocks the commit.
+CI runs the same checks, so skipping the hook (`--no-verify`) only moves the failure to the PR.
+
+## Complexity limits
+
+Functions are kept small enough to follow at a glance. When one grows past a limit, split it
+into well-named helpers instead of raising the limit.
+
+| Code | Cyclomatic | Cognitive |
+|---|---|---|
+| Go (`control/`) | 12 ([gocyclo](https://github.com/fzipp/gocyclo)) | 15 ([gocognit](https://github.com/uudashr/gocognit)) |
+| TypeScript (`web/`) | 15 (ESLint `complexity`) | 15 (`sonarjs/cognitive-complexity`) |
+
+Tests and sqlc-generated code are excluded on the Go side. In `web/`, the shadcn primitives
+(`src/components/ui`) and the template's form wrappers (`src/components/form`) are exempt from
+`complexity` only, because it counts every prop default and `?.`; cognitive complexity still
+applies to them.
 
 ## Before opening a pull request
 
@@ -32,6 +60,8 @@ gofmt -l .                     # must print nothing
 go vet ./...
 go test -race ./...
 go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+go run github.com/fzipp/gocyclo/cmd/gocyclo@v0.6.0 -over 12 -ignore '_test|internal/store/' .
+go run github.com/uudashr/gocognit/cmd/gocognit@v1.3.0 -over 15 -ignore '_test|internal/store/' .
 
 # Web (in web/)
 npm run typecheck

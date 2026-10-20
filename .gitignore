@@ -7,3 +7,4 @@
 control/internal/ui/dist/*
 !control/internal/ui/dist/.gitkeep
 backups/
+node_modules/
