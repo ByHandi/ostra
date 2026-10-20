@@ -1,12 +1,14 @@
 # storage-edge
 
-Object storage self-hosted ala Cloudflare R2: **Garage** sebagai storage, **Caddy** sebagai pintu depan dengan TLS otomatis, dan **control-plane** (Go + dashboard React) untuk mengelola bucket, access key, dan custom domain per bucket.
+**English** · [Bahasa Indonesia](README.id.md)
+
+Self-hosted object storage in the spirit of Cloudflare R2: **Garage** stores the data, **Caddy** sits in front with automatic TLS, and a **control-plane** (Go + React dashboard) manages buckets, access keys, and per-bucket custom domains.
 
 ```
                   Internet
                      │
         ┌────────────┴─────────────┐
-        │          Caddy           │  ← TLS otomatis per domain
+        │          Caddy           │  ← automatic TLS per domain
         └──┬──────────────┬────────┘
            │              │
      s3.localhost    cdn.brandku.localhost, <bucket>.web.localhost, ...
@@ -15,134 +17,167 @@ Object storage self-hosted ala Cloudflare R2: **Garage** sebagai storage, **Cadd
            ▼              ▼
    Garage :3900     Garage :3902 (web endpoint)
                           ▲
-   control :8080 (dashboard + /api, lewat console.localhost)
-           :9000 (internal: /caddy/ask, hanya untuk Caddy)
+   control :8080 (dashboard + /api, via console.localhost)
+           :9000 (internal: /caddy/ask, for Caddy only)
              │
-             ├── SQLite (/data/control.db): domain, akun admin, sesi
-             └── admin API Garage :3903: pasang/lepas alias, aktifkan website
+             ├── SQLite (/data/control.db): domains, admin accounts, sessions
+             └── Garage admin API :3903: attach/detach aliases, enable website
 ```
 
-## Status
+## Features
 
-- [x] Hari ke-1: Garage single-node, Caddy dengan on-demand TLS, kerangka control-plane
-- [x] Hari ke-2: SQLite, verifikasi DNS (CNAME + TXT), integrasi admin API Garage, JSON API, worker
-- [x] Hari ke-3: dashboard (dari template shadcn-vite, di-embed ke binary Go), login admin, manajemen bucket dan access key
+- **S3-compatible storage** backed by Garage v2 (single node, layout configured automatically).
+- **Custom domains per bucket** with automatic HTTPS. Certificates are issued on demand, and only for domains the control-plane has approved.
+- **Domain ownership verification** via DNS (CNAME or A/AAAA to the edge, plus a TXT token), re-checked automatically.
+- **Admin dashboard** for buckets, custom domains, access keys with per-bucket permissions, and account settings.
+- **Security by default:** argon2id passwords, short-lived JWT access tokens with rotating httpOnly refresh cookies, login rate limiting, a strict CSP, and a non-root `scratch` image. Development shortcuts refuse to run against real domains.
+- **One-command operations:** production `docker compose`, cold backup/restore scripts, health checks, and multi-arch release images on GHCR.
 
-Langkah selanjutnya menuju rilis open source ada di [ROADMAP.md](ROADMAP.md).
+The road to the first open-source release is tracked in [ROADMAP.md](ROADMAP.md). Want to contribute? See [CONTRIBUTING.md](CONTRIBUTING.md). Security reports: [SECURITY.md](SECURITY.md).
 
-## Deploy production
+## Production deployment
 
-Butuh server dengan Docker dan port 80/443 yang bisa diakses dari internet.
+You need a server with Docker and ports 80/443 reachable from the internet.
 
-**1. DNS.** Arahkan record berikut ke IP server (ganti `domainku.com` dengan domainmu):
+**1. DNS.** Point these records at the server (replace `example.com` with your domain):
 
-| Record | Untuk |
+| Record | Purpose |
 |---|---|
-| `console.domainku.com` | Dashboard |
-| `s3.domainku.com` | S3 API |
-| `edge.domainku.com` | Target CNAME custom domain milik user |
-| `*.web.domainku.com` | Akses web per bucket (opsional) |
+| `console.example.com` | Dashboard |
+| `s3.example.com` | S3 API |
+| `edge.example.com` | CNAME target for users' custom domains |
+| `*.web.example.com` | Per-bucket web access (optional) |
 
-**2. Konfigurasi dan jalankan.**
+**2. Configure and start.**
 
 ```bash
-./scripts/gen-env.sh          # buat .env dan isi semua secret
-# edit .env: isi BASE_DOMAIN=domainku.com dan ACME_EMAIL
-docker compose pull           # image rilis dari ghcr.io/byhandi/storage-edge
+./scripts/gen-env.sh          # create .env and fill in every secret
+# edit .env: set BASE_DOMAIN=example.com and ACME_EMAIL
+docker compose pull           # release image from ghcr.io/byhandi/storage-edge
 docker compose up -d
 ```
 
-Untuk memakai versi tertentu, isi `CONTROL_IMAGE=ghcr.io/byhandi/storage-edge:<versi>` di `.env`. Kalau mau membangun dari source, pakai `docker compose up -d --build`.
+To pin a version, set `CONTROL_IMAGE=ghcr.io/byhandi/storage-edge:<version>` in `.env`. To build from source instead, run `docker compose up -d --build`.
 
-Layout Garage dibuat otomatis (`garage server --single-node`), sertifikat diambil dari Let's Encrypt saat request pertama.
+The Garage layout is created automatically (`garage server --single-node`), and certificates are fetched from Let's Encrypt on the first request.
 
-**3. Buat akun admin pertama**, lalu buka `https://console.domainku.com`:
+**3. Create the first admin account**, then open `https://console.example.com`:
 
 ```bash
-docker compose exec control /control createuser --email kamu@domainku.com --name "Nama Kamu"
+docker compose exec control /control createuser --email you@example.com --name "Your Name"
 ```
 
-`docker-compose.yml` sudah aman untuk production: verifikasi DNS custom domain aktif, cookie sesi `Secure`, dan port admin Garage tidak di-publish. Semua kelonggaran development ada di `docker-compose.dev.yml`, dan control-plane menolak start kalau kelonggaran itu dipakai dengan domain selain `.localhost`/`.test`.
+`docker-compose.yml` is production-safe as is: custom-domain DNS verification is on, session cookies are `Secure`, and the Garage admin port is not published. Every development shortcut lives in `docker-compose.dev.yml`, and the control-plane refuses to start if those shortcuts are combined with a domain other than `.localhost`/`.test`.
 
-## Menjalankan di lokal
-
-Butuh Docker. Port 80, 443, dan 8080 harus kosong.
+## Backup and restore
 
 ```bash
-./scripts/gen-env.sh --dev    # .env untuk lokal: BASE_DOMAIN=localhost, ikut memakai docker-compose.dev.yml
+./scripts/backup.sh                 # → backups/storage-edge-<UTC time>/
+./scripts/restore.sh backups/storage-edge-20261020T082634Z
+```
+
+- **Cold backup:** all services are stopped while copying (usually a few seconds, depending on data size) so the Garage metadata, data blocks, and control-plane database stay consistent with each other. Services are started again automatically, even if the backup fails.
+- A backup contains the `garage-meta`, `garage-data`, `control-data`, and `caddy-data` (TLS certificates) volumes, a `MANIFEST` (time and version), and `SHA256SUMS`.
+- `.env` is **not** included because it holds secrets. Store it separately somewhere safe, or pass `--with-env`. Restoring onto a new server with a fresh `.env` still works; everyone just has to log in again.
+- `restore.sh` verifies the checksums first. If any archive is corrupt, nothing is changed. Otherwise the volumes are wiped and replaced with the backup (it asks for confirmation; use `--yes` in scripts).
+- Copy backups off the server (another object store, a separate disk). A backup that only lives on the same machine does not protect against disk failure.
+
+## Upgrading
+
+1. Read [CHANGELOG.md](CHANGELOG.md) for the target version, especially breaking changes.
+2. Back up: `./scripts/backup.sh`.
+3. Switch the version and restart:
+   ```bash
+   # in .env: CONTROL_IMAGE=ghcr.io/byhandi/storage-edge:<new-version>
+   docker compose pull
+   docker compose up -d
+   ```
+   When deploying from source: `git pull`, then `docker compose up -d --build`.
+4. Database migrations run automatically when the control-plane starts. Make sure every service is `healthy` in `docker compose ps`; check `docker compose logs control` if not.
+
+**Rollback:** migrations are not reverted automatically. Set `CONTROL_IMAGE` back to the old version, then run `./scripts/restore.sh <pre-upgrade-backup>`.
+
+Garage and Caddy versions are pinned in `docker-compose.yml` and bumped through Dependabot PRs. Before upgrading Garage, also read the Garage release notes, and always back up first.
+
+## Local development
+
+Requires Docker, with ports 80, 443, and 8080 free.
+
+```bash
+./scripts/gen-env.sh --dev    # local .env: BASE_DOMAIN=localhost, also uses docker-compose.dev.yml
 docker compose up -d --build
-./scripts/init-dev.sh         # bucket "assets", key, sample/, akun admin, cdn.brandku.localhost
+./scripts/init-dev.sh         # "assets" bucket, key, sample/, admin account, cdn.brandku.localhost
 ```
 
-`--dev` menulis `COMPOSE_FILE=docker-compose.yml:docker-compose.dev.yml` ke `.env`, jadi semua perintah `docker compose` otomatis memakai override development: verifikasi DNS dimatikan, cookie tanpa `Secure`, sertifikat dari CA lokal Caddy, port debug (`3900`, `3903`, `8080`) di-bind ke `127.0.0.1`, dan ada service `awscli`.
+`--dev` writes `COMPOSE_FILE=docker-compose.yml:docker-compose.dev.yml` to `.env`, so every `docker compose` command picks up the development override: DNS verification off, cookies without `Secure`, certificates from Caddy's local CA, debug ports (`3900`, `3903`, `8080`) bound to `127.0.0.1`, and an `awscli` service.
 
-Dashboard: **https://console.localhost** (atau http://127.0.0.1:8080). Login dengan `DEV_ADMIN_EMAIL` dan `DEV_ADMIN_PASSWORD` dari `.env`.
+Dashboard: **https://console.localhost** (or http://127.0.0.1:8080). Log in with `DEV_ADMIN_EMAIL` and `DEV_ADMIN_PASSWORD` from `.env`.
 
-Tes custom domain dan S3 API:
+Try the custom domain and the S3 API:
 
 ```bash
-curl -k https://cdn.brandku.localhost/            # index.html lewat custom domain
-curl -k https://assets.web.localhost/hello.txt    # lewat <bucket>.web.localhost
-docker compose run --rm awscli s3 ls s3://assets/ # S3 API dengan access key dari .env
+curl -k https://cdn.brandku.localhost/            # index.html through a custom domain
+curl -k https://assets.web.localhost/hello.txt    # through <bucket>.web.localhost
+docker compose run --rm awscli s3 ls s3://assets/ # S3 API with the access key from .env
 ```
 
-`-k` diperlukan karena di mode dev sertifikat diterbitkan oleh CA lokal Caddy. `*.localhost` otomatis resolve ke 127.0.0.1 di curl dan browser modern. Kalau tidak, tambahkan `--resolve <domain>:443:127.0.0.1`.
+`-k` is needed because development certificates come from Caddy's local CA. `*.localhost` resolves to 127.0.0.1 in curl and modern browsers; otherwise add `--resolve <domain>:443:127.0.0.1`.
 
-### Mengembangkan dashboard
+### Working on the dashboard
 
 ```bash
 cd web
 npm install
-npm run dev      # http://localhost:5173, /api di-proxy ke control-plane di 127.0.0.1:8080
+npm run dev      # http://localhost:5173, /api is proxied to the control-plane at 127.0.0.1:8080
 ```
 
-`npm run build` menulis hasil build ke `control/internal/ui/dist/web`, yang di-embed ke binary Go. Image Docker selalu mem-build dashboard sendiri, jadi tidak perlu build manual sebelum `docker compose build`.
+`npm run build` writes to `control/internal/ui/dist/web`, which is embedded into the Go binary. The Docker image always builds the dashboard itself, so there is no need to build it before `docker compose build`.
 
-### Akun admin
+### Admin accounts
 
-Tidak ada halaman register. Akun dibuat dan di-reset lewat CLI di container:
+There is no sign-up page. Accounts are created and reset through the CLI inside the container:
 
 ```bash
-docker compose exec control /control createuser --email kamu@contoh.com --name "Nama Kamu"
-docker compose exec control /control setpassword --email kamu@contoh.com
+docker compose exec control /control createuser --email you@example.com --name "Your Name"
+docker compose exec control /control setpassword --email you@example.com
 ```
 
-Password ditanyakan secara interaktif (atau `--password-stdin` untuk script). `setpassword` juga mengakhiri semua sesi user itu.
+The password is prompted for interactively (or use `--password-stdin` in scripts). `setpassword` also ends all of that user's sessions.
 
-## CI dan rilis
+## CI and releases
 
-- **CI** (`.github/workflows/ci.yml`) jalan untuk setiap PR dan push ke `main`: gofmt, `go vet`, `go test -race`, govulncheck, typecheck/lint/Prettier/`npm audit` untuk web, shellcheck, validasi compose, dan build image amd64 + arm64.
-- **Rilis** (`.github/workflows/release.yml`): ubah `[Unreleased]` di [CHANGELOG.md](CHANGELOG.md) jadi versi baru, lalu push tag:
+- **CI** (`.github/workflows/ci.yml`) runs on every PR and push to `main`: gofmt, `go vet`, `go test -race`, govulncheck, typecheck/lint/Prettier/`npm audit` for the web app, shellcheck, compose validation, and an amd64 + arm64 image build.
+- **Releases** (`.github/workflows/release.yml`): rename `[Unreleased]` in [CHANGELOG.md](CHANGELOG.md) to the new version, then push a tag:
 
   ```bash
   git tag v0.1.0
   git push origin v0.1.0
   ```
 
-  Workflow menjalankan CI, mem-push image multi-arch ke `ghcr.io/byhandi/storage-edge` (tag `0.1.0`, `0.1`, dan `latest`), lalu membuat GitHub Release dari isi CHANGELOG. Tag dengan akhiran seperti `-rc.1` jadi pre-release dan tidak mengubah `latest`.
-- **Dependabot** membuka PR mingguan untuk Go modules, npm, image Docker, dan GitHub Actions.
+  The workflow runs CI, pushes a multi-arch image to `ghcr.io/byhandi/storage-edge` (tags `0.1.0`, `0.1`, and `latest`), and creates a GitHub Release from the CHANGELOG section. Tags with a suffix such as `-rc.1` become pre-releases and leave `latest` untouched.
+- **Dependabot** opens weekly PRs for Go modules, npm, Docker images, and GitHub Actions.
 
-## Alur custom domain
+## Custom domain flow
 
 ```
-POST /api/domains ──► pending ──(worker tiap 30 dtk / POST .../verify)──► DNS cocok? ──► active
-                         ▲                                                   │ tidak
-                         └──────────────── lastError diisi ◄─────────────────┘
+POST /api/domains ──► pending ──(worker every 30s / POST .../verify)──► DNS ok? ──► active
+                         ▲                                                  │ no
+                         └──────────────── lastError set ◄──────────────────┘
 ```
 
-1. User mendaftarkan domain untuk sebuah bucket. Response berisi `dnsRecords` yang harus dipasang:
-   - `CNAME <domain> → EDGE_HOSTNAME` (apex domain boleh pakai A/AAAA yang sama dengan IP edge)
+1. A user registers a domain for a bucket. The response lists the `dnsRecords` to create:
+   - `CNAME <domain> → EDGE_HOSTNAME` (an apex domain may use A/AAAA records matching the edge IP)
    - `TXT _storage-edge.<domain> = storage-edge-verify=<token>`
-2. Worker mengecek domain `pending`. Kalau DNS sudah benar, control-plane mengaktifkan website bucket dan memasang domain sebagai alias global di Garage.
-3. Status jadi `active`. Saat request pertama datang, Caddy bertanya ke `/caddy/ask`, lalu menerbitkan sertifikat.
-4. Kalau Garage menolak (mis. alias sudah dipakai bucket lain), status jadi `error`. `POST .../verify` mencoba ulang.
-5. Tiap 5 menit, worker memastikan alias domain aktif masih terpasang. Kalau bucket-nya hilang, status jadi `error`.
+2. The worker checks `pending` domains. Once DNS is correct, the control-plane enables website access on the bucket and attaches the domain as a global alias in Garage.
+3. The status becomes `active`. On the first request, Caddy asks `/caddy/ask` and then issues a certificate.
+4. If Garage rejects the alias (for example, it already points to another bucket), the status becomes `error`. `POST .../verify` retries.
+5. Every 5 minutes the worker makes sure active domains are still attached. If the bucket is gone, the status becomes `error`.
 
-Di lokal (`docker-compose.dev.yml`) verifikasi DNS dimatikan, jadi domain langsung `active`.
+Locally (`docker-compose.dev.yml`) DNS verification is off, so domains become `active` immediately.
 
 ## API
 
-Format respons mengikuti template `shadcn-vite` dan `go-service-boilerplate`:
+Responses use the same envelope as the `shadcn-vite` template and `go-service-boilerplate`:
 
 ```json
 { "success": true, "statusCode": 200, "message": "OK", "data": {}, "meta": null, "error": null }
@@ -150,56 +185,58 @@ Format respons mengikuti template `shadcn-vite` dan `go-service-boilerplate`:
   "error": { "type": "validation", "message": "...", "errors": { "domain": ["..."] } } }
 ```
 
-**Auth.** Access token JWT (15 menit) dikirim di header `Authorization: Bearer`. Refresh token (30 hari, dirotasi setiap dipakai) disimpan di cookie httpOnly `se_refresh` dengan path `/api/auth`. Login dibatasi 5 percobaan per IP, lalu 1 percobaan tiap 12 detik.
+**Auth.** A JWT access token (15 minutes) is sent in the `Authorization: Bearer` header. The refresh token (30 days, rotated on every use) lives in the httpOnly cookie `se_refresh`, scoped to `/api/auth`. Login allows 5 attempts per IP, then 1 attempt every 12 seconds.
 
-| Method | Path | Keterangan |
+| Method | Path | Description |
 |---|---|---|
 | POST | `/api/auth/login` | `{"email","password"}` → `access_token` + cookie |
-| POST | `/api/auth/refresh-token` | Tukar cookie dengan token baru |
-| POST | `/api/auth/logout` | Cabut sesi, hapus cookie |
-| GET | `/api/me` | User yang sedang login |
-| POST | `/api/me/password` | `{"currentPassword","newPassword"}`, mengakhiri sesi lain |
-| GET | `/api/overview` | Statistik + kesehatan cluster |
-| GET/POST | `/api/buckets` | Daftar / buat (`{"name"}`) |
-| GET/DELETE | `/api/buckets/{id}` | Detail (key + domain) / hapus (harus kosong, tanpa domain) |
-| GET/POST | `/api/keys` | Daftar / buat (`{"name"}`, secret hanya dikembalikan di sini) |
-| GET/DELETE | `/api/keys/{id}` | Detail izin per bucket / hapus |
-| PUT | `/api/keys/{id}/buckets/{bucketId}` | `{"read","write","owner"}`, set izin persis seperti ini |
-| GET/POST | `/api/domains` | Daftar / daftarkan (`{"domain","bucket"}`) |
-| GET/DELETE | `/api/domains/{id}` | Detail + `dnsRecords` / hapus |
-| POST | `/api/domains/{id}/verify` | Cek DNS sekarang |
+| POST | `/api/auth/refresh-token` | Exchange the cookie for new tokens |
+| POST | `/api/auth/logout` | Revoke the session, clear the cookie |
+| GET | `/api/me` | The signed-in user |
+| POST | `/api/me/password` | `{"currentPassword","newPassword"}`, ends other sessions |
+| GET | `/api/version` | Build version and commit |
+| GET | `/api/overview` | Statistics + cluster health |
+| GET/POST | `/api/buckets` | List / create (`{"name"}`) |
+| GET/DELETE | `/api/buckets/{id}` | Details (keys + domains) / delete (must be empty, no domains) |
+| GET/POST | `/api/keys` | List / create (`{"name"}`; the secret is only returned here) |
+| GET/DELETE | `/api/keys/{id}` | Per-bucket permissions / delete |
+| PUT | `/api/keys/{id}/buckets/{bucketId}` | `{"read","write","owner"}`, sets permissions exactly |
+| GET/POST | `/api/domains` | List / register (`{"domain","bucket"}`) |
+| GET/DELETE | `/api/domains/{id}` | Details + `dnsRecords` / delete |
+| POST | `/api/domains/{id}/verify` | Check DNS now |
 
-## Struktur
+## Repository layout
 
-| Path | Isi |
+| Path | Contents |
 |---|---|
-| `docker-compose.yml` | Production: Garage, control, Caddy |
-| `docker-compose.dev.yml` | Override development: port debug, setting longgar, `awscli` (profile `tools`) |
-| `garage/garage.toml.tmpl` | Template config Garage; `__BASE_DOMAIN__` diisi service `garage-config` |
+| `docker-compose.yml` | Production: Garage, control-plane, Caddy |
+| `docker-compose.dev.yml` | Development override: debug ports, relaxed settings, `awscli` (profile `tools`) |
+| `garage/garage.toml.tmpl` | Garage config template; `__BASE_DOMAIN__` is filled in by the `garage-config` service |
 | `caddy/Caddyfile` | Production (Let's Encrypt) |
 | `caddy/Caddyfile.dev` | Development (`local_certs`) |
-| `control/Dockerfile` | Multi-stage: build dashboard (Node), lalu binary Go dengan dashboard di-embed |
-| `control/cmd/control` | Entry point: server, `createuser`, `setpassword` |
-| `control/internal/service` | Logika bisnis: bucket, access key, custom domain, worker |
-| `control/internal/auth` | Login, JWT, refresh token, rate limit, argon2id |
-| `control/internal/garage` | Client admin API Garage v2 |
-| `control/internal/dnscheck` | Cek CNAME/A + TXT |
-| `control/internal/api` | Router chi: dashboard + `/api` (:8080) dan internal (:9000) |
-| `control/internal/ui` | Serve dashboard yang di-embed (SPA fallback, CSP, cache aset) |
-| `control/db` | Migrasi goose + query sqlc (`cd control/db && sqlc generate`) |
+| `control/Dockerfile` | Multi-stage: dashboard build (Node), then the Go binary with the dashboard embedded |
+| `control/cmd/control` | Entry point: server, `createuser`, `setpassword`, `version`, `healthcheck` |
+| `control/internal/service` | Business logic: buckets, access keys, custom domains, worker |
+| `control/internal/auth` | Login, JWT, refresh tokens, rate limiting, argon2id |
+| `control/internal/garage` | Garage v2 admin API client |
+| `control/internal/dnscheck` | CNAME/A + TXT checks |
+| `control/internal/api` | chi routers: dashboard + `/api` (:8080) and internal (:9000) |
+| `control/internal/ui` | Serves the embedded dashboard (SPA fallback, CSP, asset caching) |
+| `control/db` | goose migrations + sqlc queries (`cd control/db && sqlc generate`) |
 | `web/` | Dashboard: Vite + React + TanStack Router/Query + shadcn |
-| `scripts/gen-env.sh` | Buat/lengkapi `.env` (`--dev` untuk lokal) |
-| `scripts/init-dev.sh` | Setup development, aman dijalankan ulang |
-| `.github/workflows/` | CI dan release |
-| `CHANGELOG.md` | Catatan perubahan per versi (dipakai sebagai catatan rilis) |
+| `scripts/gen-env.sh` | Create/complete `.env` (`--dev` for local) |
+| `scripts/init-dev.sh` | Development setup, safe to re-run |
+| `scripts/backup.sh`, `scripts/restore.sh` | Back up and restore all data |
+| `.github/workflows/` | CI and releases |
+| `CHANGELOG.md` | Per-version changes (used as release notes) |
 
-## Catatan production
+## Production notes
 
-- Semua domain diturunkan dari `BASE_DOMAIN`. `EDGE_HOSTNAME` dan `RESERVED_DOMAINS` bisa diganti di `.env` kalau perlu.
-- Kalau ada proxy atau load balancer lain di depan Caddy, isi `TRUSTED_PROXIES` dengan alamatnya. Defaultnya loopback dan jaringan privat (tempat Caddy bawaan berada). IP client dipakai untuk rate limit login.
-- Jangan pakai `scripts/init-dev.sh` atau `docker-compose.dev.yml` di production.
-- Wildcard `*.s3.domainku.com` (virtual-hosted style) butuh DNS challenge, artinya Caddy perlu di-build dengan plugin DNS provider. Tanpa itu, S3 API hanya path-style.
-- Port internal control-plane (9000) tidak boleh di-proxy ke publik.
-- Mengaktifkan custom domain berarti website bucket dinyalakan, jadi isi bucket juga bisa dibaca publik lewat `<bucket>.web.<domain>`.
-- Nama alias bucket maksimal 63 karakter, jadi domain yang lebih panjang dari itu belum bisa dipakai sebagai custom domain.
-- `replication_factor = 1` berarti tanpa redundansi. Untuk data penting, pakai minimal 3 node.
+- Every domain is derived from `BASE_DOMAIN`. `EDGE_HOSTNAME` and `RESERVED_DOMAINS` can be overridden in `.env`.
+- If another proxy or load balancer sits in front of Caddy, put its addresses in `TRUSTED_PROXIES`. The default is loopback plus private networks (where the bundled Caddy lives). The client IP is used for login rate limiting.
+- Never use `scripts/init-dev.sh` or `docker-compose.dev.yml` in production.
+- Wildcard `*.s3.example.com` (virtual-hosted style) needs a DNS challenge, which means building Caddy with a DNS provider plugin. Without it, the S3 API is path-style only.
+- The control-plane's internal port (9000) must never be proxied to the public.
+- Activating a custom domain enables website access on the bucket, so its contents are also publicly readable at `<bucket>.web.<domain>`.
+- Bucket aliases are limited to 63 characters, so longer domains cannot be used as custom domains yet.
+- `replication_factor = 1` means no redundancy. For important data, run at least 3 nodes.

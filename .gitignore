@@ -6,3 +6,4 @@
 # tanpa file itu go:embed gagal di clone baru (mis. di CI).
 control/internal/ui/dist/*
 !control/internal/ui/dist/.gitkeep
+backups/

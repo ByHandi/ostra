@@ -131,13 +131,17 @@ Di belakang proxy lain, header ini bisa dipalsukan sehingga rate limit bisa dibo
 
 ## Fase 3: Operasional
 
-- [ ] Subcommand `control healthcheck` + `healthcheck` di compose (image `scratch` tidak punya curl)
-- [ ] Panduan backup dan restore: volume `garage-meta`, `garage-data`, dan `control.db`
-      (pakai `sqlite3 .backup` atau snapshot volume saat service berhenti)
-- [ ] Panduan upgrade antar versi (migrasi berjalan otomatis saat start)
-- [ ] `SECURITY.md`: cara melaporkan celah keamanan
-- [ ] README dalam bahasa Inggris (versi Indonesia tetap ada)
-- [ ] `CONTRIBUTING.md`: cara menjalankan dev, test, dan konvensi kode
+- [x] Subcommand `control healthcheck`; `/healthz` ikut mengecek database. Healthcheck di compose
+      untuk Garage, control-plane, dan Caddy; urutan start menunggu service sebelumnya `healthy`
+- [x] `scripts/backup.sh` dan `scripts/restore.sh`: cold backup semua volume + MANIFEST + SHA256SUMS,
+      restore menolak backup yang rusak sebelum mengubah apa pun. Diuji round-trip (backup → ubah
+      data → restore → data kembali, termasuk kepemilikan file database)
+- [x] Panduan backup/restore dan upgrade (termasuk rollback) di README
+- [x] `SECURITY.md`: pelaporan lewat GitHub private vulnerability reporting
+- [x] README dalam bahasa Inggris (`README.md`), versi Indonesia di `README.id.md`
+- [x] `CONTRIBUTING.md`: setup dev, cek yang sama dengan CI, dan konvensi kode
+- [ ] Aktifkan **Private vulnerability reporting** di Settings → Security repo GitHub
+      (dibutuhkan oleh alur di `SECURITY.md`)
 
 ---
 
