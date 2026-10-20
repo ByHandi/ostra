@@ -22,9 +22,9 @@ function DomainSummary({ domain }: { domain: Domain }) {
         </Link>
       ),
     },
-    { label: "Terakhir dicek", value: formatRelative(domain.lastCheckedAt) },
+    { label: "Last checked", value: formatRelative(domain.lastCheckedAt) },
     {
-      label: domain.activatedAt ? "Aktif sejak" : "Didaftarkan",
+      label: domain.activatedAt ? "Active since" : "Added",
       value: formatDate(domain.activatedAt ?? domain.createdAt),
     },
   ];
@@ -63,7 +63,7 @@ function DomainSummary({ domain }: { domain: Domain }) {
           rel="noreferrer"
           className="inline-flex w-fit items-center gap-1.5 text-sm text-primary hover:underline"
         >
-          Buka https://{domain.domain}
+          Open https://{domain.domain}
           <Icon name="external-link" className="size-3.5" />
         </a>
       )}
@@ -76,7 +76,7 @@ function DomainSummarySkeleton() {
     <div
       className="grid gap-4 rounded-lg border p-4 sm:grid-cols-2 lg:grid-cols-4"
       role="status"
-      aria-label="Memuat"
+      aria-label="Loading"
     >
       {Array.from({ length: 4 }, (_, i) => (
         <div key={i} className="space-y-2">

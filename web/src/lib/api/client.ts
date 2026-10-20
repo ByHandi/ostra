@@ -116,7 +116,7 @@ async function request<T = unknown, M = unknown>(
       credentials: "include",
     });
   } catch (cause) {
-    throw new ApiError("Server tidak bisa dihubungi", 0, { cause });
+    throw new ApiError("Can't reach the server", 0, { cause });
   }
 
   if (res.status === 401 && !isRetry && !skipsRefresh(path)) {
@@ -125,7 +125,7 @@ async function request<T = unknown, M = unknown>(
     }
 
     onSessionExpired();
-    throw new ApiError("Sesi sudah berakhir. Silakan login lagi.", 401);
+    throw new ApiError("Your session has expired. Please sign in again.", 401);
   }
 
   if (res.status === 204) return { success: true };
@@ -134,7 +134,7 @@ async function request<T = unknown, M = unknown>(
 
   if (!res.ok || !body?.success) {
     throw new ApiError(
-      body?.error?.message ?? body?.message ?? `Permintaan gagal (${res.status})`,
+      body?.error?.message ?? body?.message ?? `Request failed (${res.status})`,
       res.status,
       { type: body?.error?.type, fieldErrors: body?.error?.errors ?? null },
     );

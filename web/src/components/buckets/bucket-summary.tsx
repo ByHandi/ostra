@@ -6,15 +6,15 @@ import { formatBytes, formatDate, formatNumber } from "@/lib/format";
 
 function BucketSummary({ bucket }: { bucket: BucketDetail }) {
   const items = [
-    { label: "Objek", value: formatNumber(bucket.objects) },
-    { label: "Ukuran", value: formatBytes(bucket.bytes) },
-    { label: "Dibuat", value: formatDate(bucket.created) },
+    { label: "Objects", value: formatNumber(bucket.objects) },
+    { label: "Size", value: formatBytes(bucket.bytes) },
+    { label: "Created", value: formatDate(bucket.created) },
     {
-      label: "Akses website",
+      label: "Website access",
       value: bucket.websiteAccess ? (
-        <Badge variant="success">Publik (read-only)</Badge>
+        <Badge variant="success">Public (read-only)</Badge>
       ) : (
-        <Badge variant="secondary">Privat</Badge>
+        <Badge variant="secondary">Private</Badge>
       ),
     },
   ];
@@ -33,7 +33,7 @@ function BucketSummary({ bucket }: { bucket: BucketDetail }) {
         <p className="text-xs text-muted-foreground">Bucket ID</p>
         <div className="flex items-center gap-1">
           <code className="truncate font-mono text-xs">{bucket.id}</code>
-          <CopyButton value={bucket.id} label="Salin bucket ID" />
+          <CopyButton value={bucket.id} label="Copy bucket ID" />
         </div>
       </div>
     </div>
@@ -42,7 +42,7 @@ function BucketSummary({ bucket }: { bucket: BucketDetail }) {
 
 function BucketSummarySkeleton() {
   return (
-    <div className="flex flex-col gap-4 rounded-lg border p-4" role="status" aria-label="Memuat">
+    <div className="flex flex-col gap-4 rounded-lg border p-4" role="status" aria-label="Loading">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {Array.from({ length: 4 }, (_, i) => (
           <div key={i} className="space-y-2">

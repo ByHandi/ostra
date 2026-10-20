@@ -1,4 +1,4 @@
-// Package garage adalah client minimal untuk admin API Garage v2.
+// Package garage is a minimal client for the Garage v2 admin API.
 package garage
 
 import (
@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-// Error adalah respons error dari admin API, mis. {"code":"NoSuchBucket","message":"..."}.
+// Error is an error response from the admin API, e.g. {"code":"NoSuchBucket","message":"..."}.
 type Error struct {
 	Status  int    `json:"-"`
 	Code    string `json:"code"`
@@ -26,7 +26,7 @@ func (e *Error) Error() string {
 	return fmt.Sprintf("garage: %s (%d): %s", e.Code, e.Status, e.Message)
 }
 
-// IsNotFound melaporkan apakah err berarti bucket/key tidak ada.
+// IsNotFound reports whether err means the bucket/key does not exist.
 func IsNotFound(err error) bool {
 	var ge *Error
 	return errors.As(err, &ge) && ge.Status == http.StatusNotFound
@@ -52,7 +52,7 @@ type Permissions struct {
 	Owner bool `json:"owner"`
 }
 
-// BucketKey adalah access key yang punya izin di sebuah bucket.
+// BucketKey is an access key that has permissions on a bucket.
 type BucketKey struct {
 	AccessKeyID string      `json:"accessKeyId"`
 	Name        string      `json:"name"`
@@ -66,7 +66,7 @@ type Key struct {
 	Expired bool   `json:"expired"`
 }
 
-// KeyBucket adalah bucket yang bisa diakses sebuah key.
+// KeyBucket is a bucket that a key can access.
 type KeyBucket struct {
 	ID            string      `json:"id"`
 	GlobalAliases []string    `json:"globalAliases"`
@@ -78,7 +78,7 @@ type KeyInfo struct {
 	Name        string `json:"name"`
 	Created     string `json:"created"`
 	Expired     bool   `json:"expired"`
-	// SecretAccessKey hanya terisi di respons CreateKey.
+	// SecretAccessKey is only set in the CreateKey response.
 	SecretAccessKey string      `json:"secretAccessKey,omitempty"`
 	Buckets         []KeyBucket `json:"buckets"`
 }
@@ -93,7 +93,7 @@ type ClusterHealth struct {
 	PartitionsAllOk int    `json:"partitionsAllOk"`
 }
 
-// HasAlias melaporkan apakah alias global sudah terpasang di bucket ini.
+// HasAlias reports whether the global alias is already installed on this bucket.
 func (b Bucket) HasAlias(alias string) bool {
 	return slices.Contains(b.GlobalAliases, alias)
 }
@@ -142,19 +142,19 @@ func (c *Client) CreateBucket(ctx context.Context, alias string) (BucketInfo, er
 	return out, err
 }
 
-// DeleteBucket hanya berhasil untuk bucket kosong (Garage membalas 409 BucketNotEmpty).
+// DeleteBucket only succeeds for empty buckets (Garage replies 409 BucketNotEmpty).
 func (c *Client) DeleteBucket(ctx context.Context, id string) error {
 	return c.do(ctx, http.MethodPost, "/v2/DeleteBucket", url.Values{"id": {id}}, nil, nil)
 }
 
-// AddAlias memasang alias global. Aman diulang kalau alias sudah menunjuk ke bucket yang sama.
+// AddAlias installs a global alias. Safe to repeat if the alias already points to the same bucket.
 func (c *Client) AddAlias(ctx context.Context, bucketID, alias string) error {
 	return c.do(ctx, http.MethodPost, "/v2/AddBucketAlias", nil,
 		map[string]any{"bucketId": bucketID, "globalAlias": alias}, nil)
 }
 
-// RemoveAlias melepas alias global. Garage membalas 500 kalau alias sudah tidak ada,
-// jadi pemanggil sebaiknya cek HasAlias dulu.
+// RemoveAlias removes a global alias. Garage replies 500 if the alias no longer exists,
+// so callers should check HasAlias first.
 func (c *Client) RemoveAlias(ctx context.Context, bucketID, alias string) error {
 	return c.do(ctx, http.MethodPost, "/v2/RemoveBucketAlias", nil,
 		map[string]any{"bucketId": bucketID, "globalAlias": alias}, nil)
@@ -183,7 +183,7 @@ func (c *Client) GetKey(ctx context.Context, id string) (KeyInfo, error) {
 	return out, err
 }
 
-// CreateKey membuat access key. Secret hanya dikembalikan di sini, tidak bisa dibaca lagi lewat API.
+// CreateKey creates an access key. The secret is only returned here and cannot be read again via the API.
 func (c *Client) CreateKey(ctx context.Context, name string) (KeyInfo, error) {
 	var out KeyInfo
 	err := c.do(ctx, http.MethodPost, "/v2/CreateKey", nil, map[string]any{"name": name}, &out)
@@ -194,13 +194,13 @@ func (c *Client) DeleteKey(ctx context.Context, id string) error {
 	return c.do(ctx, http.MethodPost, "/v2/DeleteKey", url.Values{"id": {id}}, nil, nil)
 }
 
-// AllowBucketKey menambahkan izin yang bernilai true; izin yang false tidak diubah.
+// AllowBucketKey grants the permissions set to true; permissions set to false are left unchanged.
 func (c *Client) AllowBucketKey(ctx context.Context, bucketID, keyID string, p Permissions) error {
 	return c.do(ctx, http.MethodPost, "/v2/AllowBucketKey", nil,
 		map[string]any{"bucketId": bucketID, "accessKeyId": keyID, "permissions": p}, nil)
 }
 
-// DenyBucketKey mencabut izin yang bernilai true; izin yang false tidak diubah.
+// DenyBucketKey revokes the permissions set to true; permissions set to false are left unchanged.
 func (c *Client) DenyBucketKey(ctx context.Context, bucketID, keyID string, p Permissions) error {
 	return c.do(ctx, http.MethodPost, "/v2/DenyBucketKey", nil,
 		map[string]any{"bucketId": bucketID, "accessKeyId": keyID, "permissions": p}, nil)

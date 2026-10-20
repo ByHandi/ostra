@@ -1,7 +1,5 @@
 # storage-edge
 
-**English** · [Bahasa Indonesia](README.id.md)
-
 Self-hosted object storage in the spirit of Cloudflare R2: **Garage** stores the data, **Caddy** sits in front with automatic TLS, and a **control-plane** (Go + React dashboard) manages buckets, access keys, and per-bucket custom domains.
 
 ```

@@ -11,8 +11,8 @@ import (
 	"github.com/handi7/storage-edge/control/internal/service"
 )
 
-// envelope adalah bentuk semua respons /api, sama dengan yang diharapkan
-// web/src/lib/api/client.ts (dan go-service-boilerplate).
+// envelope is the shape of every /api response, matching what
+// web/src/lib/api/client.ts (and go-service-boilerplate) expects.
 type envelope struct {
 	Success    bool       `json:"success"`
 	StatusCode int        `json:"statusCode"`
@@ -52,7 +52,7 @@ func writeFail(w http.ResponseWriter, status int, typ, message string, fields ma
 	})
 }
 
-// writeError memetakan error ke status HTTP. Error yang tidak dikenal jadi 500 tanpa membocorkan detail.
+// writeError maps an error to an HTTP status. Unknown errors become a 500 without leaking details.
 func writeError(w http.ResponseWriter, r *http.Request, err error) {
 	var se *service.Error
 	if errors.As(err, &se) {
@@ -83,12 +83,12 @@ func writeError(w http.ResponseWriter, r *http.Request, err error) {
 		return
 	}
 
-	slog.Error("request gagal", "method", r.Method, "path", r.URL.Path, "err", err)
+	slog.Error("request failed", "method", r.Method, "path", r.URL.Path, "err", err)
 	if ge != nil {
-		writeFail(w, http.StatusBadGateway, "storage_error", "storage sedang bermasalah, coba lagi nanti", nil)
+		writeFail(w, http.StatusBadGateway, "storage_error", "storage is having problems, try again later", nil)
 		return
 	}
-	writeFail(w, http.StatusInternalServerError, "internal", "terjadi kesalahan internal", nil)
+	writeFail(w, http.StatusInternalServerError, "internal", "an internal error occurred", nil)
 }
 
 func fieldErrors(field, message string) map[string][]string {

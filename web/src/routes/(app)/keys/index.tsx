@@ -19,7 +19,7 @@ function Keys() {
     <>
       <AppHeader
         title="Access Keys"
-        description="Kredensial S3 API untuk aplikasi dan tool. Izin diatur per bucket."
+        description="S3 API credentials for apps and tools. Permissions are set per bucket."
         endContent={<CreateKeyDialog />}
       />
 
@@ -31,8 +31,8 @@ function Keys() {
         ) : keys.data.length === 0 ? (
           <EmptyState
             icon="key-round"
-            title="Belum ada access key"
-            description="Buat access key supaya aplikasi bisa membaca dan menulis ke bucket lewat S3 API."
+            title="No access keys yet"
+            description="Create an access key so apps can read from and write to buckets through the S3 API."
             action={<CreateKeyDialog />}
           />
         ) : (

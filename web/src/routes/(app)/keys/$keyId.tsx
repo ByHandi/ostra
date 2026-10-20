@@ -31,13 +31,13 @@ function KeyPage() {
     try {
       await deleteKey(keyId);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Gagal menghapus access key");
+      toast.error(error instanceof ApiError ? error.message : "Couldn't delete access key");
       throw error;
     }
     queryClient.removeQueries({ queryKey: storageKeys.key(keyId) });
     queryClient.invalidateQueries({ queryKey: storageKeys.keys, exact: true });
     queryClient.invalidateQueries({ queryKey: storageKeys.overview });
-    toast.success("Access key dihapus");
+    toast.success("Access key deleted");
     navigate({ to: "/keys" });
   };
 
@@ -48,14 +48,14 @@ function KeyPage() {
       <AppHeader
         showBackButton
         onBack={() => navigate({ to: "/keys" })}
-        title={k ? k.name || "Tanpa nama" : "Access key"}
-        description="Izin key ini di setiap bucket."
+        title={k ? k.name || "Unnamed" : "Access key"}
+        description="This key's permissions on each bucket."
         endContent={
           k && (
             <ConfirmDialog
-              title={`Hapus access key ${k.name || k.id}?`}
-              description="Aplikasi yang masih memakai key ini langsung kehilangan akses. Tindakan ini tidak bisa dibatalkan."
-              confirmText="Hapus key"
+              title={`Delete access key ${k.name || k.id}?`}
+              description="Apps still using this key lose access immediately. This action can't be undone."
+              confirmText="Delete key"
               onConfirm={remove}
               trigger={
                 <Button
@@ -63,7 +63,7 @@ function KeyPage() {
                   size="sm"
                   startContent={<Icon name="trash-2" className="size-4" />}
                 >
-                  Hapus
+                  Delete
                 </Button>
               }
             />
@@ -79,8 +79,8 @@ function KeyPage() {
             {k ? <KeyInfo id={k.id} created={k.created} /> : <KeyInfoSkeleton />}
 
             <Section
-              title="Izin bucket"
-              description="Centang untuk memberi izin. Perubahan langsung tersimpan."
+              title="Bucket permissions"
+              description="Check a box to grant a permission. Changes are saved immediately."
             >
               {!k || buckets.isPending ? (
                 <KeyPermissions.Skeleton />
@@ -104,14 +104,14 @@ function KeyInfo({ id, created }: { id: string; created: string }) {
         <p className="text-xs text-muted-foreground">Access key ID</p>
         <div className="flex items-center gap-1">
           <code className="truncate font-mono text-sm">{id}</code>
-          <CopyButton value={id} label="Salin access key ID" />
+          <CopyButton value={id} label="Copy access key ID" />
         </div>
         <p className="text-xs text-muted-foreground">
-          Secret key hanya ditampilkan saat key dibuat.
+          The secret key is shown only when the key is created.
         </p>
       </div>
       <div className="space-y-1">
-        <p className="text-xs text-muted-foreground">Dibuat</p>
+        <p className="text-xs text-muted-foreground">Created</p>
         <p className="text-sm">{formatDate(created)}</p>
       </div>
     </div>
@@ -123,7 +123,7 @@ function KeyInfoSkeleton() {
     <div
       className="grid gap-4 rounded-lg border p-4 sm:grid-cols-[1fr_auto]"
       role="status"
-      aria-label="Memuat"
+      aria-label="Loading"
     >
       <div className="space-y-2">
         <Skeleton className="h-3 w-24" />

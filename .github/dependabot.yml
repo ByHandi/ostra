@@ -1,9 +1,9 @@
-# Update dependency dibuat sesepi mungkin: sebulan sekali, satu PR per ekosistem
-# (semua update digabung), jadi paling banyak 5 PR per bulan.
+# Dependency updates are kept as quiet as possible: once a month, one PR per ecosystem
+# (all updates grouped), so at most 5 PRs per month.
 #
-# Celah keamanan tetap dideteksi lebih cepat lewat:
-#   - govulncheck dan npm audit di CI (juga jalan terjadwal tiap minggu, lihat ci.yml)
-#   - "Dependabot security updates" di Settings → Advanced Security (tidak butuh file ini)
+# Security vulnerabilities are still detected sooner through:
+#   - govulncheck and npm audit in CI (also run on a weekly schedule, see ci.yml)
+#   - "Dependabot security updates" in Settings → Advanced Security (does not need this file)
 version: 2
 
 updates:
@@ -23,7 +23,7 @@ updates:
       npm:
         patterns: ["*"]
 
-  # Dockerfile (node, golang) dan docker-compose (caddy, busybox, aws-cli) digabung per file.
+  # Dockerfile (node, golang) and docker-compose (caddy, busybox, aws-cli) are grouped per file.
   - package-ecosystem: docker
     directory: /control
     schedule:
@@ -40,8 +40,8 @@ updates:
       docker-compose:
         patterns: ["*"]
     ignore:
-      # Upgrade Garage menyentuh data (metadata, format blok), jadi dilakukan dengan sengaja:
-      # backup dulu, baca catatan rilis Garage, baru naikkan versinya manual.
+      # Upgrading Garage touches data (metadata, block format), so it is done deliberately:
+      # back up first, read the Garage release notes, then bump the version by hand.
       - dependency-name: dxflrs/garage
 
   - package-ecosystem: github-actions

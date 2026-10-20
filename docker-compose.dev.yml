@@ -1,19 +1,19 @@
-# Tambahan untuk development lokal (BASE_DOMAIN=localhost). Dipakai otomatis lewat
-# COMPOSE_FILE di .env yang dibuat `scripts/gen-env.sh --dev`. Jangan dipakai di production.
+# Development override for local development (BASE_DOMAIN=localhost). Used automatically via
+# COMPOSE_FILE in the .env created by `scripts/gen-env.sh --dev`. Never use it in production.
 services:
   garage:
     ports:
-      - "127.0.0.1:3900:3900" # S3 API langsung, untuk debug
-      - "127.0.0.1:3903:3903" # admin API, untuk control-plane yang dijalankan di host
+      - "127.0.0.1:3900:3900" # direct S3 API, for debugging
+      - "127.0.0.1:3903:3903" # admin API, for a control-plane running on the host
 
   control:
-    # Selalu build lokal, dan jangan menimpa tag image rilis.
+    # Always build locally, and never overwrite the release image tag.
     image: storage-edge-control:dev
     pull_policy: build
     ports:
-      - "127.0.0.1:8080:8080" # untuk `npm run dev` di web/ (proxy /api)
+      - "127.0.0.1:8080:8080" # for `npm run dev` in web/ (proxies /api)
     environment:
-      # Ditolak control-plane kalau EDGE_HOSTNAME bukan .localhost/.test.
+      # Refused by the control-plane if EDGE_HOSTNAME is not .localhost/.test.
       DNS_VERIFY: "off"
       COOKIE_SECURE: "false"
       DNS_SERVER: ""

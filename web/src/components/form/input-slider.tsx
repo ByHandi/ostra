@@ -125,7 +125,7 @@ function WithRHF<T extends FieldValues>(props: InputSliderWithRHFProps<T>) {
   const mergedRules = useMemo(() => {
     return {
       ...rules,
-      ...(rest.required && { required: "Wajib diisi" }),
+      ...(rest.required && { required: "This field is required" }),
     };
   }, [rules, rest.required]);
 

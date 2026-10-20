@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/table";
 import type { BucketKeyAccess } from "@/lib/api/storage";
 
-const COLUMNS = ["Access key", "Izin"];
+const COLUMNS = ["Access key", "Permissions"];
 
 /** Read-only: permissions are edited from the key's page, where every bucket is listed. */
 function BucketAccess({ keys }: { keys: BucketKeyAccess[] }) {
@@ -21,8 +21,8 @@ function BucketAccess({ keys }: { keys: BucketKeyAccess[] }) {
     return (
       <EmptyState
         icon="key-round"
-        title="Belum ada access key"
-        description="Tidak ada key yang bisa mengakses bucket ini lewat S3 API. Beri izin dari halaman Access Keys."
+        title="No access keys yet"
+        description="No key can access this bucket through the S3 API. Grant permissions from the Access Keys page."
       />
     );
   }

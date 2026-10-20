@@ -9,25 +9,25 @@ function describe(error: Error): { title: string; message: string } {
   if (error instanceof ApiError) {
     if (error.isNetworkError) {
       return {
-        title: "Server tidak bisa dihubungi",
-        message: "Periksa koneksi lalu coba lagi.",
+        title: "Can't reach the server",
+        message: "Check your connection and try again.",
       };
     }
 
     if (error.status === 403) {
       return {
-        title: "Kamu tidak punya akses ke halaman ini",
+        title: "You don't have access to this page",
         message: error.message,
       };
     }
 
-    return { title: "Halaman gagal dimuat", message: error.message };
+    return { title: "Couldn't load this page", message: error.message };
   }
 
   return {
-    title: "Terjadi kesalahan",
+    title: "Something went wrong",
     // Only in dev: a raw exception message can leak internals in production.
-    message: import.meta.env.DEV ? error.message : "Terjadi kesalahan yang tidak terduga.",
+    message: import.meta.env.DEV ? error.message : "An unexpected error occurred.",
   };
 }
 
@@ -48,7 +48,7 @@ export function RouteError({ error, reset }: ErrorComponentProps) {
         onClick={reset}
         startContent={<Icon name="rotate-ccw" className="size-4" />}
       >
-        Coba lagi
+        Try again
       </Button>
     </div>
   );

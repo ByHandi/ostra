@@ -18,7 +18,7 @@ export interface NavGroup {
 
 export const navGroups: NavGroup[] = [
   {
-    label: "Ringkasan",
+    label: "Overview",
     items: [{ title: "Dashboard", href: "/", icon: "layout-dashboard" }],
   },
   {
@@ -30,7 +30,7 @@ export const navGroups: NavGroup[] = [
     ],
   },
   {
-    label: "Akun",
-    items: [{ title: "Pengaturan", href: "/settings", icon: "settings" }],
+    label: "Account",
+    items: [{ title: "Settings", href: "/settings", icon: "settings" }],
   },
 ];

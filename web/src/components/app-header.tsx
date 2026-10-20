@@ -48,7 +48,7 @@ function AppHeader(props: AppHeaderProps) {
           startContent={<Icon name="arrow-left" className="size-4" />}
           onClick={onBack ?? (() => router.history.back())}
         >
-          Kembali
+          Back
         </Button>
       )}
 

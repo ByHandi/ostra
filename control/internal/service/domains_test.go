@@ -12,8 +12,8 @@ import (
 	"github.com/handi7/storage-edge/control/internal/store"
 )
 
-// fakeGarage meniru perilaku admin API Garage yang relevan, termasuk 500 saat
-// RemoveAlias untuk alias yang tidak ada.
+// fakeGarage mimics the relevant Garage admin API behavior, including a 500 on
+// RemoveAlias for an alias that does not exist.
 type fakeGarage struct {
 	buckets map[string]*garage.BucketInfo // by id
 	keys    map[string]*garage.KeyInfo    // by id
@@ -126,7 +126,7 @@ func (g *fakeGarage) ListKeys(context.Context) ([]garage.Key, error) {
 	return out, nil
 }
 
-// GetKey menurunkan daftar bucket dari izin yang tercatat di bucket, seperti Garage.
+// GetKey derives the bucket list from the permissions recorded on buckets, like Garage.
 func (g *fakeGarage) GetKey(_ context.Context, id string) (garage.KeyInfo, error) {
 	k, ok := g.keys[id]
 	if !ok {
@@ -202,8 +202,8 @@ func newTestService(t *testing.T, g *fakeGarage, dns *fakeDNS, verify bool) *Ser
 	t.Cleanup(func() { sqlDB.Close() })
 	return New(store.New(sqlDB), g, dns, Options{
 		DNSVerify:       verify,
-		ReservedDomains: []string{"domainku.com"},
-		WebRootDomain:   ".web.domainku.com",
+		ReservedDomains: []string{"example.com"},
+		WebRootDomain:   ".web.example.com",
 	})
 }
 
@@ -218,7 +218,7 @@ func wantKind(t *testing.T, err error, kind Kind) {
 func TestDomainLifecycle(t *testing.T) {
 	ctx := context.Background()
 	g := newFakeGarage("assets")
-	dns := &fakeDNS{err: errors.New("record TXT belum ada")}
+	dns := &fakeDNS{err: errors.New("TXT record missing")}
 	svc := newTestService(t, g, dns, true)
 
 	d, err := svc.CreateDomain(ctx, " CDN.Brand.com. ", "assets")
@@ -229,46 +229,46 @@ func TestDomainLifecycle(t *testing.T) {
 		t.Fatalf("Create() = %+v", d)
 	}
 
-	// DNS belum siap: tetap pending, pesan error disimpan, alias belum dipasang.
+	// DNS not ready: stays pending, error message stored, alias not installed yet.
 	d, err = svc.VerifyDomain(ctx, d.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if d.Status != StatusPending || d.LastError == "" || g.buckets["id-assets"].HasAlias("cdn.brand.com") {
-		t.Fatalf("Verify() sebelum DNS siap = %+v", d)
+		t.Fatalf("Verify() before DNS ready = %+v", d)
 	}
 	if ok, _ := svc.AllowCertificate(ctx, "cdn.brand.com"); ok {
-		t.Fatal("domain pending tidak boleh dapat sertifikat")
+		t.Fatal("pending domain must not get a certificate")
 	}
 
-	// DNS siap: worker mengaktifkan domain.
+	// DNS ready: the worker activates the domain.
 	dns.err = nil
 	svc.verifyPending(ctx)
 	d, _ = svc.GetDomain(ctx, d.ID)
 	b := g.buckets["id-assets"]
 	if d.Status != StatusActive || !b.HasAlias("cdn.brand.com") || !b.WebsiteAccess {
-		t.Fatalf("setelah verifikasi: domain=%+v bucket=%+v", d, b)
+		t.Fatalf("after verification: domain=%+v bucket=%+v", d, b)
 	}
 	if ok, _ := svc.AllowCertificate(ctx, "CDN.brand.com"); !ok {
-		t.Fatal("domain aktif harus dapat sertifikat")
+		t.Fatal("active domain must get a certificate")
 	}
 
-	// Duplikat ditolak.
+	// Duplicates are rejected.
 	_, err = svc.CreateDomain(ctx, "cdn.brand.com", "assets")
 	wantKind(t, err, KindConflict)
 
-	// Bucket list memakai alias non-domain sebagai nama.
+	// The bucket list uses the non-domain alias as the name.
 	buckets, err := svc.ListBuckets(ctx)
 	if err != nil || len(buckets) != 1 || buckets[0].Name != "assets" {
 		t.Fatalf("ListBuckets() = %+v, %v", buckets, err)
 	}
 
-	// Hapus melepas alias.
+	// Deleting removes the alias.
 	if err := svc.DeleteDomain(ctx, d.ID); err != nil {
 		t.Fatal(err)
 	}
 	if b.HasAlias("cdn.brand.com") {
-		t.Fatal("alias masih terpasang setelah domain dihapus")
+		t.Fatal("alias still installed after domain was deleted")
 	}
 	_, err = svc.GetDomain(ctx, d.ID)
 	wantKind(t, err, KindNotFound)
@@ -276,7 +276,7 @@ func TestDomainLifecycle(t *testing.T) {
 
 func TestCreateWithoutDNSVerifyActivatesImmediately(t *testing.T) {
 	g := newFakeGarage("assets")
-	svc := newTestService(t, g, &fakeDNS{err: errors.New("tidak boleh dipanggil")}, false)
+	svc := newTestService(t, g, &fakeDNS{err: errors.New("must not be called")}, false)
 
 	d, err := svc.CreateDomain(context.Background(), "cdn.brand.localhost", "assets")
 	if err != nil {
@@ -297,10 +297,10 @@ func TestCreateRejects(t *testing.T) {
 		domain, bucket string
 		kind           Kind
 	}{
-		{"cdn.brand.com", "tidak-ada", KindInvalid},
+		{"cdn.brand.com", "missing", KindInvalid},
 		{"cdn.brand.com", " ", KindInvalid},
-		{"assets.web.domainku.com", "assets", KindInvalid},
-		{"domainku.com", "assets", KindInvalid},
+		{"assets.web.example.com", "assets", KindInvalid},
+		{"example.com", "assets", KindInvalid},
 		{"taken.brand.com", "assets", KindConflict},
 	}
 	for _, tt := range tests {
@@ -312,14 +312,14 @@ func TestCreateRejects(t *testing.T) {
 func TestActivateErrors(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("garage menolak alias", func(t *testing.T) {
+	t.Run("garage rejects alias", func(t *testing.T) {
 		g := newFakeGarage("assets", "other")
 		svc := newTestService(t, g, &fakeDNS{}, true)
 		d, err := svc.CreateDomain(ctx, "cdn.brand.com", "assets")
 		if err != nil {
 			t.Fatal(err)
 		}
-		// Bucket lain mengambil alias setelah domain didaftarkan.
+		// Another bucket takes the alias after the domain is registered.
 		g.AddAlias(ctx, "id-other", "cdn.brand.com")
 
 		d, err = svc.VerifyDomain(ctx, d.ID)
@@ -331,7 +331,7 @@ func TestActivateErrors(t *testing.T) {
 		}
 	})
 
-	t.Run("garage down tetap pending", func(t *testing.T) {
+	t.Run("garage down stays pending", func(t *testing.T) {
 		g := newFakeGarage("assets")
 		svc := newTestService(t, g, &fakeDNS{}, true)
 		d, err := svc.CreateDomain(ctx, "cdn.brand.com", "assets")
@@ -345,7 +345,7 @@ func TestActivateErrors(t *testing.T) {
 			t.Fatal(err)
 		}
 		if d.Status != StatusPending || d.LastError == "" {
-			t.Fatalf("Verify() = %+v, want pending dengan pesan error", d)
+			t.Fatalf("Verify() = %+v, want pending with an error message", d)
 		}
 	})
 }
@@ -359,14 +359,14 @@ func TestReconcileRestoresAlias(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Alias hilang dari Garage (mis. dihapus manual).
+	// Alias missing from Garage (e.g. deleted manually).
 	g.RemoveAlias(ctx, "id-assets", "cdn.brand.com")
 	svc.reconcile(ctx)
 	if !g.buckets["id-assets"].HasAlias("cdn.brand.com") {
-		t.Fatal("reconcile tidak memasang ulang alias")
+		t.Fatal("reconcile did not reinstall the alias")
 	}
 
-	// Bucket dihapus: domain jadi error.
+	// Bucket deleted: the domain goes to error.
 	delete(g.buckets, "id-assets")
 	svc.reconcile(ctx)
 	d, _ = svc.GetDomain(ctx, d.ID)
@@ -374,7 +374,7 @@ func TestReconcileRestoresAlias(t *testing.T) {
 		t.Fatalf("status = %s, want error", d.Status)
 	}
 
-	// Hapus domain yang bucket-nya sudah hilang tetap berhasil.
+	// Deleting a domain whose bucket is gone still succeeds.
 	if err := svc.DeleteDomain(ctx, d.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -387,13 +387,13 @@ func TestAllowCertificateWebRoot(t *testing.T) {
 	svc := newTestService(t, g, &fakeDNS{}, true)
 
 	tests := map[string]bool{
-		"assets.web.domainku.com":   true,
-		"private.web.domainku.com":  false, // website tidak aktif
-		"missing.web.domainku.com":  false,
-		"a.assets.web.domainku.com": false,
-		"web.domainku.com":          false,
-		"random.example.com":        false,
-		"":                          false,
+		"assets.web.example.com":   true,
+		"private.web.example.com":  false, // website not enabled
+		"missing.web.example.com":  false,
+		"a.assets.web.example.com": false,
+		"web.example.com":          false,
+		"random.example.com":       false,
+		"":                         false,
 	}
 	for host, want := range tests {
 		got, err := svc.AllowCertificate(ctx, host)

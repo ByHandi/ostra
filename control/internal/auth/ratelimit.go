@@ -7,8 +7,8 @@ import (
 	"golang.org/x/time/rate"
 )
 
-// LoginLimiter membatasi percobaan login per IP: burst kecil, lalu satu percobaan
-// tiap interval. Cukup untuk menghambat brute force pada dashboard admin.
+// LoginLimiter rate-limits login attempts per IP: a small burst, then one attempt
+// per interval. Enough to slow down brute force against the admin dashboard.
 type LoginLimiter struct {
 	mu       sync.Mutex
 	limiters map[string]*entry
@@ -43,7 +43,7 @@ func (l *LoginLimiter) Allow(ip string) bool {
 	return e.limiter.Allow()
 }
 
-// prune membuang IP yang sudah lama tidak mencoba; limiter-nya pasti sudah penuh lagi.
+// prune drops IPs that have not tried for a while; their limiters are certainly full again.
 func (l *LoginLimiter) prune(now time.Time) {
 	idle := l.every * time.Duration(l.burst)
 	for ip, e := range l.limiters {

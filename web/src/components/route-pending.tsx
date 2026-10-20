@@ -9,7 +9,7 @@ export function RoutePending() {
     <div
       className="flex min-h-[50vh] items-center justify-center"
       role="status"
-      aria-label="Memuat"
+      aria-label="Loading"
     >
       <Spinner className="size-6 text-muted-foreground" />
     </div>

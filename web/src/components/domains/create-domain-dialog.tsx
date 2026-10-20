@@ -54,8 +54,8 @@ export function CreateDomainDialog({ bucket }: CreateDomainDialogProps) {
       ]);
       toast.success(
         domain.status === "active"
-          ? `${domain.domain} langsung aktif`
-          : `${domain.domain} didaftarkan. Pasang record DNS-nya.`,
+          ? `${domain.domain} is active`
+          : `${domain.domain} added. Set up its DNS records.`,
       );
       setOpen(false);
       reset();
@@ -76,15 +76,16 @@ export function CreateDomainDialog({ bucket }: CreateDomainDialogProps) {
     >
       <DialogTrigger asChild>
         <Button size="sm" startContent={<Icon name="plus" className="size-4" />}>
-          Tambah domain
+          Add domain
         </Button>
       </DialogTrigger>
       <DialogContent>
         <form onSubmit={onSubmit} className="flex flex-col gap-6">
           <DialogHeader>
-            <DialogTitle>Tambah custom domain</DialogTitle>
+            <DialogTitle>Add custom domain</DialogTitle>
             <DialogDescription>
-              Isi bucket akan bisa dibaca publik lewat domain ini setelah DNS-nya terverifikasi.
+              The bucket's contents will be publicly readable through this domain once its DNS is
+              verified.
             </DialogDescription>
           </DialogHeader>
 
@@ -93,7 +94,7 @@ export function CreateDomainDialog({ bucket }: CreateDomainDialogProps) {
               control={control}
               name="domain"
               label="Domain"
-              placeholder="cdn.contoh.com"
+              placeholder="cdn.example.com"
               autoComplete="off"
               autoFocus
               required
@@ -103,7 +104,7 @@ export function CreateDomainDialog({ bucket }: CreateDomainDialogProps) {
                 control={control}
                 name="bucket"
                 label="Bucket"
-                placeholder={buckets.isPending ? "Memuat bucket…" : "Pilih bucket"}
+                placeholder={buckets.isPending ? "Loading buckets…" : "Select a bucket"}
                 disabled={buckets.isPending}
                 required
                 options={(buckets.data ?? []).map((b) => ({ label: b.name, value: b.name }))}
@@ -114,11 +115,11 @@ export function CreateDomainDialog({ bucket }: CreateDomainDialogProps) {
           <DialogFooter>
             <DialogClose asChild>
               <Button type="button" variant="outline">
-                Batal
+                Cancel
               </Button>
             </DialogClose>
-            <Button type="submit" isLoading={formState.isSubmitting} loadingText="Mendaftarkan">
-              Daftarkan
+            <Button type="submit" isLoading={formState.isSubmitting} loadingText="Adding">
+              Add domain
             </Button>
           </DialogFooter>
         </form>

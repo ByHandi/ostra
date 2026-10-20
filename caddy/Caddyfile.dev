@@ -1,5 +1,5 @@
-# Development: semua sertifikat diterbitkan CA lokal Caddy (bukan Let's Encrypt).
-# Env sama dengan Caddyfile production (CONSOLE_DOMAIN, S3_DOMAIN), dengan BASE_DOMAIN=localhost.
+# Development: all certificates are issued by Caddy's local CA (not Let's Encrypt).
+# Same env as the production Caddyfile (CONSOLE_DOMAIN, S3_DOMAIN), with BASE_DOMAIN=localhost.
 {
 	local_certs
 	on_demand_tls {
@@ -7,7 +7,7 @@
 	}
 }
 
-# S3 API (path-style dan virtual-hosted style)
+# S3 API (path-style and virtual-hosted style)
 {$S3_DOMAIN}, *.{$S3_DOMAIN} {
 	reverse_proxy garage:3900
 }
@@ -17,7 +17,7 @@
 	reverse_proxy control:8080
 }
 
-# Semua domain lain: custom domain per bucket dan <bucket>.web.localhost.
+# All other domains: per-bucket custom domains and <bucket>.web.localhost.
 https:// {
 	tls {
 		on_demand

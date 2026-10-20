@@ -1,4 +1,4 @@
-// Package db menyimpan migrasi SQL yang di-embed ke binary.
+// Package db holds the SQL migrations embedded into the binary.
 package db
 
 import "embed"

@@ -56,7 +56,8 @@ docker run --rm -v "$PWD:/mnt" -w /mnt koalaman/shellcheck:v0.11.0 scripts/*.sh
   generated code.
 - **Frontend:** data components ship their own loading skeleton as a static property
   (`BucketTable.Skeleton`), pages use `useQuery`, and API types live in `web/src/lib/api`.
-  UI copy is currently in Indonesian; keep new strings consistent with the surrounding text.
+- **Language:** all code, comments, log and error messages, UI copy, and docs are written in
+  English.
 - **Security-sensitive changes** (auth, Caddy `ask`, proxies, Docker config) need a test that
   shows the unsafe case is rejected.
 - **Tests:** new behavior comes with tests. Service-level tests use the in-memory Garage fake in

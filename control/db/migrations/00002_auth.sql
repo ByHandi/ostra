@@ -8,7 +8,7 @@ CREATE TABLE users (
     updated_at    TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 
--- Satu baris per refresh token. Yang disimpan hanya hash SHA-256-nya.
+-- One row per refresh token. Only its SHA-256 hash is stored.
 CREATE TABLE sessions (
     id         INTEGER PRIMARY KEY,
     user_id    INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,

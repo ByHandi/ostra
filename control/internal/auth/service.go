@@ -1,5 +1,5 @@
-// Package auth mengelola akun admin dashboard: login, access token (JWT, umur pendek, disimpan
-// di memory oleh FE), dan refresh token (acak, dirotasi setiap dipakai, dikirim lewat cookie httpOnly).
+// Package auth manages dashboard admin accounts: login, access tokens (JWT, short-lived, kept
+// in memory by the FE), and refresh tokens (random, rotated on every use, sent via an httpOnly cookie).
 package auth
 
 import (
@@ -18,20 +18,20 @@ import (
 	"github.com/handi7/storage-edge/control/internal/store"
 )
 
-// timeLayout sama dengan format timestamp yang ditulis SQLite (strftime), supaya
-// perbandingan string expires_at > now benar.
+// timeLayout matches the timestamp format SQLite writes (strftime), so that
+// the string comparison expires_at > now is correct.
 const timeLayout = "2006-01-02T15:04:05.000Z"
 
 var (
-	// ErrInvalidCredentials dipakai untuk email tidak ada maupun password salah,
-	// supaya tidak bisa dipakai menebak email yang terdaftar.
-	ErrInvalidCredentials = errors.New("email atau password salah")
-	ErrSessionExpired     = errors.New("sesi sudah berakhir, silakan login lagi")
-	ErrUserExists         = errors.New("user dengan email ini sudah ada")
-	ErrUserNotFound       = errors.New("user tidak ditemukan")
+	// ErrInvalidCredentials is used for both an unknown email and a wrong password,
+	// so it cannot be used to guess which emails are registered.
+	ErrInvalidCredentials = errors.New("invalid email or password")
+	ErrSessionExpired     = errors.New("session expired, please log in again")
+	ErrUserExists         = errors.New("a user with this email already exists")
+	ErrUserNotFound       = errors.New("user not found")
 )
 
-// FieldError adalah kesalahan input yang terkait satu field form.
+// FieldError is an input error tied to a single form field.
 type FieldError struct {
 	Field   string
 	Message string
@@ -50,14 +50,14 @@ type Service struct {
 	q          *store.Queries
 	tokens     tokens
 	refreshTTL time.Duration
-	// dummyHash dipakai saat email tidak ditemukan, supaya waktu respons login sama.
+	// dummyHash is used when the email is not found, so login response time stays the same.
 	dummyHash string
 	now       func() time.Time
 }
 
 func NewService(db *sql.DB, opts Options) (*Service, error) {
 	if len(opts.JWTSecret) < 32 {
-		return nil, errors.New("JWT secret minimal 32 karakter")
+		return nil, errors.New("JWT secret must be at least 32 characters")
 	}
 	dummy, err := HashPassword("dummy-password-for-timing")
 	if err != nil {
@@ -73,7 +73,7 @@ func NewService(db *sql.DB, opts Options) (*Service, error) {
 	}, nil
 }
 
-// Session adalah hasil login atau refresh.
+// Session is the result of a login or refresh.
 type Session struct {
 	AccessToken  string
 	ExpiresIn    time.Duration
@@ -81,7 +81,7 @@ type Session struct {
 	RefreshTTL   time.Duration
 }
 
-// Client mencatat asal sesi, hanya untuk informasi.
+// Client records where a session came from, for information only.
 type Client struct {
 	UserAgent string
 	IP        string
@@ -103,13 +103,13 @@ func (s *Service) Login(ctx context.Context, email, password string, c Client) (
 		return Session{}, err
 	}
 
-	// Kesempatan murah untuk membersihkan sesi kedaluwarsa.
+	// A cheap opportunity to clean up expired sessions.
 	s.q.DeleteExpiredSessions(ctx, s.now().UTC().Format(timeLayout))
 
 	return s.newSession(ctx, s.q, user.ID, c)
 }
 
-// Refresh menukar refresh token dengan pasangan token baru. Token lama langsung dihapus (rotasi).
+// Refresh exchanges a refresh token for a new token pair. The old token is deleted immediately (rotation).
 func (s *Service) Refresh(ctx context.Context, refreshToken string, c Client) (Session, error) {
 	if refreshToken == "" {
 		return Session{}, ErrSessionExpired
@@ -151,7 +151,7 @@ func (s *Service) Logout(ctx context.Context, refreshToken string) error {
 	return s.q.DeleteSessionByHash(ctx, hashToken(refreshToken))
 }
 
-// Authenticate memverifikasi access token dan mengembalikan user-nya.
+// Authenticate verifies an access token and returns its user.
 func (s *Service) Authenticate(ctx context.Context, accessToken string) (store.User, error) {
 	id, err := s.tokens.verify(accessToken)
 	if err != nil {
@@ -159,14 +159,14 @@ func (s *Service) Authenticate(ctx context.Context, accessToken string) (store.U
 	}
 	user, err := s.q.GetUser(ctx, id)
 	if errors.Is(err, sql.ErrNoRows) {
-		// User sudah dihapus, token-nya ikut tidak berlaku.
+		// The user has been deleted, so their token is no longer valid either.
 		return store.User{}, ErrInvalidToken
 	}
 	return user, err
 }
 
-// ChangePassword mengganti password lalu mengakhiri semua sesi user tersebut,
-// dan membuka sesi baru untuk client yang sedang dipakai.
+// ChangePassword changes the password, then ends all of that user's sessions
+// and opens a new session for the current client.
 func (s *Service) ChangePassword(ctx context.Context, userID int64, current, next string, c Client) (Session, error) {
 	user, err := s.q.GetUser(ctx, userID)
 	if err != nil {
@@ -174,7 +174,7 @@ func (s *Service) ChangePassword(ctx context.Context, userID int64, current, nex
 	}
 	if err := VerifyPassword(user.PasswordHash, current); err != nil {
 		if errors.Is(err, errMismatch) {
-			return Session{}, &FieldError{Field: "currentPassword", Message: "password saat ini salah"}
+			return Session{}, &FieldError{Field: "currentPassword", Message: "current password is incorrect"}
 		}
 		return Session{}, err
 	}
@@ -207,15 +207,15 @@ func (s *Service) ChangePassword(ctx context.Context, userID int64, current, nex
 	return out, tx.Commit()
 }
 
-// CreateUser dipakai CLI `control createuser`.
+// CreateUser is used by the CLI `control createuser`.
 func (s *Service) CreateUser(ctx context.Context, email, name, password string) (store.User, error) {
 	email = strings.TrimSpace(email)
 	if _, err := mail.ParseAddress(email); err != nil {
-		return store.User{}, fmt.Errorf("email %q tidak valid", email)
+		return store.User{}, fmt.Errorf("email %q is not valid", email)
 	}
 	name = strings.TrimSpace(name)
 	if name == "" {
-		return store.User{}, errors.New("nama wajib diisi")
+		return store.User{}, errors.New("name is required")
 	}
 	if err := validatePassword(password); err != nil {
 		return store.User{}, err
@@ -234,7 +234,7 @@ func (s *Service) CreateUser(ctx context.Context, email, name, password string) 
 	return s.q.CreateUser(ctx, store.CreateUserParams{Email: email, Name: name, PasswordHash: hash})
 }
 
-// SetPassword dipakai CLI `control setpassword` untuk reset password tanpa password lama.
+// SetPassword is used by the CLI `control setpassword` to reset a password without the old one.
 func (s *Service) SetPassword(ctx context.Context, email, password string) error {
 	user, err := s.q.GetUserByEmail(ctx, strings.TrimSpace(email))
 	if errors.Is(err, sql.ErrNoRows) {
@@ -289,7 +289,7 @@ func (s *Service) newSession(ctx context.Context, q *store.Queries, userID int64
 
 func validatePassword(p string) error {
 	if len(p) < MinPasswordLength {
-		return fmt.Errorf("password minimal %d karakter", MinPasswordLength)
+		return fmt.Errorf("password must be at least %d characters", MinPasswordLength)
 	}
 	return nil
 }

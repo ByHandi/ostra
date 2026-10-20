@@ -15,7 +15,7 @@ interface PageErrorProps {
  * scattered across route pages so every failure looks the same.
  */
 export function PageError(props: PageErrorProps) {
-  const { title = "Halaman gagal dimuat", message, className } = props;
+  const { title = "Couldn't load this page", message, className } = props;
 
   return (
     <div

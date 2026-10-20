@@ -1,13 +1,13 @@
-# Konfigurasi production. Semua yang khusus development ada di docker-compose.dev.yml
-# (dipakai otomatis kalau .env dibuat dengan `scripts/gen-env.sh --dev`).
+# Production configuration. Everything development-specific lives in docker-compose.dev.yml
+# (used automatically when .env was created with `scripts/gen-env.sh --dev`).
 name: storage-edge
 
 services:
-  # Membuat garage.toml dari template dengan BASE_DOMAIN, lalu selesai.
+  # Renders garage.toml from the template with BASE_DOMAIN, then exits.
   garage-config:
     image: busybox:1.37.0
     environment:
-      BASE_DOMAIN: ${BASE_DOMAIN:?isi BASE_DOMAIN di .env, mis. domainku.com}
+      BASE_DOMAIN: ${BASE_DOMAIN:?set BASE_DOMAIN in .env, e.g. example.com}
     volumes:
       - ./garage/garage.toml.tmpl:/template/garage.toml.tmpl:ro
       - garage-config:/config
@@ -16,23 +16,23 @@ services:
       - -c
       - |
         case "$$BASE_DOMAIN" in
-          *[!a-z0-9.-]*) echo "BASE_DOMAIN tidak valid: $$BASE_DOMAIN" >&2; exit 1 ;;
+          *[!a-z0-9.-]*) echo "invalid BASE_DOMAIN: $$BASE_DOMAIN" >&2; exit 1 ;;
         esac
         sed "s/__BASE_DOMAIN__/$$BASE_DOMAIN/g" /template/garage.toml.tmpl > /config/garage.toml
 
   garage:
     image: dxflrs/garage:v2.4.1
     restart: unless-stopped
-    # --single-node: layout cluster dibuat otomatis saat pertama jalan.
+    # --single-node: the cluster layout is created automatically on first start.
     command: ["/garage", "server", "--single-node"]
     depends_on:
       garage-config:
         condition: service_completed_successfully
     environment:
       GARAGE_CONFIG_FILE: /etc/garage/garage.toml
-      GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET:?jalankan scripts/gen-env.sh dulu}
-      GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN:?jalankan scripts/gen-env.sh dulu}
-      GARAGE_METRICS_TOKEN: ${GARAGE_METRICS_TOKEN:?jalankan scripts/gen-env.sh dulu}
+      GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET:?run scripts/gen-env.sh first}
+      GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN:?run scripts/gen-env.sh first}
+      GARAGE_METRICS_TOKEN: ${GARAGE_METRICS_TOKEN:?run scripts/gen-env.sh first}
     volumes:
       - garage-config:/etc/garage:ro
       - garage-meta:/var/lib/garage/meta
@@ -46,8 +46,8 @@ services:
       start_interval: 2s
 
   control:
-    # Image rilis dari GitHub Actions. Pin versi lewat CONTROL_IMAGE di .env, mis.
-    # ghcr.io/byhandi/storage-edge:0.1.0. `docker compose up -d --build` membangun dari source.
+    # Release image from GitHub Actions. Pin a version with CONTROL_IMAGE in .env, e.g.
+    # ghcr.io/byhandi/storage-edge:0.1.0. `docker compose up -d --build` builds from source.
     image: ${CONTROL_IMAGE:-ghcr.io/byhandi/storage-edge:latest}
     build:
       context: .
@@ -61,18 +61,18 @@ services:
       INTERNAL_LISTEN_ADDR: ":9000"
       DB_PATH: /data/control.db
       GARAGE_ADMIN_URL: http://garage:3903
-      GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN:?jalankan scripts/gen-env.sh dulu}
-      CONTROL_JWT_SECRET: ${CONTROL_JWT_SECRET:?jalankan scripts/gen-env.sh dulu}
+      GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN:?run scripts/gen-env.sh first}
+      CONTROL_JWT_SECRET: ${CONTROL_JWT_SECRET:?run scripts/gen-env.sh first}
       EDGE_HOSTNAME: ${EDGE_HOSTNAME:-edge.${BASE_DOMAIN}}
       WEB_ROOT_DOMAIN: .web.${BASE_DOMAIN}
       RESERVED_DOMAINS: ${RESERVED_DOMAINS:-s3.${BASE_DOMAIN},console.${BASE_DOMAIN}}
       DNS_SERVER: ${DNS_SERVER:-1.1.1.1:53}
-      # Kosong = loopback + jaringan privat (Caddy bawaan). Isi kalau ada proxy lain di depan Caddy.
+      # Empty = loopback + private networks (the bundled Caddy). Set it if another proxy sits in front of Caddy.
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
     volumes:
       - control-data:/data
     healthcheck:
-      # Image scratch tidak punya curl; binary-nya sendiri yang memanggil /healthz.
+      # The scratch image has no curl; the binary itself calls /healthz.
       test: ["CMD", "/control", "healthcheck"]
       interval: 30s
       timeout: 5s
@@ -89,7 +89,7 @@ services:
       control:
         condition: service_healthy
     environment:
-      ACME_EMAIL: ${ACME_EMAIL:?isi ACME_EMAIL di .env (dipakai Let's Encrypt)}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in .env (used by Let's Encrypt)}
       CONSOLE_DOMAIN: console.${BASE_DOMAIN}
       S3_DOMAIN: s3.${BASE_DOMAIN}
     ports:

@@ -22,7 +22,7 @@ func TestBuckets(t *testing.T) {
 	_, err = svc.CreateBucket(ctx, "media")
 	wantKind(t, err, KindConflict)
 
-	// Bucket dengan custom domain tidak bisa dihapus.
+	// A bucket with a custom domain cannot be deleted.
 	if _, err := svc.CreateDomain(ctx, "cdn.brand.com", "media"); err != nil {
 		t.Fatal(err)
 	}
@@ -38,7 +38,7 @@ func TestBuckets(t *testing.T) {
 	err = svc.DeleteBucket(ctx, b.ID)
 	wantKind(t, err, KindConflict)
 
-	// Bucket berisi objek tidak bisa dihapus.
+	// A bucket that contains objects cannot be deleted.
 	g.buckets["id-assets"].Objects = 3
 	wantKind(t, svc.DeleteBucket(ctx, "id-assets"), KindConflict)
 
@@ -64,7 +64,7 @@ func TestKeys(t *testing.T) {
 		t.Fatalf("CreateKey() = %+v, %v", k, err)
 	}
 
-	// Beri read+write, lalu cabut write.
+	// Grant read+write, then revoke write.
 	d, err := svc.SetKeyPermissions(ctx, k.ID, "id-assets", garage.Permissions{Read: true, Write: true})
 	if err != nil || len(d.Buckets) != 1 || d.Buckets[0].BucketName != "assets" ||
 		d.Buckets[0].Permissions != (garage.Permissions{Read: true, Write: true}) {
@@ -79,7 +79,7 @@ func TestKeys(t *testing.T) {
 		t.Fatalf("GetBucket().Keys = %+v, %v", bd.Keys, err)
 	}
 
-	// Cabut semua izin: key tidak lagi punya akses ke bucket.
+	// Revoke all permissions: the key no longer has access to the bucket.
 	d, err = svc.SetKeyPermissions(ctx, k.ID, "id-assets", garage.Permissions{})
 	if err != nil || len(d.Buckets) != 0 {
 		t.Fatalf("SetKeyPermissions(none) = %+v, %v", d, err)

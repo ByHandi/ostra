@@ -4,8 +4,8 @@
 **/*.db
 **/*.db-*
 web/.tanstack
-# Dashboard selalu di-build ulang di stage `web`, jangan pakai hasil build lokal.
+# The dashboard is always rebuilt in the `web` stage; never use a local build.
 control/internal/ui/dist
 
-# Backup lokal (berisi data dan mungkin secret)
+# Local backups (contain data and possibly secrets)
 backups

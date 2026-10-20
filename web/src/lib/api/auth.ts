@@ -18,7 +18,7 @@ export async function login(credentials: LoginCredentials): Promise<void> {
   const token = res.data?.access_token;
 
   if (!token) {
-    throw new ApiError("Login berhasil, tapi server tidak mengirim access token.", 500);
+    throw new ApiError("Signed in, but the server did not return an access token.", 500);
   }
 
   setAccessToken(token);

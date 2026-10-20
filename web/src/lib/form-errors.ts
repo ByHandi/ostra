@@ -28,5 +28,7 @@ export function applyApiError<T extends FieldValues>(
     if (applied) return;
   }
 
-  toast.error(error instanceof ApiError ? error.message : "Terjadi kesalahan. Silakan coba lagi.");
+  toast.error(
+    error instanceof ApiError ? error.message : "Something went wrong. Please try again.",
+  );
 }

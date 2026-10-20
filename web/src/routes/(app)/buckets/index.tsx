@@ -19,7 +19,7 @@ function Buckets() {
     <>
       <AppHeader
         title="Buckets"
-        description="Wadah objek. Diakses lewat S3 API dengan access key, atau publik lewat custom domain."
+        description="Containers for objects. Accessed through the S3 API with an access key, or publicly through a custom domain."
         endContent={<CreateBucketDialog />}
       />
 
@@ -31,8 +31,8 @@ function Buckets() {
         ) : buckets.data.length === 0 ? (
           <EmptyState
             icon="archive"
-            title="Belum ada bucket"
-            description="Buat bucket pertama untuk mulai menyimpan objek."
+            title="No buckets yet"
+            description="Create your first bucket to start storing objects."
             action={<CreateBucketDialog />}
           />
         ) : (
