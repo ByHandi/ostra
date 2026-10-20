@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# Backup semua data storage-edge ke backups/storage-edge-<waktu UTC>/.
+# Back up all storage-edge data to backups/storage-edge-<UTC time>/.
 #
-#   scripts/backup.sh [--with-env] [folder-tujuan]
+#   scripts/backup.sh [--with-env] [destination-folder]
 #
-# Cold backup: semua service dihentikan selama penyalinan, supaya metadata Garage (LMDB),
-# blok data, dan database control-plane (SQLite) konsisten satu sama lain. Service yang
-# sebelumnya jalan dinyalakan lagi setelah selesai (juga kalau backup gagal).
+# Cold backup: all services are stopped while copying, so the Garage metadata (LMDB),
+# data blocks, and the control-plane database (SQLite) stay consistent with each other.
+# Services that were running before are started again afterwards (also if the backup fails).
 #
-# Isi backup: garage-meta, garage-data, control-data, caddy-data (sertifikat), MANIFEST,
-# dan SHA256SUMS. File .env (berisi secret) TIDAK ikut kecuali --with-env; simpan .env di
-# tempat aman secara terpisah.
+# Backup contents: garage-meta, garage-data, control-data, caddy-data (certificates), MANIFEST,
+# and SHA256SUMS. The .env file (which holds secrets) is NOT included unless --with-env is
+# given; store .env separately somewhere safe.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -21,7 +21,7 @@ out_root=backups
 for arg in "$@"; do
   case "$arg" in
     --with-env) with_env=true ;;
-    -*) echo "pemakaian: $0 [--with-env] [folder-tujuan]" >&2; exit 2 ;;
+    -*) echo "usage: $0 [--with-env] [destination-folder]" >&2; exit 2 ;;
     *) out_root="$arg" ;;
   esac
 done
@@ -35,7 +35,7 @@ volume_of() {
 
 for v in "${VOLUMES[@]}"; do
   if [[ -z "$(volume_of "$v")" ]]; then
-    echo "Volume $v untuk project $project tidak ditemukan. Sudah pernah 'docker compose up'?" >&2
+    echo "Volume $v for project $project not found. Have you run 'docker compose up' yet?" >&2
     exit 1
   fi
 done
@@ -44,32 +44,32 @@ dest="$out_root/storage-edge-$(date -u +%Y%m%dT%H%M%SZ)"
 mkdir -p "$dest"
 dest="$(cd "$dest" && pwd)"
 
-# Versi dibaca dari image container yang sudah ada (bukan `compose run`, yang di mode dev
-# bisa memicu build).
-version="tidak diketahui"
+# The version is read from the image of the existing container (not `compose run`, which in
+# dev mode could trigger a build).
+version="unknown"
 container="$(docker compose ps -aq control 2>/dev/null | head -1)"
 if [[ -n "$container" ]]; then
   image="$(docker inspect --format '{{.Config.Image}}' "$container" 2>/dev/null || true)"
   if [[ -n "$image" ]]; then
-    version="$(docker run --rm "$image" version 2>/dev/null || echo "tidak diketahui")"
+    version="$(docker run --rm "$image" version 2>/dev/null || echo "unknown")"
   fi
 fi
 
 running="$(docker compose ps --services --status running)"
 restart() {
   if [[ -n "$running" ]]; then
-    echo "==> Menyalakan lagi: $(echo "$running" | tr '\n' ' ')"
-    # shellcheck disable=SC2086 # sengaja dipecah per nama service
+    echo "==> Starting again: $(echo "$running" | tr '\n' ' ')"
+    # shellcheck disable=SC2086 # intentionally split into one word per service name
     docker compose start $running >/dev/null
   fi
 }
 trap restart EXIT
 
-echo "==> Menghentikan service"
+echo "==> Stopping services"
 docker compose stop >/dev/null
 
 for v in "${VOLUMES[@]}"; do
-  echo "==> Menyalin $v"
+  echo "==> Copying $v"
   docker run --rm \
     -v "$(volume_of "$v"):/data:ro" \
     -v "$dest:/backup" \
@@ -92,5 +92,5 @@ MANIFEST
 docker run --rm -v "$dest:/backup" -w /backup "$TOOL_IMAGE" \
   sh -c 'sha256sum *.tar.gz > SHA256SUMS'
 
-echo "==> Selesai: $dest"
-du -sh "$dest" | cut -f1 | sed 's/^/    ukuran: /'
+echo "==> Done: $dest"
+du -sh "$dest" | cut -f1 | sed 's/^/    size: /'

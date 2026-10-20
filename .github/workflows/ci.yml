@@ -4,10 +4,10 @@ on:
   push:
     branches: [main]
   pull_request:
-  # Dipanggil release.yml supaya image hanya dirilis dari commit yang lolos CI.
+  # Called by release.yml so images are only released from commits that pass CI.
   workflow_call:
-  # Tiap Senin pagi (WIB): menangkap celah keamanan yang baru diumumkan di dependency
-  # (govulncheck, npm audit) walaupun tidak ada commit baru.
+  # Every Monday morning (07:00 WIB / 00:00 UTC): catches newly disclosed vulnerabilities in
+  # dependencies (govulncheck, npm audit) even when there are no new commits.
   schedule:
     - cron: "0 0 * * 1"
 
@@ -35,7 +35,7 @@ jobs:
         run: |
           unformatted="$(gofmt -l .)"
           if [ -n "$unformatted" ]; then
-            echo "File belum di-gofmt:"; echo "$unformatted"; exit 1
+            echo "Files not formatted with gofmt:"; echo "$unformatted"; exit 1
           fi
       - run: go vet ./...
       - run: go test -race ./...
@@ -59,7 +59,7 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npx prettier --check .
-      - name: npm audit (dependency yang ikut ke bundle)
+      - name: npm audit (dependencies shipped in the bundle)
         run: npm audit --omit=dev --audit-level=high
       - run: npm run build
 
@@ -68,8 +68,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      # Versi di-pin (sama dengan yang dipakai lokal di CONTRIBUTING.md), karena shellcheck
-      # bawaan runner bisa berbeda versi dan hasilnya.
+      # The version is pinned (same as the one used locally in CONTRIBUTING.md), because the
+      # runner's bundled shellcheck may differ in version and results.
       - name: shellcheck
         run: docker run --rm -v "$PWD:/mnt" -w /mnt koalaman/shellcheck:v0.11.0 scripts/*.sh
 
@@ -78,7 +78,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - name: Validasi docker-compose (production dan dev)
+      - name: Validate docker-compose (production and dev)
         run: |
           cp .env.example .env
           sed -i -e 's/^BASE_DOMAIN=$/BASE_DOMAIN=example.com/' \
@@ -87,7 +87,7 @@ jobs:
           docker compose -f docker-compose.yml config --quiet
           docker compose -f docker-compose.yml -f docker-compose.dev.yml config --quiet
       - uses: docker/setup-buildx-action@v4
-      - name: Build (amd64 + arm64, tanpa push)
+      - name: Build (amd64 + arm64, no push)
         uses: docker/build-push-action@v7
         with:
           context: .

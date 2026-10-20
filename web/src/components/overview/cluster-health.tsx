@@ -4,26 +4,26 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { Overview } from "@/lib/api/storage";
 
 const STATUS: Record<string, { label: string; variant: "success" | "warning" | "destructive" }> = {
-  healthy: { label: "Sehat", variant: "success" },
-  degraded: { label: "Menurun", variant: "warning" },
-  unavailable: { label: "Tidak tersedia", variant: "destructive" },
+  healthy: { label: "Healthy", variant: "success" },
+  degraded: { label: "Degraded", variant: "warning" },
+  unavailable: { label: "Unavailable", variant: "destructive" },
 };
 
 function ClusterHealth({ cluster }: { cluster: Overview["cluster"] }) {
   const status = STATUS[cluster.status] ?? { label: cluster.status, variant: "warning" as const };
   const rows = [
     {
-      label: "Node penyimpanan aktif",
+      label: "Storage nodes up",
       value: `${cluster.storageNodesUp} / ${cluster.storageNodes}`,
     },
-    { label: "Node terhubung", value: `${cluster.connectedNodes} / ${cluster.knownNodes}` },
-    { label: "Partisi sehat", value: `${cluster.partitionsAllOk} / ${cluster.partitions}` },
+    { label: "Connected nodes", value: `${cluster.connectedNodes} / ${cluster.knownNodes}` },
+    { label: "Healthy partitions", value: `${cluster.partitionsAllOk} / ${cluster.partitions}` },
   ];
 
   return (
     <Section
-      title="Cluster Garage"
-      description="Status dari admin API Garage."
+      title="Garage cluster"
+      description="Status from the Garage admin API."
       action={<Badge variant={status.variant}>{status.label}</Badge>}
     >
       <dl className="grid gap-3 sm:grid-cols-3">
@@ -40,7 +40,7 @@ function ClusterHealth({ cluster }: { cluster: Overview["cluster"] }) {
 
 function ClusterHealthSkeleton() {
   return (
-    <div className="flex flex-col gap-4 rounded-lg border p-4" role="status" aria-label="Memuat">
+    <div className="flex flex-col gap-4 rounded-lg border p-4" role="status" aria-label="Loading">
       <div className="flex justify-between">
         <div className="space-y-2">
           <Skeleton className="h-4 w-32" />

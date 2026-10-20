@@ -126,7 +126,7 @@ function AppSidebar({ user, onLogout }: Props) {
 
           <SidebarMenuItem>
             <SidebarMenuButton
-              tooltip="Keluar"
+              tooltip="Log out"
               disabled={isLoggingOut}
               className="text-destructive hover:bg-destructive/20 hover:text-destructive"
               onClick={() => startLogout(async () => void (await onLogout?.()))}
@@ -135,7 +135,7 @@ function AppSidebar({ user, onLogout }: Props) {
                 name={isLoggingOut ? "loader-circle" : "log-out"}
                 className={isLoggingOut ? "animate-spin" : ""}
               />
-              <span>Keluar</span>
+              <span>Log out</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

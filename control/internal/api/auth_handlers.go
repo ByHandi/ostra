@@ -8,7 +8,7 @@ import (
 	"github.com/handi7/storage-edge/control/internal/auth"
 )
 
-// refreshCookie hanya dikirim ke /api/auth/*, jadi tidak ikut di request API lain.
+// refreshCookie is only sent to /api/auth/*, so it is not included in other API requests.
 const (
 	refreshCookie     = "se_refresh"
 	refreshCookiePath = "/api/auth"
@@ -21,7 +21,7 @@ type tokenResponse struct {
 
 func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 	if !h.limiter.Allow(h.clientIP(r)) {
-		writeFail(w, http.StatusTooManyRequests, "rate_limited", "terlalu banyak percobaan login, coba lagi sebentar lagi", nil)
+		writeFail(w, http.StatusTooManyRequests, "rate_limited", "too many login attempts, try again shortly", nil)
 		return
 	}
 
@@ -34,13 +34,13 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 	}
 	fields := map[string][]string{}
 	if strings.TrimSpace(in.Email) == "" {
-		fields["email"] = []string{"email wajib diisi"}
+		fields["email"] = []string{"email is required"}
 	}
 	if in.Password == "" {
-		fields["password"] = []string{"password wajib diisi"}
+		fields["password"] = []string{"password is required"}
 	}
 	if len(fields) > 0 {
-		writeFail(w, http.StatusBadRequest, "validation", "periksa kembali isian form", fields)
+		writeFail(w, http.StatusBadRequest, "validation", "please check the form fields", fields)
 		return
 	}
 

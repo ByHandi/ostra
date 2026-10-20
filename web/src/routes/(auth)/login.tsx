@@ -63,9 +63,9 @@ function Login() {
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-6">
       <div className="flex flex-col gap-1">
-        <h1 className="font-heading text-2xl">Masuk</h1>
+        <h1 className="font-heading text-2xl">Sign in</h1>
         <p className="text-sm text-muted-foreground">
-          Kelola bucket, custom domain, dan access key.
+          Manage buckets, custom domains, and access keys.
         </p>
       </div>
 
@@ -75,7 +75,7 @@ function Login() {
           name="email"
           type="email"
           label="Email"
-          placeholder="admin@contoh.com"
+          placeholder="admin@example.com"
           autoComplete="email"
           autoFocus
           required
@@ -90,12 +90,12 @@ function Login() {
         />
       </div>
 
-      <Button type="submit" isLoading={formState.isSubmitting} loadingText="Memproses">
-        Masuk
+      <Button type="submit" isLoading={formState.isSubmitting} loadingText="Signing in">
+        Sign in
       </Button>
 
       <p className="text-center text-xs text-muted-foreground">
-        Lupa password? Reset lewat server: <code>control setpassword --email …</code>
+        Forgot your password? Reset it on the server: <code>control setpassword --email …</code>
       </p>
     </form>
   );

@@ -16,7 +16,7 @@ import (
 	"github.com/handi7/storage-edge/control/internal/store"
 )
 
-// stubGarage tidak dipakai oleh endpoint yang dites di sini.
+// stubGarage is not used by the endpoints tested here.
 type stubGarage struct{ service.Garage }
 
 func newTestServer(t *testing.T) *httptest.Server {
@@ -35,7 +35,7 @@ func newTestServer(t *testing.T) *httptest.Server {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := authSvc.CreateUser(context.Background(), "admin@example.com", "Admin", "rahasia123"); err != nil {
+	if _, err := authSvc.CreateUser(context.Background(), "admin@example.com", "Admin", "secret123"); err != nil {
 		t.Fatal(err)
 	}
 	svc := service.New(store.New(db), stubGarage{}, nil, service.Options{})
@@ -87,7 +87,7 @@ func accessToken(t *testing.T, r result) string {
 	data, _ := r.body.Data.(map[string]any)
 	tok, _ := data["access_token"].(string)
 	if tok == "" {
-		t.Fatalf("tidak ada access_token: %+v", r.body)
+		t.Fatalf("no access_token: %+v", r.body)
 	}
 	return tok
 }
@@ -95,24 +95,24 @@ func accessToken(t *testing.T, r result) string {
 func TestAuthFlow(t *testing.T) {
 	srv := newTestServer(t)
 
-	// Tanpa token.
+	// Without a token.
 	if r := call(t, srv, "GET", "/api/me", "", nil, ""); r.status != 401 || r.body.Success || r.body.Error.Type != "unauthorized" {
-		t.Fatalf("GET /api/me tanpa token = %d %+v", r.status, r.body)
+		t.Fatalf("GET /api/me without token = %d %+v", r.status, r.body)
 	}
 
-	// Validasi per field.
+	// Per-field validation.
 	r := call(t, srv, "POST", "/api/auth/login", "", nil, `{"email":"","password":""}`)
 	if r.status != 400 || len(r.body.Error.Errors["email"]) != 1 || len(r.body.Error.Errors["password"]) != 1 {
-		t.Fatalf("login kosong = %d %+v", r.status, r.body.Error)
+		t.Fatalf("empty login = %d %+v", r.status, r.body.Error)
 	}
 
-	// Password salah.
-	if r := call(t, srv, "POST", "/api/auth/login", "", nil, `{"email":"admin@example.com","password":"salah"}`); r.status != 401 {
-		t.Fatalf("login salah = %d", r.status)
+	// Wrong password.
+	if r := call(t, srv, "POST", "/api/auth/login", "", nil, `{"email":"admin@example.com","password":"wrong"}`); r.status != 401 {
+		t.Fatalf("wrong login = %d", r.status)
 	}
 
-	// Login sukses: access token + cookie refresh httpOnly yang dibatasi ke /api/auth.
-	r = call(t, srv, "POST", "/api/auth/login", "", nil, `{"email":"admin@example.com","password":"rahasia123"}`)
+	// Successful login: access token + httpOnly refresh cookie scoped to /api/auth.
+	r = call(t, srv, "POST", "/api/auth/login", "", nil, `{"email":"admin@example.com","password":"secret123"}`)
 	if r.status != 200 || !r.body.Success || r.cookie == nil || !r.cookie.HttpOnly || r.cookie.Path != "/api/auth" {
 		t.Fatalf("login = %d %+v cookie=%+v", r.status, r.body, r.cookie)
 	}
@@ -128,10 +128,10 @@ func TestAuthFlow(t *testing.T) {
 		t.Fatalf("GET /api/version = %d %+v", v.status, v.body)
 	}
 	if r := call(t, srv, "GET", "/api/version", "", nil, ""); r.status != 401 {
-		t.Fatalf("GET /api/version tanpa token = %d, want 401", r.status)
+		t.Fatalf("GET /api/version without token = %d, want 401", r.status)
 	}
 
-	// Refresh merotasi cookie; cookie lama tidak berlaku lagi.
+	// Refresh rotates the cookie; the old cookie is no longer valid.
 	r = call(t, srv, "POST", "/api/auth/refresh-token", "", cookie, "")
 	if r.status != 200 || r.cookie == nil || r.cookie.Value == cookie.Value {
 		t.Fatalf("refresh = %d %+v", r.status, r.body)
@@ -139,15 +139,15 @@ func TestAuthFlow(t *testing.T) {
 	accessToken(t, r)
 	newCookie := r.cookie
 	if r := call(t, srv, "POST", "/api/auth/refresh-token", "", cookie, ""); r.status != 401 || r.cookie == nil || r.cookie.MaxAge >= 0 {
-		t.Fatalf("refresh dengan cookie lama = %d cookie=%+v", r.status, r.cookie)
+		t.Fatalf("refresh with old cookie = %d cookie=%+v", r.status, r.cookie)
 	}
 
-	// Logout menghapus cookie dan mencabut refresh token.
+	// Logout clears the cookie and revokes the refresh token.
 	if r := call(t, srv, "POST", "/api/auth/logout", "", newCookie, ""); r.status != 200 || r.cookie == nil || r.cookie.MaxAge >= 0 {
 		t.Fatalf("logout = %d cookie=%+v", r.status, r.cookie)
 	}
 	if r := call(t, srv, "POST", "/api/auth/refresh-token", "", newCookie, ""); r.status != 401 {
-		t.Fatalf("refresh setelah logout = %d", r.status)
+		t.Fatalf("refresh after logout = %d", r.status)
 	}
 }
 
@@ -155,7 +155,7 @@ func TestHealthz(t *testing.T) {
 	healthy := true
 	h := &Handler{opts: Options{Health: func(context.Context) error {
 		if !healthy {
-			return errors.New("database terkunci")
+			return errors.New("database locked")
 		}
 		return nil
 	}}}
@@ -181,11 +181,11 @@ func TestHealthz(t *testing.T) {
 func TestRoutingAndLoginRateLimit(t *testing.T) {
 	srv := newTestServer(t)
 
-	if r := call(t, srv, "GET", "/api/tidak-ada", "", nil, ""); r.status != 404 || r.body.Error == nil {
-		t.Fatalf("endpoint tidak ada = %d %+v", r.status, r.body)
+	if r := call(t, srv, "GET", "/api/missing", "", nil, ""); r.status != 404 || r.body.Error == nil {
+		t.Fatalf("missing endpoint = %d %+v", r.status, r.body)
 	}
 
-	// Path di luar /api dilayani UI.
+	// Paths outside /api are served by the UI.
 	resp, err := http.Get(srv.URL + "/buckets/abc")
 	if err != nil {
 		t.Fatal(err)
@@ -197,9 +197,9 @@ func TestRoutingAndLoginRateLimit(t *testing.T) {
 
 	var last int
 	for range 6 {
-		last = call(t, srv, "POST", "/api/auth/login", "", nil, `{"email":"admin@example.com","password":"salah"}`).status
+		last = call(t, srv, "POST", "/api/auth/login", "", nil, `{"email":"admin@example.com","password":"wrong"}`).status
 	}
 	if last != http.StatusTooManyRequests {
-		t.Fatalf("percobaan login ke-6 = %d, want 429", last)
+		t.Fatalf("6th login attempt = %d, want 429", last)
 	}
 }

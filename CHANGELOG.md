@@ -1,31 +1,31 @@
 # Changelog
 
-Semua perubahan penting dicatat di sini. Format mengikuti
-[Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/), dan versi mengikuti
-[Semantic Versioning](https://semver.org/lang/id/).
+All notable changes are recorded here. The format follows
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
+[Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-Saat rilis, ganti `[Unreleased]` dengan `[X.Y.Z] - YYYY-MM-DD` lalu push tag `vX.Y.Z`.
-Workflow release memakai isi bagian versi itu sebagai catatan GitHub Release.
+When releasing, replace `[Unreleased]` with `[X.Y.Z] - YYYY-MM-DD`, then push the tag `vX.Y.Z`.
+The release workflow uses the contents of that version's section as the GitHub Release notes.
 
 ## [Unreleased]
 
 ### Added
-- Object storage self-hosted berbasis Garage v2 (single-node), dengan Caddy sebagai pintu depan.
-- Custom domain per bucket dengan TLS otomatis (on-demand, hanya untuk domain yang diizinkan).
-- Verifikasi kepemilikan domain lewat DNS (CNAME/A ke edge + TXT), dicek ulang otomatis.
-- Dashboard admin: overview, bucket, custom domain, access key dengan izin per bucket, pengaturan akun.
-- Login admin dengan access token JWT + refresh token berotasi di cookie httpOnly, rate limit login.
-- CLI `control createuser`, `control setpassword`, dan `control version`.
-- Endpoint `/api/version` dan info versi di halaman Pengaturan.
-- Konfigurasi production lewat satu variabel `BASE_DOMAIN`; override development di
+- Self-hosted object storage built on Garage v2 (single node), with Caddy in front.
+- Custom domains per bucket with automatic TLS (on demand, only for approved domains).
+- Domain ownership verification via DNS (CNAME/A to the edge + TXT), re-checked automatically.
+- Admin dashboard: overview, buckets, custom domains, access keys with per-bucket permissions, account settings.
+- Admin login with JWT access tokens + rotating refresh tokens in an httpOnly cookie, login rate limiting.
+- CLI `control createuser`, `control setpassword`, and `control version`.
+- `/api/version` endpoint and version info on the Settings page.
+- Production configuration through a single `BASE_DOMAIN` variable; development override in
   `docker-compose.dev.yml`.
-- `TRUSTED_PROXIES` untuk menentukan IP client di belakang proxy.
-- CI (Go, web, shell script, image Docker), release image multi-arch ke GHCR, Dependabot.
-- Healthcheck untuk semua service (`control healthcheck`, `/healthz` ikut mengecek database);
-  service menunggu dependensinya `healthy` sebelum start.
-- `scripts/backup.sh` dan `scripts/restore.sh` (cold backup dengan checksum).
-- README bahasa Inggris, `SECURITY.md`, dan `CONTRIBUTING.md`.
+- `TRUSTED_PROXIES` to determine the client IP behind a proxy.
+- CI (Go, web, shell scripts, Docker image), multi-arch image releases to GHCR, Dependabot.
+- Health checks for every service (`control healthcheck`, `/healthz` also checks the database);
+  services wait for their dependencies to be `healthy` before starting.
+- `scripts/backup.sh` and `scripts/restore.sh` (cold backup with checksums).
+- English README, `SECURITY.md`, and `CONTRIBUTING.md`.
 
 ### Security
-- Control-plane menolak start kalau setting development (`DNS_VERIFY=off`,
-  `COOKIE_SECURE=false`) dipakai dengan domain selain `.localhost`/`.test`.
+- The control-plane refuses to start if development settings (`DNS_VERIFY=off`,
+  `COOKIE_SECURE=false`) are used with a domain other than `.localhost`/`.test`.

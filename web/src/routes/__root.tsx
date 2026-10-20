@@ -40,11 +40,11 @@ function NotFound() {
   return (
     <div className="flex min-h-svh flex-col items-center justify-center gap-4 p-6 text-center text-sm">
       <div>
-        <h1 className="font-medium">Halaman tidak ditemukan</h1>
-        <p className="text-muted-foreground">Halaman yang kamu cari tidak ada.</p>
+        <h1 className="font-medium">Page not found</h1>
+        <p className="text-muted-foreground">The page you're looking for doesn't exist.</p>
       </div>
       <Link to="/" className="underline underline-offset-4">
-        Kembali ke dashboard
+        Back to dashboard
       </Link>
     </div>
   );

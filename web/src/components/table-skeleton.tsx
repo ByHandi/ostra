@@ -20,7 +20,7 @@ interface TableSkeletonProps {
  */
 export function TableSkeleton({ columns, rows = 4 }: TableSkeletonProps) {
   return (
-    <div className="rounded-lg border" role="status" aria-label="Memuat">
+    <div className="rounded-lg border" role="status" aria-label="Loading">
       <Table>
         <TableHeader>
           <TableRow>

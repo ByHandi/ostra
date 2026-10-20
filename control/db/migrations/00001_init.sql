@@ -5,7 +5,7 @@ CREATE TABLE domains (
     bucket_id       TEXT    NOT NULL,
     bucket_name     TEXT    NOT NULL,
     verify_token    TEXT    NOT NULL,
-    -- pending: menunggu DNS, active: alias terpasang di Garage, error: gagal dipasang
+    -- pending: waiting for DNS, active: alias installed in Garage, error: failed to install
     status          TEXT    NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'active', 'error')),
     last_error      TEXT    NOT NULL DEFAULT '',
     last_checked_at TEXT,

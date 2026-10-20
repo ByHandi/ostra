@@ -17,10 +17,10 @@ export function QueryError({ error, onRetry, backTo }: QueryErrorProps) {
   if (error instanceof ApiError && error.status === 404) {
     return (
       <div className="flex flex-col items-center gap-4 py-6">
-        <PageError title="Tidak ditemukan" message={error.message} className="min-h-0" />
+        <PageError title="Not found" message={error.message} className="min-h-0" />
         {backTo && (
           <Button variant="outline" asChild>
-            <Link to={backTo}>Kembali ke daftar</Link>
+            <Link to={backTo}>Back to list</Link>
           </Button>
         )}
       </div>
@@ -30,19 +30,19 @@ export function QueryError({ error, onRetry, backTo }: QueryErrorProps) {
   const message =
     error instanceof ApiError
       ? error.isNetworkError
-        ? "Server tidak bisa dihubungi. Periksa koneksi lalu coba lagi."
+        ? "Can't reach the server. Check your connection and try again."
         : error.message
-      : "Terjadi kesalahan yang tidak terduga.";
+      : "An unexpected error occurred.";
 
   return (
     <div className="flex flex-col items-center gap-4 py-6">
-      <PageError title="Data gagal dimuat" message={message} className="min-h-0" />
+      <PageError title="Couldn't load data" message={message} className="min-h-0" />
       <Button
         variant="outline"
         onClick={onRetry}
         startContent={<Icon name="rotate-ccw" className="size-4" />}
       >
-        Coba lagi
+        Try again
       </Button>
     </div>
   );

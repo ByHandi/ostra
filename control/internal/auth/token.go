@@ -12,10 +12,10 @@ import (
 
 const issuer = "storage-edge"
 
-// ErrInvalidToken sengaja tidak menyebut alasan kegagalan, supaya tidak membantu pemalsuan.
-var ErrInvalidToken = errors.New("auth: token tidak valid")
+// ErrInvalidToken deliberately omits the failure reason, so as not to help forgery.
+var ErrInvalidToken = errors.New("auth: invalid token")
 
-// tokens menandatangani dan memverifikasi access token JWT (HS256).
+// tokens signs and verifies JWT access tokens (HS256).
 type tokens struct {
 	secret []byte
 	ttl    time.Duration

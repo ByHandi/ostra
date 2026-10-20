@@ -14,7 +14,7 @@ import {
 import type { Bucket } from "@/lib/api/storage";
 import { formatBytes, formatDate, formatNumber } from "@/lib/format";
 
-const COLUMNS = ["Nama", "Objek", "Ukuran", "Custom domain", "Dibuat"];
+const COLUMNS = ["Name", "Objects", "Size", "Custom domain", "Created"];
 
 function BucketTable({ buckets }: { buckets: Bucket[] }) {
   return (

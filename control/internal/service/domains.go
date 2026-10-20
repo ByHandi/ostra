@@ -1,7 +1,7 @@
 package service
 
-// Siklus hidup custom domain:
-// daftar → verifikasi DNS → pasang alias di Garage → aktif → hapus.
+// Custom domain lifecycle:
+// register → verify DNS → install alias in Garage → active → delete.
 
 import (
 	"context"
@@ -32,12 +32,12 @@ func (s *Service) ListDomains(ctx context.Context) ([]store.Domain, error) {
 func (s *Service) GetDomain(ctx context.Context, id int64) (store.Domain, error) {
 	d, err := s.q.GetDomain(ctx, id)
 	if errors.Is(err, sql.ErrNoRows) {
-		return d, notFound("domain tidak ditemukan")
+		return d, notFound("domain not found")
 	}
 	return d, err
 }
 
-// CreateDomain mendaftarkan custom domain untuk bucket. Domain berstatus pending sampai DNS terverifikasi.
+// CreateDomain registers a custom domain for a bucket. The domain stays pending until DNS is verified.
 func (s *Service) CreateDomain(ctx context.Context, domain, bucketName string) (store.Domain, error) {
 	domain = NormalizeDomain(domain)
 	if err := ValidateDomain(domain, s.opts.ReservedDomains); err != nil {
@@ -45,26 +45,26 @@ func (s *Service) CreateDomain(ctx context.Context, domain, bucketName string) (
 	}
 	bucketName = strings.TrimSpace(bucketName)
 	if bucketName == "" {
-		return store.Domain{}, invalid("bucket", "bucket wajib dipilih")
+		return store.Domain{}, invalid("bucket", "bucket is required")
 	}
 
 	bucket, err := s.garage.GetBucketByAlias(ctx, bucketName)
 	if garage.IsNotFound(err) {
-		return store.Domain{}, invalid("bucket", "bucket %q tidak ditemukan", bucketName)
+		return store.Domain{}, invalid("bucket", "bucket %q not found", bucketName)
 	}
 	if err != nil {
 		return store.Domain{}, err
 	}
 
 	if _, err := s.q.GetDomainByName(ctx, domain); err == nil {
-		return store.Domain{}, conflict("domain", "domain %s sudah terdaftar", domain)
+		return store.Domain{}, conflict("domain", "domain %s is already registered", domain)
 	} else if !errors.Is(err, sql.ErrNoRows) {
 		return store.Domain{}, err
 	}
 
-	// Domain sudah jadi alias bucket lain (mis. dipasang manual lewat CLI).
+	// The domain is already an alias of another bucket (e.g. added manually via the CLI).
 	if other, err := s.garage.GetBucketByAlias(ctx, domain); err == nil && other.ID != bucket.ID {
-		return store.Domain{}, conflict("domain", "domain %s sudah dipakai sebagai nama bucket lain", domain)
+		return store.Domain{}, conflict("domain", "domain %s is already used as the name of another bucket", domain)
 	} else if err != nil && !garage.IsNotFound(err) {
 		return store.Domain{}, err
 	}
@@ -81,11 +81,11 @@ func (s *Service) CreateDomain(ctx context.Context, domain, bucketName string) (
 	})
 	if err != nil {
 		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
-			return row, conflict("domain", "domain %s sudah terdaftar", domain)
+			return row, conflict("domain", "domain %s is already registered", domain)
 		}
 		return row, err
 	}
-	slog.Info("domain didaftarkan", "domain", domain, "bucket", bucketName)
+	slog.Info("domain registered", "domain", domain, "bucket", bucketName)
 
 	if !s.opts.DNSVerify {
 		return s.verify(ctx, row)
@@ -93,7 +93,7 @@ func (s *Service) CreateDomain(ctx context.Context, domain, bucketName string) (
 	return row, nil
 }
 
-// VerifyDomain menjalankan pengecekan DNS sekarang juga. Domain berstatus error juga dicoba ulang.
+// VerifyDomain runs the DNS check right now. Domains in error status are retried too.
 func (s *Service) VerifyDomain(ctx context.Context, id int64) (store.Domain, error) {
 	row, err := s.GetDomain(ctx, id)
 	if err != nil {
@@ -114,8 +114,8 @@ func (s *Service) verify(ctx context.Context, row store.Domain) (store.Domain, e
 	return s.activate(ctx, row)
 }
 
-// activate menyalakan website bucket dan memasang domain sebagai alias global.
-// Penolakan dari Garage (4xx) membuat status error; gangguan sementara dibiarkan pending untuk dicoba lagi.
+// activate enables the bucket website and installs the domain as a global alias.
+// A rejection from Garage (4xx) sets the error status; transient failures stay pending to be retried.
 func (s *Service) activate(ctx context.Context, row store.Domain) (store.Domain, error) {
 	err := s.garage.EnableWebsite(ctx, row.BucketID)
 	if err == nil {
@@ -124,21 +124,21 @@ func (s *Service) activate(ctx context.Context, row store.Domain) (store.Domain,
 	if err != nil {
 		var ge *garage.Error
 		if errors.As(err, &ge) && ge.Status < http.StatusInternalServerError {
-			slog.Warn("aktivasi domain ditolak Garage", "domain", row.Domain, "err", err)
+			slog.Warn("domain activation rejected by Garage", "domain", row.Domain, "err", err)
 			return s.q.MarkDomainError(ctx, store.MarkDomainErrorParams{ID: row.ID, LastError: ge.Message})
 		}
-		slog.Error("aktivasi domain gagal, dicoba lagi nanti", "domain", row.Domain, "err", err)
+		slog.Error("domain activation failed, will retry later", "domain", row.Domain, "err", err)
 		return s.q.MarkDomainChecked(ctx, store.MarkDomainCheckedParams{
 			ID:        row.ID,
-			LastError: "gagal menghubungi storage, akan dicoba lagi",
+			LastError: "failed to reach storage, will retry",
 		})
 	}
 
-	slog.Info("domain aktif", "domain", row.Domain, "bucket", row.BucketName)
+	slog.Info("domain active", "domain", row.Domain, "bucket", row.BucketName)
 	return s.q.MarkDomainActive(ctx, row.ID)
 }
 
-// DeleteDomain melepas alias dari Garage (kalau masih terpasang) lalu menghapus domain.
+// DeleteDomain removes the alias from Garage (if still installed), then deletes the domain.
 func (s *Service) DeleteDomain(ctx context.Context, id int64) error {
 	row, err := s.GetDomain(ctx, id)
 	if err != nil {
@@ -148,7 +148,7 @@ func (s *Service) DeleteDomain(ctx context.Context, id int64) error {
 	bucket, err := s.garage.GetBucket(ctx, row.BucketID)
 	switch {
 	case garage.IsNotFound(err):
-		// Bucket sudah dihapus, alias ikut hilang.
+		// The bucket has been deleted, so the alias is gone too.
 	case err != nil:
 		return err
 	case bucket.HasAlias(row.Domain):
@@ -160,11 +160,11 @@ func (s *Service) DeleteDomain(ctx context.Context, id int64) error {
 	if err := s.q.DeleteDomain(ctx, id); err != nil {
 		return err
 	}
-	slog.Info("domain dihapus", "domain", row.Domain)
+	slog.Info("domain deleted", "domain", row.Domain)
 	return nil
 }
 
-// AllowCertificate menjawab Caddy: boleh terbitkan sertifikat TLS untuk host ini?
+// AllowCertificate answers Caddy: may a TLS certificate be issued for this host?
 func (s *Service) AllowCertificate(ctx context.Context, host string) (bool, error) {
 	host = NormalizeDomain(host)
 	if host == "" {
@@ -191,8 +191,8 @@ func (s *Service) AllowCertificate(ctx context.Context, host string) (bool, erro
 	return err == nil && row.Status == StatusActive, err
 }
 
-// Run memverifikasi domain pending secara berkala dan memastikan alias domain aktif
-// tetap terpasang di Garage (mis. setelah Garage di-reset). Berhenti saat ctx selesai.
+// Run periodically verifies pending domains and makes sure active domain aliases
+// stay installed in Garage (e.g. after Garage is reset). Stops when ctx is done.
 func (s *Service) Run(ctx context.Context, verifyEvery, reconcileEvery time.Duration) {
 	s.reconcile(ctx)
 
@@ -216,12 +216,12 @@ func (s *Service) Run(ctx context.Context, verifyEvery, reconcileEvery time.Dura
 func (s *Service) verifyPending(ctx context.Context) {
 	rows, err := s.q.ListDomainsByStatus(ctx, StatusPending)
 	if err != nil {
-		slog.Error("gagal membaca domain pending", "err", err)
+		slog.Error("failed to read pending domains", "err", err)
 		return
 	}
 	for _, row := range rows {
 		if _, err := s.verify(ctx, row); err != nil {
-			slog.Error("gagal verifikasi domain", "domain", row.Domain, "err", err)
+			slog.Error("failed to verify domain", "domain", row.Domain, "err", err)
 		}
 	}
 }
@@ -229,12 +229,12 @@ func (s *Service) verifyPending(ctx context.Context) {
 func (s *Service) reconcile(ctx context.Context) {
 	rows, err := s.q.ListDomainsByStatus(ctx, StatusActive)
 	if err != nil {
-		slog.Error("gagal membaca domain aktif", "err", err)
+		slog.Error("failed to read active domains", "err", err)
 		return
 	}
 	for _, row := range rows {
 		if err := s.reconcileOne(ctx, row); err != nil {
-			slog.Error("reconcile domain gagal", "domain", row.Domain, "err", err)
+			slog.Error("domain reconcile failed", "domain", row.Domain, "err", err)
 		}
 	}
 }
@@ -244,7 +244,7 @@ func (s *Service) reconcileOne(ctx context.Context, row store.Domain) error {
 	if garage.IsNotFound(err) {
 		_, err := s.q.MarkDomainError(ctx, store.MarkDomainErrorParams{
 			ID:        row.ID,
-			LastError: fmt.Sprintf("bucket %s sudah dihapus", row.BucketName),
+			LastError: fmt.Sprintf("bucket %s has been deleted", row.BucketName),
 		})
 		return err
 	}
@@ -255,7 +255,7 @@ func (s *Service) reconcileOne(ctx context.Context, row store.Domain) error {
 		return nil
 	}
 
-	slog.Warn("alias domain hilang dari Garage, dipasang ulang", "domain", row.Domain)
+	slog.Warn("domain alias missing from Garage, reinstalling", "domain", row.Domain)
 	_, err = s.activate(ctx, row)
 	return err
 }

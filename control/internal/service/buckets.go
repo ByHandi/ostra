@@ -44,7 +44,7 @@ func (s *Service) ListBuckets(ctx context.Context) ([]Bucket, error) {
 		return nil, err
 	}
 
-	// ListBuckets tidak memuat statistik, jadi ambil detail per bucket secara paralel.
+	// ListBuckets does not include statistics, so fetch each bucket's details in parallel.
 	out := make([]Bucket, len(list))
 	g, gctx := errgroup.WithContext(ctx)
 	g.SetLimit(8)
@@ -52,7 +52,7 @@ func (s *Service) ListBuckets(ctx context.Context) ([]Bucket, error) {
 		g.Go(func() error {
 			info, err := s.garage.GetBucket(gctx, b.ID)
 			if garage.IsNotFound(err) {
-				return nil // terhapus di antara list dan get
+				return nil // deleted between list and get
 			}
 			if err != nil {
 				return err
@@ -70,7 +70,7 @@ func (s *Service) ListBuckets(ctx context.Context) ([]Bucket, error) {
 func (s *Service) GetBucket(ctx context.Context, id string) (BucketDetail, error) {
 	info, err := s.garage.GetBucket(ctx, id)
 	if garage.IsNotFound(err) {
-		return BucketDetail{}, notFound("bucket tidak ditemukan")
+		return BucketDetail{}, notFound("bucket not found")
 	}
 	if err != nil {
 		return BucketDetail{}, err
@@ -96,35 +96,35 @@ func (s *Service) CreateBucket(ctx context.Context, name string) (Bucket, error)
 	if err != nil {
 		var ge *garage.Error
 		if errors.As(err, &ge) && ge.Status == http.StatusConflict {
-			return Bucket{}, conflict("name", "nama %q sudah dipakai bucket atau custom domain lain", name)
+			return Bucket{}, conflict("name", "name %q is already used by another bucket or custom domain", name)
 		}
 		return Bucket{}, err
 	}
 	return toBucket(info, nil), nil
 }
 
-// DeleteBucket hanya untuk bucket kosong tanpa custom domain.
+// DeleteBucket only works for empty buckets without custom domains.
 func (s *Service) DeleteBucket(ctx context.Context, id string) error {
 	domains, err := s.q.ListDomainsByBucket(ctx, id)
 	if err != nil {
 		return err
 	}
 	if len(domains) > 0 {
-		return conflict("", "hapus dulu %d custom domain yang terpasang di bucket ini", len(domains))
+		return conflict("", "delete the %d custom domain(s) attached to this bucket first", len(domains))
 	}
 
 	err = s.garage.DeleteBucket(ctx, id)
 	var ge *garage.Error
 	switch {
 	case garage.IsNotFound(err):
-		return notFound("bucket tidak ditemukan")
+		return notFound("bucket not found")
 	case errors.As(err, &ge) && ge.Status == http.StatusConflict:
-		return conflict("", "bucket masih berisi objek; kosongkan dulu sebelum dihapus")
+		return conflict("", "bucket still contains objects; empty it before deleting")
 	}
 	return err
 }
 
-// BucketDomains mengembalikan custom domain yang terdaftar untuk bucket.
+// BucketDomains returns the custom domains registered for the bucket.
 func (s *Service) BucketDomains(ctx context.Context, id string) ([]store.Domain, error) {
 	return s.q.ListDomainsByBucket(ctx, id)
 }

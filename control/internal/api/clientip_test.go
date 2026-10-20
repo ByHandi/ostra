@@ -19,15 +19,15 @@ func TestClientIP(t *testing.T) {
 		xff          []string
 		want         string
 	}{
-		{"tanpa proxy", "203.0.113.7:5000", nil, "203.0.113.7"},
-		{"client langsung memalsukan header", "203.0.113.7:5000", []string{"1.2.3.4"}, "203.0.113.7"},
-		{"lewat Caddy", "172.18.0.4:4000", []string{"198.51.100.20"}, "198.51.100.20"},
-		{"header palsu diteruskan proxy", "172.18.0.4:4000", []string{"1.2.3.4, 198.51.100.20"}, "198.51.100.20"},
-		{"dua proxy tepercaya", "172.18.0.4:4000", []string{"198.51.100.20, 10.0.0.9"}, "198.51.100.20"},
-		{"header terpisah", "172.18.0.4:4000", []string{"1.2.3.4", "198.51.100.20"}, "198.51.100.20"},
-		{"client di jaringan privat", "172.18.0.4:4000", []string{"10.1.2.3"}, "10.1.2.3"},
-		{"entri rusak", "172.18.0.4:4000", []string{"bukan-ip"}, "172.18.0.4"},
-		{"proxy tanpa header", "172.18.0.4:4000", nil, "172.18.0.4"},
+		{"no proxy", "203.0.113.7:5000", nil, "203.0.113.7"},
+		{"direct client spoofs header", "203.0.113.7:5000", []string{"1.2.3.4"}, "203.0.113.7"},
+		{"via Caddy", "172.18.0.4:4000", []string{"198.51.100.20"}, "198.51.100.20"},
+		{"spoofed header forwarded by proxy", "172.18.0.4:4000", []string{"1.2.3.4, 198.51.100.20"}, "198.51.100.20"},
+		{"two trusted proxies", "172.18.0.4:4000", []string{"198.51.100.20, 10.0.0.9"}, "198.51.100.20"},
+		{"separate headers", "172.18.0.4:4000", []string{"1.2.3.4", "198.51.100.20"}, "198.51.100.20"},
+		{"client on private network", "172.18.0.4:4000", []string{"10.1.2.3"}, "10.1.2.3"},
+		{"malformed entry", "172.18.0.4:4000", []string{"not-an-ip"}, "172.18.0.4"},
+		{"proxy without header", "172.18.0.4:4000", nil, "172.18.0.4"},
 		{"IPv6", "[2001:db8::5]:443", []string{"1.2.3.4"}, "2001:db8::5"},
 	}
 	for _, tt := range tests {

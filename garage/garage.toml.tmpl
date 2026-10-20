@@ -1,13 +1,13 @@
-# Template config Garage. Service `garage-config` di docker-compose.yml mengganti
-# __BASE_DOMAIN__ dengan nilai BASE_DOMAIN dari .env, lalu Garage membaca hasilnya.
-# Secret (rpc_secret, admin_token, metrics_token) tidak ditulis di sini: diisi lewat env
-# GARAGE_RPC_SECRET, GARAGE_ADMIN_TOKEN, GARAGE_METRICS_TOKEN.
+# Garage config template. The `garage-config` service in docker-compose.yml replaces
+# __BASE_DOMAIN__ with the BASE_DOMAIN value from .env, then Garage reads the result.
+# Secrets (rpc_secret, admin_token, metrics_token) are not written here: they come from the env
+# vars GARAGE_RPC_SECRET, GARAGE_ADMIN_TOKEN, GARAGE_METRICS_TOKEN.
 
 metadata_dir = "/var/lib/garage/meta"
 data_dir = "/var/lib/garage/data"
 db_engine = "lmdb"
 
-# 1 = tanpa replikasi (single-node). Untuk cluster 3 node, naikkan ke 3.
+# 1 = no replication (single node). For a 3-node cluster, raise it to 3.
 replication_factor = 1
 
 rpc_bind_addr = "[::]:3901"
@@ -21,7 +21,7 @@ root_domain = ".s3.__BASE_DOMAIN__"
 
 [s3_web]
 bind_addr = "[::]:3902"
-# <bucket>.web.<BASE_DOMAIN>, atau Host = alias bucket (custom domain)
+# <bucket>.web.<BASE_DOMAIN>, or Host = bucket alias (custom domain)
 root_domain = ".web.__BASE_DOMAIN__"
 index = "index.html"
 

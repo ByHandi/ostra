@@ -1,7 +1,7 @@
-# Production: sertifikat dari Let's Encrypt.
-# Env (diisi docker-compose.yml dari BASE_DOMAIN): ACME_EMAIL, CONSOLE_DOMAIN, S3_DOMAIN.
-# Catatan: wildcard *.s3.<domain> (virtual-hosted style) butuh DNS challenge, artinya Caddy
-# di-build dengan plugin DNS provider. Di sini S3 API hanya path-style.
+# Production: certificates from Let's Encrypt.
+# Env (set by docker-compose.yml from BASE_DOMAIN): ACME_EMAIL, CONSOLE_DOMAIN, S3_DOMAIN.
+# Note: wildcard *.s3.<domain> (virtual-hosted style) needs a DNS challenge, which means Caddy
+# has to be built with a DNS provider plugin. Here the S3 API is path-style only.
 {
 	email {$ACME_EMAIL}
 	on_demand_tls {
@@ -19,8 +19,8 @@
 	reverse_proxy control:8080
 }
 
-# Semua domain lain: custom domain per bucket dan <bucket>.web.<domain>.
-# Sertifikat dibuat on-demand, hanya kalau control-plane mengizinkan lewat /caddy/ask.
+# All other domains: per-bucket custom domains and <bucket>.web.<domain>.
+# Certificates are issued on demand, only if the control-plane allows it via /caddy/ask.
 https:// {
 	tls {
 		on_demand

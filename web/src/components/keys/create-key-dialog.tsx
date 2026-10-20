@@ -64,7 +64,7 @@ export function CreateKeyDialog() {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
         <Button size="sm" startContent={<Icon name="plus" className="size-4" />}>
-          Access key baru
+          New access key
         </Button>
       </DialogTrigger>
       <DialogContent
@@ -74,9 +74,9 @@ export function CreateKeyDialog() {
         {created ? (
           <div className="flex flex-col gap-6">
             <DialogHeader>
-              <DialogTitle>Simpan secret key sekarang</DialogTitle>
+              <DialogTitle>Save the secret key now</DialogTitle>
               <DialogDescription>
-                Secret ini hanya ditampilkan sekali. Kalau hilang, buat access key baru.
+                This secret is shown only once. If you lose it, create a new access key.
               </DialogDescription>
             </DialogHeader>
 
@@ -86,12 +86,13 @@ export function CreateKeyDialog() {
             </dl>
 
             <p className="text-sm text-muted-foreground">
-              Key baru belum punya akses ke bucket mana pun. Atur izinnya di halaman detail key.
+              A new key has no access to any bucket yet. Set its permissions on the key's detail
+              page.
             </p>
 
             <DialogFooter>
               <Button variant="outline" onClick={() => onOpenChange(false)}>
-                Tutup
+                Close
               </Button>
               <Button asChild>
                 <Link
@@ -99,7 +100,7 @@ export function CreateKeyDialog() {
                   params={{ keyId: created.id }}
                   onClick={() => onOpenChange(false)}
                 >
-                  Atur izin bucket
+                  Set bucket permissions
                 </Link>
               </Button>
             </DialogFooter>
@@ -107,31 +108,31 @@ export function CreateKeyDialog() {
         ) : (
           <form onSubmit={onSubmit} className="flex flex-col gap-6">
             <DialogHeader>
-              <DialogTitle>Access key baru</DialogTitle>
+              <DialogTitle>New access key</DialogTitle>
               <DialogDescription>
-                Dipakai aplikasi atau tool (aws-cli, rclone, SDK) untuk mengakses S3 API.
+                Used by apps or tools (aws-cli, rclone, SDKs) to access the S3 API.
               </DialogDescription>
             </DialogHeader>
 
             <InputText.WithRHF
               control={control}
               name="name"
-              label="Nama"
-              placeholder="backend-produksi"
+              label="Name"
+              placeholder="backend-production"
               autoComplete="off"
               autoFocus
               required
-              description="Untuk mengenali key ini nanti, mis. nama aplikasinya."
+              description="Helps you recognize this key later, e.g. the app's name."
             />
 
             <DialogFooter>
               <DialogClose asChild>
                 <Button type="button" variant="outline">
-                  Batal
+                  Cancel
                 </Button>
               </DialogClose>
-              <Button type="submit" isLoading={formState.isSubmitting} loadingText="Membuat">
-                Buat key
+              <Button type="submit" isLoading={formState.isSubmitting} loadingText="Creating">
+                Create key
               </Button>
             </DialogFooter>
           </form>
@@ -147,7 +148,7 @@ function SecretRow({ label, value }: { label: string; value: string }) {
       <dt className="text-xs text-muted-foreground">{label}</dt>
       <dd className="flex items-center gap-1 rounded-md bg-muted/60 py-1 pr-1 pl-3">
         <code className="min-w-0 flex-1 font-mono text-xs break-all">{value}</code>
-        <CopyButton value={value} label={`Salin ${label.toLowerCase()}`} />
+        <CopyButton value={value} label={`Copy ${label.toLowerCase()}`} />
       </dd>
     </div>
   );

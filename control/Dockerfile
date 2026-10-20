@@ -1,8 +1,8 @@
-# Build context: root repo (lihat docker-compose.yml), karena butuh web/ dan control/.
+# Build context: repo root (see docker-compose.yml), since it needs both web/ and control/.
 #
-# Multi-arch tanpa emulasi: stage web dan build selalu jalan di arsitektur mesin build
-# ($BUILDPLATFORM). Dashboard tidak bergantung arsitektur, dan binary Go di-cross-compile
-# ke $TARGETOS/$TARGETARCH. Hanya stage terakhir (scratch) yang mengikuti platform target.
+# Multi-arch without emulation: the web and build stages always run on the build machine's
+# architecture ($BUILDPLATFORM). The dashboard is architecture-independent, and the Go binary
+# is cross-compiled to $TARGETOS/$TARGETARCH. Only the final stage (scratch) follows the target platform.
 
 # 1. Dashboard (Vite) → control/internal/ui/dist/web
 FROM --platform=$BUILDPLATFORM node:24-alpine AS web
@@ -12,7 +12,7 @@ RUN npm ci --no-audit --no-fund
 COPY web/ ./
 RUN npm run build
 
-# 2. Control-plane (Go), dengan dashboard di-embed
+# 2. Control-plane (Go), with the dashboard embedded
 FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS build
 ARG TARGETOS TARGETARCH
 ARG VERSION=dev
@@ -26,7 +26,7 @@ RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
     go build -trimpath \
       -ldflags="-s -w -X main.version=${VERSION} -X main.commit=${COMMIT}" \
       -o /out/control ./cmd/control
-# Direktori data milik user nonroot, supaya volume baru ikut dimiliki user ini.
+# Data directory owned by the nonroot user, so new volumes are owned by this user too.
 RUN mkdir -p /out/data && chown 65532:65532 /out/data
 
 FROM scratch

@@ -52,7 +52,7 @@ func TestClient(t *testing.T) {
 		t.Fatalf("AddAlias() err=%v body=%q", err, gotBody)
 	}
 
-	// Body error bukan JSON tetap jadi *Error dengan status yang benar.
+	// A non-JSON error body still becomes an *Error with the correct status.
 	_, err = c.Health(ctx)
 	var ge *Error
 	if !errors.As(err, &ge) || ge.Status != http.StatusBadGateway {

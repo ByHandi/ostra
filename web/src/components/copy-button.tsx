@@ -10,7 +10,7 @@ interface CopyButtonProps {
   label?: string;
 }
 
-export function CopyButton({ value, label = "Salin" }: CopyButtonProps) {
+export function CopyButton({ value, label = "Copy" }: CopyButtonProps) {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -24,7 +24,7 @@ export function CopyButton({ value, label = "Salin" }: CopyButtonProps) {
       await navigator.clipboard.writeText(value);
       setCopied(true);
     } catch {
-      toast.error("Gagal menyalin ke clipboard");
+      toast.error("Couldn't copy to clipboard");
     }
   };
 
@@ -35,7 +35,7 @@ export function CopyButton({ value, label = "Salin" }: CopyButtonProps) {
           <Icon name={copied ? "check" : "copy"} className="size-4" />
         </Button>
       </TooltipTrigger>
-      <TooltipContent>{copied ? "Tersalin" : label}</TooltipContent>
+      <TooltipContent>{copied ? "Copied" : label}</TooltipContent>
     </Tooltip>
   );
 }

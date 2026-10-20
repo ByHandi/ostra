@@ -38,23 +38,23 @@ function DomainPage() {
     onSuccess: (d) => {
       queryClient.setQueryData(storageKeys.domain(domainId), d);
       invalidateLists();
-      if (d.status === "active") toast.success(`${d.domain} aktif`);
-      else toast.warning("DNS belum sesuai", { description: d.lastError });
+      if (d.status === "active") toast.success(`${d.domain} is active`);
+      else toast.warning("DNS doesn't match yet", { description: d.lastError });
     },
     onError: (error) =>
-      toast.error(error instanceof ApiError ? error.message : "Gagal mengecek DNS"),
+      toast.error(error instanceof ApiError ? error.message : "Couldn't check DNS"),
   });
 
   const remove = async () => {
     try {
       await deleteDomain(domainId);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Gagal menghapus domain");
+      toast.error(error instanceof ApiError ? error.message : "Couldn't delete domain");
       throw error;
     }
     queryClient.removeQueries({ queryKey: storageKeys.domain(domainId) });
     invalidateLists();
-    toast.success(`${domain.data?.domain ?? "Domain"} dihapus`);
+    toast.success(`${domain.data?.domain ?? "Domain"} deleted`);
     navigate({ to: "/domains" });
   };
 
@@ -66,7 +66,7 @@ function DomainPage() {
         showBackButton
         onBack={() => navigate({ to: "/domains" })}
         title={d?.domain ?? "Custom domain"}
-        description={d ? `Menyajikan isi bucket ${d.bucketName}.` : undefined}
+        description={d ? `Serves the contents of bucket ${d.bucketName}.` : undefined}
         endContent={
           d && (
             <div className="flex gap-2">
@@ -75,17 +75,17 @@ function DomainPage() {
                   variant="outline"
                   size="sm"
                   isLoading={verify.isPending}
-                  loadingText="Mengecek"
+                  loadingText="Checking"
                   onClick={() => verify.mutate()}
                   startContent={<Icon name="refresh-cw" className="size-4" />}
                 >
-                  Cek sekarang
+                  Check now
                 </Button>
               )}
               <ConfirmDialog
-                title={`Hapus ${d.domain}?`}
-                description="Domain langsung berhenti menyajikan isi bucket. Isi bucket tidak ikut terhapus."
-                confirmText="Hapus domain"
+                title={`Delete ${d.domain}?`}
+                description="The domain immediately stops serving the bucket's contents. The bucket's contents are not deleted."
+                confirmText="Delete domain"
                 onConfirm={remove}
                 trigger={
                   <Button
@@ -93,7 +93,7 @@ function DomainPage() {
                     size="sm"
                     startContent={<Icon name="trash-2" className="size-4" />}
                   >
-                    Hapus
+                    Delete
                   </Button>
                 }
               />

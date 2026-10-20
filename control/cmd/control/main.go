@@ -1,15 +1,15 @@
-// Command control adalah control-plane storage-edge: dashboard + API untuk bucket,
-// access key, dan custom domain, serta penjawab on-demand TLS untuk Caddy.
+// Command control is the storage-edge control-plane: dashboard + API for buckets,
+// access keys, and custom domains, plus the on-demand TLS responder for Caddy.
 //
-// Pemakaian:
+// Usage:
 //
-//	control                                  jalankan server
-//	control createuser --email E --name N    buat akun admin (password ditanya)
-//	control setpassword --email E            reset password akun admin
-//	control version                          tampilkan versi build
-//	control healthcheck                      cek /healthz server lokal (untuk healthcheck Docker)
+//	control                                  run the server
+//	control createuser --email E --name N    create an admin account (prompts for password)
+//	control setpassword --email E            reset an admin account's password
+//	control version                          show the build version
+//	control healthcheck                      check the local server's /healthz (for the Docker healthcheck)
 //
-// Tambahkan --password-stdin untuk membaca password dari stdin (untuk script).
+// Add --password-stdin to read the password from stdin (for scripts).
 package main
 
 import (
@@ -39,13 +39,13 @@ import (
 	"github.com/handi7/storage-edge/control/internal/ui"
 )
 
-// Diisi saat build lewat -ldflags "-X main.version=... -X main.commit=..." (lihat control/Dockerfile).
+// Set at build time via -ldflags "-X main.version=... -X main.commit=..." (see control/Dockerfile).
 var (
 	version = "dev"
 	commit  = "unknown"
 )
 
-// exitUserExists membedakan "user sudah ada" dari error lain, supaya script bisa melewatinya.
+// exitUserExists distinguishes "user already exists" from other errors, so scripts can skip it.
 const exitUserExists = 3
 
 func main() {
@@ -71,10 +71,10 @@ func main() {
 	case "healthcheck":
 		err = healthcheck()
 	default:
-		err = fmt.Errorf("perintah tidak dikenal %q (pilihan: serve, createuser, setpassword, version, healthcheck)", cmd)
+		err = fmt.Errorf("unknown command %q (choices: serve, createuser, setpassword, version, healthcheck)", cmd)
 	}
 	if err != nil {
-		slog.Error("control berhenti", "err", err)
+		slog.Error("control stopped", "err", err)
 		os.Exit(1)
 	}
 }
@@ -105,8 +105,8 @@ func serve() error {
 
 	gc := garage.NewClient(cfg.GarageAdminURL, cfg.GarageAdminToken)
 	if _, err := gc.Health(ctx); err != nil {
-		// Jangan gagal start: Garage mungkin baru naik. Worker akan mencoba lagi.
-		slog.Warn("Garage belum bisa dihubungi", "url", cfg.GarageAdminURL, "err", err)
+		// Don't fail to start: Garage may just be coming up. The worker will retry.
+		slog.Warn("Garage is not reachable yet", "url", cfg.GarageAdminURL, "err", err)
 	}
 
 	checker := dnscheck.NewChecker(dnscheck.NewResolver(cfg.DNSServer), cfg.EdgeHostname)
@@ -117,10 +117,10 @@ func serve() error {
 	})
 	slog.Info("storage-edge", "version", version, "commit", commit)
 	if !cfg.DNSVerify {
-		slog.Warn("DNS_VERIFY=off: domain langsung aktif tanpa verifikasi DNS (hanya untuk development)")
+		slog.Warn("DNS_VERIFY=off: domains become active immediately without DNS verification (development only)")
 	}
 	if !cfg.CookieSecure {
-		slog.Warn("COOKIE_SECURE=false: cookie sesi dikirim tanpa flag Secure (hanya untuk development)")
+		slog.Warn("COOKIE_SECURE=false: session cookies are sent without the Secure flag (development only)")
 	}
 
 	h := api.NewHandler(svc, authSvc, api.Options{
@@ -139,7 +139,7 @@ func serve() error {
 	g, ctx := errgroup.WithContext(ctx)
 	for _, srv := range servers {
 		g.Go(func() error {
-			slog.Info("mendengarkan", "addr", srv.Addr)
+			slog.Info("listening", "addr", srv.Addr)
 			if err := srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 				return err
 			}
@@ -162,9 +162,9 @@ func serve() error {
 	return g.Wait()
 }
 
-// healthcheck dipakai HEALTHCHECK Docker: image scratch tidak punya curl/wget, jadi
-// binary ini sendiri yang memanggil /healthz. Sengaja tidak memuat config lengkap,
-// cukup alamat listen.
+// healthcheck is used by the Docker HEALTHCHECK: the scratch image has no curl/wget, so
+// this binary calls /healthz itself. It deliberately does not load the full config,
+// only the listen address.
 func healthcheck() error {
 	addr := os.Getenv("LISTEN_ADDR")
 	if addr == "" {
@@ -180,16 +180,16 @@ func healthcheck() error {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("/healthz membalas %s", resp.Status)
+		return fmt.Errorf("/healthz returned %s", resp.Status)
 	}
 	return nil
 }
 
 func createUser(args []string) error {
 	fs := flag.NewFlagSet("createuser", flag.ExitOnError)
-	email := fs.String("email", "", "email untuk login (wajib)")
-	name := fs.String("name", "", "nama tampilan (wajib)")
-	fromStdin := fs.Bool("password-stdin", false, "baca password dari stdin")
+	email := fs.String("email", "", "login email (required)")
+	name := fs.String("name", "", "display name (required)")
+	fromStdin := fs.Bool("password-stdin", false, "read the password from stdin")
 	fs.Parse(args)
 
 	authSvc, closeDB, err := openAuth()
@@ -206,14 +206,14 @@ func createUser(args []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("user %s (%s) dibuat\n", user.Email, user.Name)
+	fmt.Printf("user %s (%s) created\n", user.Email, user.Name)
 	return nil
 }
 
 func setPassword(args []string) error {
 	fs := flag.NewFlagSet("setpassword", flag.ExitOnError)
-	email := fs.String("email", "", "email user (wajib)")
-	fromStdin := fs.Bool("password-stdin", false, "baca password dari stdin")
+	email := fs.String("email", "", "user email (required)")
+	fromStdin := fs.Bool("password-stdin", false, "read the password from stdin")
 	fs.Parse(args)
 
 	authSvc, closeDB, err := openAuth()
@@ -229,7 +229,7 @@ func setPassword(args []string) error {
 	if err := authSvc.SetPassword(context.Background(), *email, password); err != nil {
 		return err
 	}
-	fmt.Printf("password %s diganti, semua sesi lama diakhiri\n", *email)
+	fmt.Printf("password for %s changed, all old sessions ended\n", *email)
 	return nil
 }
 
@@ -258,14 +258,14 @@ func readPassword(fromStdin bool) (string, error) {
 	if fromStdin {
 		line, err := bufio.NewReader(os.Stdin).ReadString('\n')
 		if err != nil && line == "" {
-			return "", fmt.Errorf("gagal membaca password dari stdin: %w", err)
+			return "", fmt.Errorf("failed to read password from stdin: %w", err)
 		}
 		return strings.TrimRight(line, "\r\n"), nil
 	}
 
 	fd := int(os.Stdin.Fd())
 	if !term.IsTerminal(fd) {
-		return "", errors.New("stdin bukan terminal: pakai --password-stdin")
+		return "", errors.New("stdin is not a terminal: use --password-stdin")
 	}
 	fmt.Fprint(os.Stderr, "Password: ")
 	first, err := term.ReadPassword(fd)
@@ -273,14 +273,14 @@ func readPassword(fromStdin bool) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	fmt.Fprint(os.Stderr, "Ulangi password: ")
+	fmt.Fprint(os.Stderr, "Repeat password: ")
 	second, err := term.ReadPassword(fd)
 	fmt.Fprintln(os.Stderr)
 	if err != nil {
 		return "", err
 	}
 	if string(first) != string(second) {
-		return "", errors.New("password tidak sama")
+		return "", errors.New("passwords do not match")
 	}
 	return string(first), nil
 }

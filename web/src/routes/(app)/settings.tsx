@@ -23,7 +23,7 @@ export const Route = createFileRoute("/(app)/settings")({
 function Settings() {
   return (
     <>
-      <AppHeader title="Pengaturan" description="Akun dan tampilan dashboard." />
+      <AppHeader title="Settings" description="Your account and the dashboard's appearance." />
 
       <div className="flex max-w-2xl flex-col gap-6 p-4 md:p-6">
         <Profile />
@@ -41,12 +41,12 @@ function Profile() {
 
   return (
     <Section
-      title="Profil"
-      description="Nama dan email diatur lewat CLI di server (control createuser)."
+      title="Profile"
+      description="Name and email are managed with the CLI on the server (control createuser)."
     >
       <dl className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1">
-          <dt className="text-xs text-muted-foreground">Nama</dt>
+          <dt className="text-xs text-muted-foreground">Name</dt>
           <dd className="text-sm">{user ? user.name : <Skeleton className="h-5 w-32" />}</dd>
         </div>
         <div className="space-y-1">
@@ -75,7 +75,7 @@ function ChangePassword() {
     try {
       await changePassword({ currentPassword, newPassword });
       reset();
-      toast.success("Password diganti. Sesi di perangkat lain sudah diakhiri.");
+      toast.success("Password changed. Sessions on other devices have been ended.");
     } catch (error) {
       applyApiError(error, setError, PASSWORD_FIELDS);
     }
@@ -83,15 +83,15 @@ function ChangePassword() {
 
   return (
     <Section
-      title="Ganti password"
-      description="Semua sesi lain akan keluar setelah password diganti."
+      title="Change password"
+      description="All other sessions will be signed out once the password is changed."
     >
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <InputText.WithRHF
           control={control}
           name="currentPassword"
           type="password"
-          label="Password saat ini"
+          label="Current password"
           autoComplete="current-password"
           required
         />
@@ -99,30 +99,30 @@ function ChangePassword() {
           control={control}
           name="newPassword"
           type="password"
-          label="Password baru"
+          label="New password"
           autoComplete="new-password"
           required
-          description="Minimal 8 karakter."
-          rules={{ minLength: { value: 8, message: "Minimal 8 karakter" } }}
+          description="At least 8 characters."
+          rules={{ minLength: { value: 8, message: "Must be at least 8 characters" } }}
         />
         <InputText.WithRHF
           control={control}
           name="confirmPassword"
           type="password"
-          label="Ulangi password baru"
+          label="Confirm new password"
           autoComplete="new-password"
           required
           rules={{
-            validate: (value) => value === getValues("newPassword") || "Password tidak sama",
+            validate: (value) => value === getValues("newPassword") || "Passwords don't match",
           }}
         />
         <Button
           type="submit"
           className="self-start"
           isLoading={formState.isSubmitting}
-          loadingText="Menyimpan"
+          loadingText="Saving"
         >
-          Ganti password
+          Change password
         </Button>
       </form>
     </Section>
@@ -130,18 +130,18 @@ function ChangePassword() {
 }
 
 const THEMES = [
-  { value: "system", label: "Ikuti sistem" },
-  { value: "light", label: "Terang" },
-  { value: "dark", label: "Gelap" },
+  { value: "system", label: "System" },
+  { value: "light", label: "Light" },
+  { value: "dark", label: "Dark" },
 ];
 
 function Appearance() {
   const { theme, setTheme } = useTheme();
 
   return (
-    <Section title="Tampilan" description="Tekan D di mana saja untuk mengganti tema dengan cepat.">
+    <Section title="Appearance" description="Press D anywhere to quickly toggle the theme.">
       <InputSelect
-        label="Tema"
+        label="Theme"
         className="max-w-xs"
         value={theme}
         onValueChange={(value) => setTheme(value as typeof theme)}
@@ -155,10 +155,10 @@ function About() {
   const version = useQuery(versionQuery());
 
   return (
-    <Section title="Tentang" description="Versi storage-edge yang sedang berjalan.">
+    <Section title="About" description="The storage-edge version currently running.">
       <dl className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1">
-          <dt className="text-xs text-muted-foreground">Versi</dt>
+          <dt className="text-xs text-muted-foreground">Version</dt>
           <dd className="font-mono text-sm">
             {version.data ? version.data.version : <Skeleton className="h-5 w-20" />}
           </dd>

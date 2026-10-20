@@ -8,7 +8,7 @@ import (
 
 var labelRe = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]*[a-z0-9])?$`)
 
-// MaxDomainLength mengikuti batas nama bucket S3/Garage, karena domain dipasang sebagai alias bucket.
+// MaxDomainLength follows the S3/Garage bucket name limit, because the domain is installed as a bucket alias.
 const MaxDomainLength = 63
 
 func NormalizeDomain(s string) string {
@@ -17,42 +17,42 @@ func NormalizeDomain(s string) string {
 
 var bucketNameRe = regexp.MustCompile(`^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$`)
 
-// ValidateBucketName mengikuti aturan nama bucket S3 yang juga dipakai Garage.
+// ValidateBucketName follows the S3 bucket naming rules, which Garage also uses.
 func ValidateBucketName(name string) error {
 	if !bucketNameRe.MatchString(name) || strings.Contains(name, "..") || net.ParseIP(name) != nil {
-		return invalid("name", "nama bucket 3–63 karakter: huruf kecil, angka, titik, atau tanda hubung, diawali dan diakhiri huruf/angka")
+		return invalid("name", "bucket name must be 3–63 characters: lowercase letters, digits, dots, or hyphens, starting and ending with a letter/digit")
 	}
 	return nil
 }
 
-// ValidateDomain memastikan domain (sudah dinormalisasi) bisa dipakai sebagai custom domain.
+// ValidateDomain checks that domain (already normalized) can be used as a custom domain.
 func ValidateDomain(domain string, reserved []string) error {
 	if domain == "" {
-		return invalid("domain", "domain wajib diisi")
+		return invalid("domain", "domain is required")
 	}
 	if len(domain) > MaxDomainLength {
-		return invalid("domain", "domain maksimal %d karakter (batas nama alias bucket Garage)", MaxDomainLength)
+		return invalid("domain", "domain must be at most %d characters (Garage bucket alias name limit)", MaxDomainLength)
 	}
 	if net.ParseIP(domain) != nil {
-		return invalid("domain", "gunakan nama domain, bukan alamat IP")
+		return invalid("domain", "use a domain name, not an IP address")
 	}
 
 	labels := strings.Split(domain, ".")
 	if len(labels) < 2 {
-		return invalid("domain", "domain harus lengkap, mis. cdn.contoh.com")
+		return invalid("domain", "domain must be fully qualified, e.g. cdn.example.com")
 	}
 	for _, l := range labels {
 		if !labelRe.MatchString(l) {
-			return invalid("domain", "domain %q tidak valid", domain)
+			return invalid("domain", "domain %q is not valid", domain)
 		}
 	}
 	if tld := labels[len(labels)-1]; strings.Trim(tld, "0123456789") == "" {
-		return invalid("domain", "domain %q tidak valid", domain)
+		return invalid("domain", "domain %q is not valid", domain)
 	}
 
 	for _, r := range reserved {
 		if domain == r || strings.HasSuffix(domain, "."+r) {
-			return invalid("domain", "domain %q dipakai oleh sistem dan tidak bisa didaftarkan", domain)
+			return invalid("domain", "domain %q is reserved by the system and cannot be registered", domain)
 		}
 	}
 	return nil
