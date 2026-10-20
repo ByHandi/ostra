@@ -4,7 +4,7 @@
 # ($BUILDPLATFORM). Dashboard tidak bergantung arsitektur, dan binary Go di-cross-compile
 # ke $TARGETOS/$TARGETARCH. Hanya stage terakhir (scratch) yang mengikuti platform target.
 
-# 1. Dashboard (Vite) → control/internal/ui/dist
+# 1. Dashboard (Vite) → control/internal/ui/dist/web
 FROM --platform=$BUILDPLATFORM node:24-alpine AS web
 WORKDIR /src/web
 COPY web/package.json web/package-lock.json ./

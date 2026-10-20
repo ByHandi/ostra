@@ -96,7 +96,7 @@ npm install
 npm run dev      # http://localhost:5173, /api di-proxy ke control-plane di 127.0.0.1:8080
 ```
 
-`npm run build` menulis hasil build ke `control/internal/ui/dist`, yang di-embed ke binary Go. Image Docker selalu mem-build dashboard sendiri, jadi tidak perlu build manual sebelum `docker compose build`.
+`npm run build` menulis hasil build ke `control/internal/ui/dist/web`, yang di-embed ke binary Go. Image Docker selalu mem-build dashboard sendiri, jadi tidak perlu build manual sebelum `docker compose build`.
 
 ### Akun admin
 

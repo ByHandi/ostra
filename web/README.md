@@ -12,7 +12,7 @@ origin yang sama dengan API. Jadi tidak ada CORS, dan `VITE_API_URL` defaultnya 
 | Perintah            | Kegunaan                                                                                |
 | ------------------- | --------------------------------------------------------------------------------------- |
 | `npm run dev`       | Dev server di :5173, `/api` di-proxy ke `CONTROL_URL` (default `http://127.0.0.1:8080`) |
-| `npm run build`     | Typecheck lalu build ke `../control/internal/ui/dist`                                   |
+| `npm run build`     | Typecheck lalu build ke `../control/internal/ui/dist/web`                               |
 | `npm run typecheck` | `tsc` saja                                                                              |
 | `npm run lint`      | ESLint                                                                                  |
 | `npm run format`    | Prettier                                                                                |
