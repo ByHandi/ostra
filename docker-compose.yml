@@ -37,6 +37,13 @@ services:
       - garage-config:/etc/garage:ro
       - garage-meta:/var/lib/garage/meta
       - garage-data:/var/lib/garage/data
+    healthcheck:
+      test: ["CMD", "/garage", "status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+      start_interval: 2s
 
   control:
     # Image rilis dari GitHub Actions. Pin versi lewat CONTROL_IMAGE di .env, mis.
@@ -47,7 +54,8 @@ services:
       dockerfile: control/Dockerfile
     restart: unless-stopped
     depends_on:
-      - garage
+      garage:
+        condition: service_healthy
     environment:
       LISTEN_ADDR: ":8080"
       INTERNAL_LISTEN_ADDR: ":9000"
@@ -63,13 +71,23 @@ services:
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
     volumes:
       - control-data:/data
+    healthcheck:
+      # Image scratch tidak punya curl; binary-nya sendiri yang memanggil /healthz.
+      test: ["CMD", "/control", "healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+      start_interval: 2s
 
   caddy:
     image: caddy:2.11.7-alpine
     restart: unless-stopped
     depends_on:
-      - garage
-      - control
+      garage:
+        condition: service_healthy
+      control:
+        condition: service_healthy
     environment:
       ACME_EMAIL: ${ACME_EMAIL:?isi ACME_EMAIL di .env (dipakai Let's Encrypt)}
       CONSOLE_DOMAIN: console.${BASE_DOMAIN}
@@ -82,6 +100,13 @@ services:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:2019/config/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+      start_interval: 2s
 
 volumes:
   garage-config:

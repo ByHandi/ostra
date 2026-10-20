@@ -20,6 +20,9 @@ import (
 )
 
 type Options struct {
+	// Health dipanggil /healthz; error berarti control-plane tidak sehat (mis. database tidak bisa diakses).
+	Health func(context.Context) error
+
 	EdgeHostname string
 	// TrustedProxies menentukan dari mana X-Forwarded-For boleh dipercaya (lihat clientIP).
 	TrustedProxies []netip.Prefix
@@ -57,7 +60,7 @@ func (h *Handler) Public() http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.Recoverer)
 
-	r.Get("/healthz", healthz)
+	r.Get("/healthz", h.healthz)
 	r.Route("/api", func(r chi.Router) {
 		r.NotFound(func(w http.ResponseWriter, r *http.Request) {
 			writeFail(w, http.StatusNotFound, "not_found", "endpoint tidak ditemukan", nil)
@@ -110,12 +113,25 @@ func (h *Handler) Public() http.Handler {
 func (h *Handler) Internal() http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.Recoverer)
-	r.Get("/healthz", healthz)
+	r.Get("/healthz", h.healthz)
 	r.Get("/caddy/ask", h.caddyAsk)
 	return r
 }
 
-func healthz(w http.ResponseWriter, _ *http.Request) { w.Write([]byte("ok")) }
+// healthz sengaja tidak mengecek Garage: kalau Garage mati, me-restart control-plane
+// tidak memperbaiki apa-apa. Yang dicek hanya hal yang memang milik proses ini.
+func (h *Handler) healthz(w http.ResponseWriter, r *http.Request) {
+	if h.opts.Health != nil {
+		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+		defer cancel()
+		if err := h.opts.Health(ctx); err != nil {
+			slog.Error("healthcheck gagal", "err", err)
+			http.Error(w, "unhealthy", http.StatusServiceUnavailable)
+			return
+		}
+	}
+	w.Write([]byte("ok"))
+}
 
 // caddyAsk: 200 = Caddy boleh menerbitkan sertifikat untuk ?domain=, selain itu ditolak.
 func (h *Handler) caddyAsk(w http.ResponseWriter, r *http.Request) {

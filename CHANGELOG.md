@@ -21,6 +21,10 @@ Workflow release memakai isi bagian versi itu sebagai catatan GitHub Release.
   `docker-compose.dev.yml`.
 - `TRUSTED_PROXIES` untuk menentukan IP client di belakang proxy.
 - CI (Go, web, shell script, image Docker), release image multi-arch ke GHCR, Dependabot.
+- Healthcheck untuk semua service (`control healthcheck`, `/healthz` ikut mengecek database);
+  service menunggu dependensinya `healthy` sebelum start.
+- `scripts/backup.sh` dan `scripts/restore.sh` (cold backup dengan checksum).
+- README bahasa Inggris, `SECURITY.md`, dan `CONTRIBUTING.md`.
 
 ### Security
 - Control-plane menolak start kalau setting development (`DNS_VERIFY=off`,

@@ -6,3 +6,6 @@
 web/.tanstack
 # Dashboard selalu di-build ulang di stage `web`, jangan pakai hasil build lokal.
 control/internal/ui/dist
+
+# Backup lokal (berisi data dan mungkin secret)
+backups
