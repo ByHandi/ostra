@@ -13,7 +13,11 @@ import {
 } from "@/components/ui/dialog";
 
 interface ConfirmDialogProps {
-  trigger: ReactNode;
+  /** Opens the dialog on click. Omit it and pass open/onOpenChange to control it instead
+   *  (e.g. when it is opened from a dropdown menu item). */
+  trigger?: ReactNode;
+  open?: boolean;
+  onOpenChange?(open: boolean): void;
   title: string;
   description: ReactNode;
   confirmText: string;
@@ -24,12 +28,19 @@ interface ConfirmDialogProps {
 /** Confirmation for destructive actions. Stays open, with a spinner, until onConfirm settles. */
 export function ConfirmDialog({
   trigger,
+  open: controlledOpen,
+  onOpenChange,
   title,
   description,
   confirmText,
   onConfirm,
 }: ConfirmDialogProps) {
-  const [open, setOpen] = useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const open = controlledOpen ?? uncontrolledOpen;
+  const setOpen = (next: boolean) => {
+    setUncontrolledOpen(next);
+    onOpenChange?.(next);
+  };
   const [pending, setPending] = useState(false);
 
   const confirm = async () => {
@@ -46,7 +57,7 @@ export function ConfirmDialog({
 
   return (
     <Dialog open={open} onOpenChange={(next) => !pending && setOpen(next)}>
-      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
       <DialogContent showCloseButton={false}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>

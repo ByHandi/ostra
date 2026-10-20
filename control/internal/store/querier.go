@@ -18,6 +18,7 @@ type Querier interface {
 	DeleteUserSessions(ctx context.Context, userID int64) error
 	GetDomain(ctx context.Context, id int64) (Domain, error)
 	GetDomainByName(ctx context.Context, domain string) (Domain, error)
+	GetSetting(ctx context.Context, key string) (string, error)
 	GetUser(ctx context.Context, id int64) (User, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetValidSession(ctx context.Context, arg GetValidSessionParams) (Session, error)
@@ -27,6 +28,7 @@ type Querier interface {
 	MarkDomainActive(ctx context.Context, id int64) (Domain, error)
 	MarkDomainChecked(ctx context.Context, arg MarkDomainCheckedParams) (Domain, error)
 	MarkDomainError(ctx context.Context, arg MarkDomainErrorParams) (Domain, error)
+	SetSetting(ctx context.Context, arg SetSettingParams) error
 	UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error
 }
 

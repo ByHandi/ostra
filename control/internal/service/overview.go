@@ -40,7 +40,7 @@ func (s *Service) Overview(ctx context.Context) (Overview, error) {
 		out.Bytes += b.Bytes
 	}
 
-	keys, err := s.garage.ListKeys(ctx)
+	keys, err := s.ListKeys(ctx)
 	if err != nil {
 		return out, err
 	}

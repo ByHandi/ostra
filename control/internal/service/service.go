@@ -41,6 +41,9 @@ type Options struct {
 	// WebRootDomain, e.g. ".web.example.com". <bucket><WebRootDomain> may get a certificate
 	// if the bucket exists and its website is enabled.
 	WebRootDomain string
+	// NewObjectStore builds the object browser's S3 client for the system key's credentials.
+	// nil disables the object browser.
+	NewObjectStore func(accessKey, secretKey string) (ObjectStore, error)
 }
 
 type Service struct {
@@ -48,6 +51,8 @@ type Service struct {
 	garage Garage
 	dns    DNSChecker
 	opts   Options
+
+	sys systemKey // object browser credentials, see systemkey.go
 }
 
 func New(q store.Querier, g Garage, dns DNSChecker, opts Options) *Service {

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"path/filepath"
 	"slices"
@@ -15,9 +16,11 @@ import (
 // fakeGarage mimics the relevant Garage admin API behavior, including a 500 on
 // RemoveAlias for an alias that does not exist.
 type fakeGarage struct {
-	buckets map[string]*garage.BucketInfo // by id
-	keys    map[string]*garage.KeyInfo    // by id
-	failAll error
+	buckets    map[string]*garage.BucketInfo // by id
+	keys       map[string]*garage.KeyInfo    // by id
+	failAll    error
+	allowCalls int
+	keySeq     int
 }
 
 func newFakeGarage(names ...string) *fakeGarage {
@@ -144,7 +147,9 @@ func (g *fakeGarage) GetKey(_ context.Context, id string) (garage.KeyInfo, error
 }
 
 func (g *fakeGarage) CreateKey(_ context.Context, name string) (garage.KeyInfo, error) {
-	k := &garage.KeyInfo{AccessKeyID: "GK" + name, Name: name}
+	// Like Garage, every key gets a fresh ID, even when the name is reused.
+	g.keySeq++
+	k := &garage.KeyInfo{AccessKeyID: fmt.Sprintf("GK%d%s", g.keySeq, name), Name: name}
 	g.keys[k.AccessKeyID] = k
 	return garage.KeyInfo{AccessKeyID: k.AccessKeyID, Name: name, SecretAccessKey: "secret-" + name}, nil
 }
@@ -180,6 +185,7 @@ func (g *fakeGarage) setPerm(bucketID, keyID string, p garage.Permissions, value
 }
 
 func (g *fakeGarage) AllowBucketKey(_ context.Context, bucketID, keyID string, p garage.Permissions) error {
+	g.allowCalls++
 	g.setPerm(bucketID, keyID, p, true)
 	return nil
 }

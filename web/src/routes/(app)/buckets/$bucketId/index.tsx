@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import AppHeader from "@/components/app-header";
 import BucketAccess from "@/components/buckets/bucket-access";
 import BucketSummary from "@/components/buckets/bucket-summary";
+import { BucketTabs } from "@/components/buckets/bucket-tabs";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { CreateDomainDialog } from "@/components/domains/create-domain-dialog";
 import DomainTable from "@/components/domains/domain-table";
@@ -17,7 +18,7 @@ import Icon from "@/components/ui/icon";
 import { ApiError } from "@/lib/api/errors";
 import { bucketQuery, deleteBucket, storageKeys } from "@/lib/api/storage";
 
-export const Route = createFileRoute("/(app)/buckets/$bucketId")({
+export const Route = createFileRoute("/(app)/buckets/$bucketId/")({
   component: BucketPage,
 });
 
@@ -48,6 +49,7 @@ function BucketPage() {
         onBack={() => navigate({ to: "/buckets" })}
         title={bucket.data?.name ?? "Bucket"}
         description="Bucket details, custom domains, and the access keys that can access it."
+        bottomContent={<BucketTabs bucketId={bucketId} />}
         endContent={
           bucket.data && (
             <ConfirmDialog

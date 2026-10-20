@@ -37,14 +37,37 @@ func (s *Service) ListKeys(ctx context.Context) ([]AccessKey, error) {
 	if err != nil {
 		return nil, err
 	}
+	sysID, err := s.systemKeyID(ctx)
+	if err != nil {
+		return nil, err
+	}
 	out := make([]AccessKey, 0, len(keys))
 	for _, k := range keys {
+		if k.ID == sysID {
+			continue // the object browser's own key is not managed from the dashboard
+		}
 		out = append(out, AccessKey{ID: k.ID, Name: k.Name, Created: k.Created, Expired: k.Expired})
 	}
 	return out, nil
 }
 
+// hiddenKey answers "not found" for the system key, so it cannot be inspected, changed, or
+// deleted through the API.
+func (s *Service) hiddenKey(ctx context.Context, id string) error {
+	hidden, err := s.isSystemKey(ctx, id)
+	if err != nil {
+		return err
+	}
+	if hidden {
+		return notFound("access key not found")
+	}
+	return nil
+}
+
 func (s *Service) GetKey(ctx context.Context, id string) (AccessKeyDetail, error) {
+	if err := s.hiddenKey(ctx, id); err != nil {
+		return AccessKeyDetail{}, err
+	}
 	info, err := s.garage.GetKey(ctx, id)
 	if garage.IsNotFound(err) {
 		return AccessKeyDetail{}, notFound("access key not found")
@@ -75,6 +98,9 @@ func (s *Service) CreateKey(ctx context.Context, name string) (CreatedKey, error
 }
 
 func (s *Service) DeleteKey(ctx context.Context, id string) error {
+	if err := s.hiddenKey(ctx, id); err != nil {
+		return err
+	}
 	err := s.garage.DeleteKey(ctx, id)
 	if garage.IsNotFound(err) {
 		return notFound("access key not found")
@@ -84,6 +110,9 @@ func (s *Service) DeleteKey(ctx context.Context, id string) error {
 
 // SetKeyPermissions makes the key's permissions on the bucket match p: true permissions are granted, false ones revoked.
 func (s *Service) SetKeyPermissions(ctx context.Context, keyID, bucketID string, p garage.Permissions) (AccessKeyDetail, error) {
+	if err := s.hiddenKey(ctx, keyID); err != nil {
+		return AccessKeyDetail{}, err
+	}
 	if _, err := s.garage.GetKey(ctx, keyID); garage.IsNotFound(err) {
 		return AccessKeyDetail{}, notFound("access key not found")
 	} else if err != nil {

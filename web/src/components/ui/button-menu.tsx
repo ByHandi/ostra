@@ -22,6 +22,8 @@ export interface ButtonMenuItem {
 
 export interface ButtonMenuProps {
   items: ButtonMenuItem[];
+  /** Trigger style; "ghost" suits per-row actions in tables. */
+  variant?: React.ComponentProps<typeof Button>["variant"];
   align?: "center" | "end" | "start";
   classNames?: {
     content?: string;
@@ -29,13 +31,13 @@ export interface ButtonMenuProps {
   };
 }
 
-function ButtonMenu({ items = [], align, classNames }: ButtonMenuProps) {
+function ButtonMenu({ items = [], align, variant, classNames }: ButtonMenuProps) {
   return (
     <DropdownMenu>
       {/* asChild: without it the trigger renders its own <button> around this one — nested
           buttons, which React flags as a hydration error and which swallow the click. */}
       <DropdownMenuTrigger asChild>
-        <Button size="icon-sm" aria-label="Actions">
+        <Button size="icon-sm" variant={variant} aria-label="Actions">
           <Icon name="ellipsis-vertical" />
         </Button>
       </DropdownMenuTrigger>
