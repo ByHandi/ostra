@@ -7,6 +7,7 @@ import (
 	"net/netip"
 	"os"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -46,6 +47,13 @@ type Config struct {
 	// DNSServer, e.g. 1.1.1.1:53. Empty = system resolver.
 	DNSServer string
 
+	// S3Endpoint is Garage's S3 API as seen from the control-plane (host:port, plain HTTP),
+	// used by the object browser.
+	S3Endpoint string
+	S3Region   string
+	// MaxUploadBytes caps one object browser upload.
+	MaxUploadBytes int64
+
 	// TrustedProxies: only requests from these addresses have their X-Forwarded-For header trusted
 	// to determine the client IP (used by the login rate limit).
 	TrustedProxies []netip.Prefix
@@ -67,7 +75,15 @@ func Load() (Config, error) {
 		WebRootDomain:    strings.ToLower(os.Getenv("WEB_ROOT_DOMAIN")),
 		DNSServer:        os.Getenv("DNS_SERVER"),
 		DNSVerify:        env("DNS_VERIFY", "on") != "off",
+		S3Endpoint:       env("S3_ENDPOINT", "127.0.0.1:3900"),
+		S3Region:         env("S3_REGION", "garage"),
 	}
+
+	maxUploadMB, err := strconv.ParseInt(env("MAX_UPLOAD_SIZE_MB", "5120"), 10, 64)
+	if err != nil || maxUploadMB <= 0 {
+		return cfg, fmt.Errorf("MAX_UPLOAD_SIZE_MB: must be a positive number of megabytes")
+	}
+	cfg.MaxUploadBytes = maxUploadMB << 20
 
 	cfg.ReservedDomains = reservedDomains(os.Getenv("RESERVED_DOMAINS"), cfg.EdgeHostname, cfg.WebRootDomain)
 
@@ -88,7 +104,6 @@ func Load() (Config, error) {
 		*d.dst = v
 	}
 
-	var err error
 	if cfg.TrustedProxies, err = ParsePrefixes(env("TRUSTED_PROXIES", defaultTrustedProxies)); err != nil {
 		return cfg, fmt.Errorf("TRUSTED_PROXIES: %w", err)
 	}

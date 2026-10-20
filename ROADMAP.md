@@ -157,9 +157,29 @@ Behind another proxy this header can be spoofed, so the rate limit can be bypass
 
 ---
 
+## Features
+
+### Object browser (in progress)
+
+Browse and manage bucket contents from the dashboard. All traffic goes through the
+control-plane (no per-bucket CORS, works with the local dev CA); the control-plane uses its own
+hidden S3 access key, created automatically and granted to a bucket on first use.
+
+- [ ] System S3 access key: created via the admin API, stored in the control-plane database,
+      hidden from the Access Keys page and bucket access lists, granted per bucket on demand
+- [ ] API: list a "folder" (prefix + delimiter, paginated), upload (streamed), download through
+      a short-lived signed link, delete a file or a whole folder
+- [ ] Dashboard: Files tab on the bucket page with breadcrumbs, "Load more", drag-and-drop
+      upload with per-file progress, download, copy public URL, delete with confirmation
+- [ ] Skeletons, tests, and an end-to-end check against Garage
+
+Later: image/text preview, rename/move, empty folders, direct-to-S3 uploads with presigned URLs
+for very large files.
+
+---
+
 ## Feature ideas (not scheduled)
 
-- Object browser in the dashboard: view, upload, delete files
 - Per-bucket quotas (already supported by the Garage admin API)
 - Periodic re-verification of active domains (detect DNS records that have been removed)
 - Wildcard virtual-hosted S3 (`*.s3.domain`) through Caddy with a DNS challenge plugin

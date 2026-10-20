@@ -34,6 +34,7 @@ import (
 	"github.com/handi7/storage-edge/control/internal/config"
 	"github.com/handi7/storage-edge/control/internal/dnscheck"
 	"github.com/handi7/storage-edge/control/internal/garage"
+	"github.com/handi7/storage-edge/control/internal/objects"
 	"github.com/handi7/storage-edge/control/internal/service"
 	"github.com/handi7/storage-edge/control/internal/store"
 	"github.com/handi7/storage-edge/control/internal/ui"
@@ -114,6 +115,9 @@ func serve() error {
 		DNSVerify:       cfg.DNSVerify,
 		ReservedDomains: cfg.ReservedDomains,
 		WebRootDomain:   cfg.WebRootDomain,
+		NewObjectStore: func(accessKey, secretKey string) (service.ObjectStore, error) {
+			return objects.New(cfg.S3Endpoint, cfg.S3Region, accessKey, secretKey)
+		},
 	})
 	slog.Info("storage-edge", "version", version, "commit", commit)
 	if !cfg.DNSVerify {
@@ -129,6 +133,8 @@ func serve() error {
 		TrustedProxies: cfg.TrustedProxies,
 		CookieSecure:   cfg.CookieSecure,
 		Version:        api.Version{Version: version, Commit: commit},
+		DownloadSecret: cfg.JWTSecret,
+		MaxUploadBytes: cfg.MaxUploadBytes,
 		UI:             ui.Handler(),
 	})
 	servers := []*http.Server{
