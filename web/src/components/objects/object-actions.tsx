@@ -68,7 +68,7 @@ export function FileActions({ bucketId, objectKey, name, publicBaseUrl }: FileAc
 
   return (
     <>
-      <ButtonMenu items={items} align="end" variant="ghost" />
+      <ButtonMenu items={items} align="end" variant="ghost" classNames={{ content: "w-40" }} />
 
       <ConfirmDialog
         open={confirming}
@@ -107,6 +107,7 @@ export function FolderActions({ bucketId, prefix, name }: FolderActionsProps) {
       <ButtonMenu
         align="end"
         variant="ghost"
+        classNames={{ content: "w-40" }}
         items={[
           {
             label: "Delete folder",
@@ -116,6 +117,7 @@ export function FolderActions({ bucketId, prefix, name }: FolderActionsProps) {
           },
         ]}
       />
+
       <ConfirmDialog
         open={confirming}
         onOpenChange={setConfirming}
