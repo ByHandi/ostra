@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/netip"
 	"os"
+	"slices"
 	"strings"
 	"time"
 )
@@ -68,53 +69,67 @@ func Load() (Config, error) {
 		DNSVerify:        env("DNS_VERIFY", "on") != "off",
 	}
 
-	for _, d := range strings.Split(os.Getenv("RESERVED_DOMAINS"), ",") {
-		if d = strings.Trim(strings.ToLower(strings.TrimSpace(d)), "."); d != "" {
-			cfg.ReservedDomains = append(cfg.ReservedDomains, d)
-		}
+	cfg.ReservedDomains = reservedDomains(os.Getenv("RESERVED_DOMAINS"), cfg.EdgeHostname, cfg.WebRootDomain)
+
+	durations := []struct {
+		dst      *time.Duration
+		key, def string
+	}{
+		{&cfg.VerifyInterval, "VERIFY_INTERVAL", "30s"},
+		{&cfg.ReconcileInterval, "RECONCILE_INTERVAL", "5m"},
+		{&cfg.AccessTTL, "ACCESS_TOKEN_TTL", "15m"},
+		{&cfg.RefreshTTL, "REFRESH_TOKEN_TTL", "720h"},
 	}
-	for _, d := range []string{cfg.EdgeHostname, cfg.WebRootDomain} {
-		if d = strings.Trim(d, "."); d != "" {
-			cfg.ReservedDomains = append(cfg.ReservedDomains, d)
+	for _, d := range durations {
+		v, err := time.ParseDuration(env(d.key, d.def))
+		if err != nil {
+			return cfg, fmt.Errorf("%s: %w", d.key, err)
 		}
+		*d.dst = v
 	}
 
 	var err error
-	if cfg.VerifyInterval, err = time.ParseDuration(env("VERIFY_INTERVAL", "30s")); err != nil {
-		return cfg, fmt.Errorf("VERIFY_INTERVAL: %w", err)
-	}
-	if cfg.ReconcileInterval, err = time.ParseDuration(env("RECONCILE_INTERVAL", "5m")); err != nil {
-		return cfg, fmt.Errorf("RECONCILE_INTERVAL: %w", err)
-	}
-	if cfg.AccessTTL, err = time.ParseDuration(env("ACCESS_TOKEN_TTL", "15m")); err != nil {
-		return cfg, fmt.Errorf("ACCESS_TOKEN_TTL: %w", err)
-	}
-	if cfg.RefreshTTL, err = time.ParseDuration(env("REFRESH_TOKEN_TTL", "720h")); err != nil {
-		return cfg, fmt.Errorf("REFRESH_TOKEN_TTL: %w", err)
-	}
-
 	if cfg.TrustedProxies, err = ParsePrefixes(env("TRUSTED_PROXIES", defaultTrustedProxies)); err != nil {
 		return cfg, fmt.Errorf("TRUSTED_PROXIES: %w", err)
 	}
 
-	var missing []string
-	for name, v := range map[string]string{
+	if err := checkRequired(map[string]string{
 		"GARAGE_ADMIN_TOKEN": cfg.GarageAdminToken,
 		"CONTROL_JWT_SECRET": cfg.JWTSecret,
 		"EDGE_HOSTNAME":      cfg.EdgeHostname,
-	} {
-		if v == "" {
-			missing = append(missing, name)
-		}
-	}
-	if len(missing) > 0 {
-		return cfg, fmt.Errorf("required env not set: %s", strings.Join(missing, ", "))
+	}); err != nil {
+		return cfg, err
 	}
 
 	if err := checkDevSettings(cfg); err != nil {
 		return cfg, err
 	}
 	return cfg, nil
+}
+
+// reservedDomains combines RESERVED_DOMAINS (comma-separated) with the system's own domains.
+func reservedDomains(list string, own ...string) []string {
+	var out []string
+	for _, d := range append(strings.Split(list, ","), own...) {
+		if d = strings.Trim(strings.ToLower(strings.TrimSpace(d)), "."); d != "" {
+			out = append(out, d)
+		}
+	}
+	return out
+}
+
+func checkRequired(vars map[string]string) error {
+	var missing []string
+	for name, v := range vars {
+		if v == "" {
+			missing = append(missing, name)
+		}
+	}
+	if len(missing) == 0 {
+		return nil
+	}
+	slices.Sort(missing)
+	return fmt.Errorf("required env not set: %s", strings.Join(missing, ", "))
 }
 
 func env(key, fallback string) string {
