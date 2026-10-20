@@ -27,8 +27,10 @@ export default defineConfig(({ mode }) => {
       },
     },
     // The control-plane embeds this directory (go:embed) and serves it on the console domain.
+    // A subdirectory on purpose: emptyOutDir wipes it on every build, while the tracked
+    // dist/.gitkeep one level up keeps go:embed compiling on a fresh clone.
     build: {
-      outDir: "../control/internal/ui/dist",
+      outDir: "../control/internal/ui/dist/web",
       emptyOutDir: true,
     },
     // Same-origin in dev too: the refresh cookie is scoped to /api/auth on this origin.

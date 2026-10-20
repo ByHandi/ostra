@@ -25,8 +25,15 @@ type Options struct {
 	TrustedProxies []netip.Prefix
 	// CookieSecure=false hanya untuk development lewat http://.
 	CookieSecure bool
+	Version      Version
 	// UI melayani dashboard untuk semua path di luar /api.
 	UI http.Handler
+}
+
+// Version adalah info build yang ditampilkan di dashboard.
+type Version struct {
+	Version string `json:"version"`
+	Commit  string `json:"commit"`
 }
 
 type Handler struct {
@@ -66,6 +73,9 @@ func (h *Handler) Public() http.Handler {
 		r.Group(func(r chi.Router) {
 			r.Use(h.requireUser)
 
+			r.Get("/version", func(w http.ResponseWriter, r *http.Request) {
+				writeData(w, http.StatusOK, h.opts.Version)
+			})
 			r.Get("/me", h.me)
 			r.Post("/me/password", h.changePassword)
 

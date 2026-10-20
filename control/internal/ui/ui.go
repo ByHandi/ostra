@@ -1,7 +1,8 @@
 // Package ui melayani dashboard (hasil build web/) yang di-embed ke binary.
 //
-// Isi dist/ dihasilkan `npm run build` di web/. Kalau belum di-build, handler
-// menampilkan halaman petunjuk alih-alih gagal.
+// Hasil `npm run build` di web/ ditulis ke dist/web. dist/.gitkeep (di-commit) menjaga
+// go:embed tetap bisa di-compile walau dashboard belum di-build; dalam kondisi itu
+// handler menampilkan halaman petunjuk alih-alih gagal.
 package ui
 
 import (
@@ -22,7 +23,7 @@ const csp = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inl
 	"frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
 
 func Handler() http.Handler {
-	files, err := fs.Sub(dist, "dist")
+	files, err := fs.Sub(dist, "dist/web")
 	if err != nil {
 		panic(err)
 	}
