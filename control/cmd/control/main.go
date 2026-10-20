@@ -111,9 +111,10 @@ func serve() error {
 	}
 
 	h := api.NewHandler(svc, authSvc, api.Options{
-		EdgeHostname: cfg.EdgeHostname,
-		CookieSecure: cfg.CookieSecure,
-		UI:           ui.Handler(),
+		EdgeHostname:   cfg.EdgeHostname,
+		TrustedProxies: cfg.TrustedProxies,
+		CookieSecure:   cfg.CookieSecure,
+		UI:             ui.Handler(),
 	})
 	servers := []*http.Server{
 		{Addr: cfg.ListenAddr, Handler: h.Public(), ReadHeaderTimeout: 10 * time.Second},

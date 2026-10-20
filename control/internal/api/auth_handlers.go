@@ -20,7 +20,7 @@ type tokenResponse struct {
 }
 
 func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
-	if !h.limiter.Allow(clientIP(r)) {
+	if !h.limiter.Allow(h.clientIP(r)) {
 		writeFail(w, http.StatusTooManyRequests, "rate_limited", "terlalu banyak percobaan login, coba lagi sebentar lagi", nil)
 		return
 	}
@@ -142,5 +142,5 @@ func (h *Handler) clearCookie(w http.ResponseWriter) {
 }
 
 func (h *Handler) client(r *http.Request) auth.Client {
-	return auth.Client{UserAgent: r.UserAgent(), IP: clientIP(r)}
+	return auth.Client{UserAgent: r.UserAgent(), IP: h.clientIP(r)}
 }

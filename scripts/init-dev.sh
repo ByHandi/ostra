@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Setup awal untuk development: layout Garage, bucket, access key, file contoh,
-# akun admin dashboard, dan custom domain contoh (didaftarkan lewat API control-plane).
+# Setup awal untuk development: bucket, access key, file contoh, akun admin dashboard,
+# dan custom domain contoh (didaftarkan lewat API control-plane).
+# Butuh .env dari `scripts/gen-env.sh --dev`.
 # Aman dijalankan ulang (langkah yang sudah dilakukan akan dilewati).
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -8,26 +9,27 @@ cd "$(dirname "$0")/.."
 BUCKET="${BUCKET:-assets}"
 KEY_NAME="${KEY_NAME:-app-key}"
 CUSTOM_DOMAIN="${CUSTOM_DOMAIN:-cdn.brandku.localhost}"
-CAPACITY="${CAPACITY:-10G}"
-CONSOLE_HOST="${CONSOLE_HOST:-console.localhost}"
+
+set -a; . ./.env; set +a
+if [[ "${COMPOSE_FILE:-}" != *docker-compose.dev.yml* ]]; then
+  echo "Script ini hanya untuk development. Jalankan dulu: scripts/gen-env.sh --dev" >&2
+  exit 1
+fi
+CONSOLE_HOST="console.$BASE_DOMAIN"
 
 garage() { docker compose exec -T -e RUST_LOG=warn garage /garage "$@"; }
 
+# Layout dibuat otomatis oleh `garage server --single-node`; tunggu sampai siap.
 echo "==> Menunggu Garage siap"
-for _ in $(seq 1 30); do
-  garage status >/dev/null 2>&1 && break
+ready=false
+for _ in $(seq 1 60); do
+  if out="$(garage status 2>/dev/null)" && ! grep -q "NO ROLE ASSIGNED" <<<"$out"; then
+    ready=true
+    break
+  fi
   sleep 1
 done
-garage status >/dev/null
-
-echo "==> Layout cluster"
-if garage status | grep -q "NO ROLE ASSIGNED"; then
-  node_id="$(garage node id -q | cut -d@ -f1)"
-  garage layout assign -z dc1 -c "$CAPACITY" "$node_id"
-  garage layout apply --version 1
-else
-  echo "    sudah ada, dilewati"
-fi
+$ready || { echo "Garage belum siap setelah 60 detik" >&2; exit 1; }
 
 echo "==> Bucket '$BUCKET'"
 if garage bucket info "$BUCKET" >/dev/null 2>&1; then
@@ -48,18 +50,20 @@ else
     echo "$out" >&2
     exit 1
   fi
-  sed -i.bak \
-    -e "s|^S3_ACCESS_KEY_ID=.*|S3_ACCESS_KEY_ID=$key_id|" \
-    -e "s|^S3_SECRET_ACCESS_KEY=.*|S3_SECRET_ACCESS_KEY=$secret|" \
-    .env && rm -f .env.bak
+  for kv in "S3_ACCESS_KEY_ID=$key_id" "S3_SECRET_ACCESS_KEY=$secret"; do
+    k="${kv%%=*}"
+    if grep -q "^$k=" .env; then
+      sed -i.bak "s|^$k=.*|$kv|" .env && rm -f .env.bak
+    else
+      echo "$kv" >> .env
+    fi
+  done
   echo "    key $key_id disimpan ke .env"
 fi
 garage bucket allow --read --write --owner "$BUCKET" --key "$KEY_NAME" >/dev/null
 
 echo "==> Upload file contoh"
 docker compose run --rm -T --quiet-pull awscli s3 cp --only-show-errors --recursive /sample "s3://$BUCKET/"
-
-set -a; . ./.env; set +a
 
 echo "==> Akun admin dashboard '$DEV_ADMIN_EMAIL'"
 set +e
@@ -106,6 +110,6 @@ Dashboard: https://$CONSOLE_HOST  (login: $DEV_ADMIN_EMAIL, password di .env →
 Coba juga:
   curl -k https://$CUSTOM_DOMAIN/
   curl -k https://$CUSTOM_DOMAIN/hello.txt
-  curl -k https://$BUCKET.web.localhost/hello.txt
+  curl -k https://$BUCKET.web.$BASE_DOMAIN/hello.txt
   docker compose run --rm awscli s3 ls s3://$BUCKET/
 MSG

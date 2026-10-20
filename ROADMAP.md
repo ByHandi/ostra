@@ -67,10 +67,11 @@ Fase 1 dan 2 adalah syarat sebelum repo dibuka ke publik.
 Saat ini `.env.example` berisi `COOKIE_SECURE=false` dan `DNS_VERIFY=off`, sehingga deploy
 yang mengikuti `gen-env.sh` langsung mendapat setting development.
 
-- [ ] `.env.example`: `COOKIE_SECURE=true`, `DNS_VERIFY=on`
-- [ ] Setting dev dipindah ke `.env.dev` (atau di-set oleh `scripts/init-dev.sh` / compose dev)
-- [ ] Control-plane menolak start (atau memberi warning keras) kalau `DNS_VERIFY=off` /
-      `COOKIE_SECURE=false` dipakai bersama domain non-`.localhost`
+- [x] `.env.example` tidak lagi berisi setting dev; default di kode sudah aman (`COOKIE_SECURE=true`, `DNS_VERIFY=on`)
+- [x] Setting dev dipindah ke `docker-compose.dev.yml`, aktif lewat `COMPOSE_FILE` yang ditulis
+      `scripts/gen-env.sh --dev`
+- [x] Control-plane menolak start kalau `DNS_VERIFY=off` / `COOKIE_SECURE=false` dipakai
+      bersama `EDGE_HOSTNAME` selain `.localhost`/`.test`
 
 **Selesai kalau:** deploy production yang hanya mengikuti README tidak pernah berjalan dengan setting dev.
 
@@ -83,11 +84,12 @@ yang mengikuti `gen-env.sh` langsung mendapat setting development.
 ### 1.3 Config production tanpa edit file
 Saat ini `garage/garage.toml` meng-hardcode `.localhost` dan compose default ke mode dev.
 
-- [ ] `garage.toml` dibuat dari template + env (mis. `S3_ROOT_DOMAIN`, `WEB_ROOT_DOMAIN`),
-      atau dipisah `garage.dev.toml` / `garage.prod.toml`
-- [ ] `docker-compose.prod.yml` (atau override): Caddyfile production, tanpa port debug
-      (`3900`, `3903`, `8080`), tanpa service `awscli`
-- [ ] Panduan deploy production di README: DNS yang perlu dipasang (`console`, `s3`, `edge`,
+- [x] `garage/garage.toml.tmpl` + service `garage-config` (busybox) yang mengisi `BASE_DOMAIN`;
+      semua domain lain diturunkan dari `BASE_DOMAIN`
+- [x] Garage memakai `--single-node`, jadi layout cluster tidak perlu disiapkan manual
+- [x] `docker-compose.yml` sekarang versi production (Caddyfile production, tanpa port debug,
+      tanpa `awscli`); development lewat `docker-compose.dev.yml`
+- [x] Panduan deploy production di README: DNS yang perlu dipasang (`console`, `s3`, `edge`,
       wildcard `*.web`), isi `.env`, membuat admin pertama
 
 **Selesai kalau:** deploy production cukup dengan mengisi `.env` dan menjalankan satu perintah compose.
@@ -96,17 +98,19 @@ Saat ini `garage/garage.toml` meng-hardcode `.localhost` dan compose default ke 
 Rate limit login memakai `X-Forwarded-For` dengan asumsi request selalu lewat Caddy bawaan.
 Di belakang proxy lain, header ini bisa dipalsukan sehingga rate limit bisa dibobol.
 
-- [ ] Env `TRUSTED_PROXIES` (daftar CIDR). `X-Forwarded-For` hanya dibaca kalau request
-      datang dari IP di daftar itu, selain itu pakai alamat koneksi
-- [ ] Default: jaringan Docker internal (dipakai Caddy bawaan)
-- [ ] Test untuk header palsu dari IP yang tidak dipercaya
+- [x] Env `TRUSTED_PROXIES` (daftar CIDR). `X-Forwarded-For` hanya dibaca kalau request
+      datang dari IP di daftar itu, ditelusuri dari kanan; selain itu pakai alamat koneksi
+- [x] Default: loopback + jaringan privat (tempat Caddy bawaan di jaringan Docker)
+- [x] Test untuk header palsu dari IP yang tidak dipercaya, plus diuji langsung lewat Caddy
 
 ### 1.5 Kerentanan dependency
-- [ ] `control/go.mod`: naikkan ke `go 1.26.9` atau lebih (4 CVE `net/http` di 1.26.5;
-      image Docker sudah memakai 1.26.10, tapi build lokal belum)
-- [ ] `web/package.json`: pindahkan `shadcn` (CLI) ke `devDependencies`, lalu `npm audit fix`
-      (2 temuan high: `@modelcontextprotocol/sdk`, `brace-expansion`, keduanya dari CLI shadcn)
-- [ ] `govulncheck ./...` dan `npm audit --omit=dev` bersih
+- [x] `control/go.mod`: `go 1.26.9` (4 CVE `net/http` di 1.26.5)
+- [x] `web/package.json`: `shadcn` (CLI) dipindah ke `devDependencies`, lalu `npm audit fix`
+      (temuan high `@modelcontextprotocol/sdk` dan `brace-expansion` sudah hilang)
+- [x] `govulncheck ./...` tanpa temuan yang terpanggil kode; `npm audit --omit=dev` bersih
+- Sisa yang diketahui: `golang.org/x/crypto` GO-2026-5932 (level modul, belum ada perbaikan,
+  tidak dipanggil kode) dan `braces` lewat CLI `shadcn` (dev saja, tidak masuk bundle;
+  perbaikannya butuh `npm audit fix --force`). Pantau di Fase 2 lewat Dependabot.
 
 ---
 

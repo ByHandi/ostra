@@ -1,20 +1,42 @@
+# Konfigurasi production. Semua yang khusus development ada di docker-compose.dev.yml
+# (dipakai otomatis kalau .env dibuat dengan `scripts/gen-env.sh --dev`).
 name: storage-edge
 
 services:
+  # Membuat garage.toml dari template dengan BASE_DOMAIN, lalu selesai.
+  garage-config:
+    image: busybox:1.37.0
+    environment:
+      BASE_DOMAIN: ${BASE_DOMAIN:?isi BASE_DOMAIN di .env, mis. domainku.com}
+    volumes:
+      - ./garage/garage.toml.tmpl:/template/garage.toml.tmpl:ro
+      - garage-config:/config
+    command:
+      - sh
+      - -c
+      - |
+        case "$$BASE_DOMAIN" in
+          *[!a-z0-9.-]*) echo "BASE_DOMAIN tidak valid: $$BASE_DOMAIN" >&2; exit 1 ;;
+        esac
+        sed "s/__BASE_DOMAIN__/$$BASE_DOMAIN/g" /template/garage.toml.tmpl > /config/garage.toml
+
   garage:
     image: dxflrs/garage:v2.4.1
     restart: unless-stopped
+    # --single-node: layout cluster dibuat otomatis saat pertama jalan.
+    command: ["/garage", "server", "--single-node"]
+    depends_on:
+      garage-config:
+        condition: service_completed_successfully
     environment:
+      GARAGE_CONFIG_FILE: /etc/garage/garage.toml
       GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET:?jalankan scripts/gen-env.sh dulu}
       GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN:?jalankan scripts/gen-env.sh dulu}
       GARAGE_METRICS_TOKEN: ${GARAGE_METRICS_TOKEN:?jalankan scripts/gen-env.sh dulu}
     volumes:
-      - ./garage/garage.toml:/etc/garage.toml:ro
+      - garage-config:/etc/garage:ro
       - garage-meta:/var/lib/garage/meta
       - garage-data:/var/lib/garage/data
-    ports:
-      - "127.0.0.1:3900:3900" # S3 API langsung, untuk debug
-      - "127.0.0.1:3903:3903" # admin API, untuk control-plane yang dijalankan di host
 
   control:
     build:
@@ -23,8 +45,6 @@ services:
     restart: unless-stopped
     depends_on:
       - garage
-    ports:
-      - "127.0.0.1:8080:8080" # untuk `npm run dev` di web/ (proxy /api)
     environment:
       LISTEN_ADDR: ":8080"
       INTERNAL_LISTEN_ADDR: ":9000"
@@ -32,12 +52,12 @@ services:
       GARAGE_ADMIN_URL: http://garage:3903
       GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN:?jalankan scripts/gen-env.sh dulu}
       CONTROL_JWT_SECRET: ${CONTROL_JWT_SECRET:?jalankan scripts/gen-env.sh dulu}
-      COOKIE_SECURE: ${COOKIE_SECURE:-true}
-      EDGE_HOSTNAME: ${EDGE_HOSTNAME:-edge.localhost}
-      WEB_ROOT_DOMAIN: ${WEB_ROOT_DOMAIN:-.web.localhost}
-      RESERVED_DOMAINS: ${RESERVED_DOMAINS:-s3.localhost,console.localhost}
-      DNS_VERIFY: ${DNS_VERIFY:-on}
-      DNS_SERVER: ${DNS_SERVER:-}
+      EDGE_HOSTNAME: ${EDGE_HOSTNAME:-edge.${BASE_DOMAIN}}
+      WEB_ROOT_DOMAIN: .web.${BASE_DOMAIN}
+      RESERVED_DOMAINS: ${RESERVED_DOMAINS:-s3.${BASE_DOMAIN},console.${BASE_DOMAIN}}
+      DNS_SERVER: ${DNS_SERVER:-1.1.1.1:53}
+      # Kosong = loopback + jaringan privat (Caddy bawaan). Isi kalau ada proxy lain di depan Caddy.
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
     volumes:
       - control-data:/data
 
@@ -48,32 +68,22 @@ services:
       - garage
       - control
     environment:
-      ACME_EMAIL: ${ACME_EMAIL:-}
-      S3_DOMAIN: ${S3_DOMAIN:-}
-      CONSOLE_DOMAIN: ${CONSOLE_DOMAIN:-}
+      ACME_EMAIL: ${ACME_EMAIL:?isi ACME_EMAIL di .env (dipakai Let's Encrypt)}
+      CONSOLE_DOMAIN: console.${BASE_DOMAIN}
+      S3_DOMAIN: s3.${BASE_DOMAIN}
     ports:
       - "80:80"
       - "443:443"
+      - "443:443/udp" # HTTP/3
     volumes:
-      - ./caddy/${CADDYFILE:-Caddyfile.dev}:/etc/caddy/Caddyfile:ro
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
 
-  # Tool: docker compose run --rm awscli s3 ls
-  awscli:
-    image: amazon/aws-cli:2.37.10
-    profiles: ["tools"]
-    environment:
-      AWS_ENDPOINT_URL: http://garage:3900
-      AWS_DEFAULT_REGION: garage
-      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-}
-      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
-    volumes:
-      - ./sample:/sample:ro
-
 volumes:
-  control-data:
+  garage-config:
   garage-meta:
   garage-data:
+  control-data:
   caddy-data:
   caddy-config:

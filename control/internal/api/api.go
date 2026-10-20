@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/netip"
 	"strings"
 	"time"
 
@@ -20,6 +21,8 @@ import (
 
 type Options struct {
 	EdgeHostname string
+	// TrustedProxies menentukan dari mana X-Forwarded-For boleh dipercaya (lihat clientIP).
+	TrustedProxies []netip.Prefix
 	// CookieSecure=false hanya untuk development lewat http://.
 	CookieSecure bool
 	// UI melayani dashboard untuk semua path di luar /api.
@@ -148,19 +151,50 @@ func currentUser(r *http.Request) store.User {
 	return u
 }
 
-// clientIP mengambil IP client. Caddy (tanpa trusted_proxies) mengabaikan X-Forwarded-For
-// dari client dan mengisinya sendiri, jadi entri pertama bisa dipercaya selama
-// control-plane hanya bisa dijangkau lewat Caddy.
-func clientIP(r *http.Request) string {
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		first, _, _ := strings.Cut(xff, ",")
-		return strings.TrimSpace(first)
-	}
+// clientIP menentukan IP client untuk rate limit. X-Forwarded-For hanya dibaca kalau
+// koneksi datang dari proxy tepercaya; daftarnya ditelusuri dari kanan dan entri pertama
+// yang bukan proxy tepercaya dianggap client. Dengan begitu client tidak bisa memalsukan
+// IP-nya dengan mengirim header sendiri.
+func (h *Handler) clientIP(r *http.Request) string {
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
-		return r.RemoteAddr
+		host = r.RemoteAddr
+	}
+	remote, err := netip.ParseAddr(host)
+	if err != nil || !h.trusted(remote) {
+		return host
+	}
+
+	var hops []string
+	for _, v := range r.Header.Values("X-Forwarded-For") {
+		hops = append(hops, strings.Split(v, ",")...)
+	}
+	var leftmost string
+	for i := len(hops) - 1; i >= 0; i-- {
+		addr, err := netip.ParseAddr(strings.TrimSpace(hops[i]))
+		if err != nil {
+			break // entri rusak: berhenti, jangan percaya apa pun di kirinya
+		}
+		if !h.trusted(addr) {
+			return addr.String()
+		}
+		leftmost = addr.String()
+	}
+	// Semua hop tepercaya (mis. client di jaringan privat yang sama): pakai yang paling kiri.
+	if leftmost != "" {
+		return leftmost
 	}
 	return host
+}
+
+func (h *Handler) trusted(addr netip.Addr) bool {
+	addr = addr.Unmap()
+	for _, p := range h.opts.TrustedProxies {
+		if p.Contains(addr) {
+			return true
+		}
+	}
+	return false
 }
 
 func decode(w http.ResponseWriter, r *http.Request, v any) bool {

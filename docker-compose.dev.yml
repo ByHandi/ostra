@@ -1,0 +1,32 @@
+# Tambahan untuk development lokal (BASE_DOMAIN=localhost). Dipakai otomatis lewat
+# COMPOSE_FILE di .env yang dibuat `scripts/gen-env.sh --dev`. Jangan dipakai di production.
+services:
+  garage:
+    ports:
+      - "127.0.0.1:3900:3900" # S3 API langsung, untuk debug
+      - "127.0.0.1:3903:3903" # admin API, untuk control-plane yang dijalankan di host
+
+  control:
+    ports:
+      - "127.0.0.1:8080:8080" # untuk `npm run dev` di web/ (proxy /api)
+    environment:
+      # Ditolak control-plane kalau EDGE_HOSTNAME bukan .localhost/.test.
+      DNS_VERIFY: "off"
+      COOKIE_SECURE: "false"
+      DNS_SERVER: ""
+
+  caddy:
+    volumes:
+      - ./caddy/Caddyfile.dev:/etc/caddy/Caddyfile:ro
+
+  # Tool: docker compose run --rm awscli s3 ls
+  awscli:
+    image: amazon/aws-cli:2.37.10
+    profiles: ["tools"]
+    environment:
+      AWS_ENDPOINT_URL: http://garage:3900
+      AWS_DEFAULT_REGION: garage
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
+    volumes:
+      - ./sample:/sample:ro

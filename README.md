@@ -30,15 +30,48 @@ Object storage self-hosted ala Cloudflare R2: **Garage** sebagai storage, **Cadd
 
 Langkah selanjutnya menuju rilis open source ada di [ROADMAP.md](ROADMAP.md).
 
+## Deploy production
+
+Butuh server dengan Docker dan port 80/443 yang bisa diakses dari internet.
+
+**1. DNS.** Arahkan record berikut ke IP server (ganti `domainku.com` dengan domainmu):
+
+| Record | Untuk |
+|---|---|
+| `console.domainku.com` | Dashboard |
+| `s3.domainku.com` | S3 API |
+| `edge.domainku.com` | Target CNAME custom domain milik user |
+| `*.web.domainku.com` | Akses web per bucket (opsional) |
+
+**2. Konfigurasi dan jalankan.**
+
+```bash
+./scripts/gen-env.sh          # buat .env dan isi semua secret
+# edit .env: isi BASE_DOMAIN=domainku.com dan ACME_EMAIL
+docker compose up -d --build
+```
+
+Layout Garage dibuat otomatis (`garage server --single-node`), sertifikat diambil dari Let's Encrypt saat request pertama.
+
+**3. Buat akun admin pertama**, lalu buka `https://console.domainku.com`:
+
+```bash
+docker compose exec control /control createuser --email kamu@domainku.com --name "Nama Kamu"
+```
+
+`docker-compose.yml` sudah aman untuk production: verifikasi DNS custom domain aktif, cookie sesi `Secure`, dan port admin Garage tidak di-publish. Semua kelonggaran development ada di `docker-compose.dev.yml`, dan control-plane menolak start kalau kelonggaran itu dipakai dengan domain selain `.localhost`/`.test`.
+
 ## Menjalankan di lokal
 
 Butuh Docker. Port 80, 443, dan 8080 harus kosong.
 
 ```bash
-./scripts/gen-env.sh          # bikin/lengkapi .env, isi secret yang kosong
+./scripts/gen-env.sh --dev    # .env untuk lokal: BASE_DOMAIN=localhost, ikut memakai docker-compose.dev.yml
 docker compose up -d --build
-./scripts/init-dev.sh         # layout Garage, bucket "assets", key, sample/, akun admin, cdn.brandku.localhost
+./scripts/init-dev.sh         # bucket "assets", key, sample/, akun admin, cdn.brandku.localhost
 ```
+
+`--dev` menulis `COMPOSE_FILE=docker-compose.yml:docker-compose.dev.yml` ke `.env`, jadi semua perintah `docker compose` otomatis memakai override development: verifikasi DNS dimatikan, cookie tanpa `Secure`, sertifikat dari CA lokal Caddy, port debug (`3900`, `3903`, `8080`) di-bind ke `127.0.0.1`, dan ada service `awscli`.
 
 Dashboard: **https://console.localhost** (atau http://127.0.0.1:8080). Login dengan `DEV_ADMIN_EMAIL` dan `DEV_ADMIN_PASSWORD` dari `.env`.
 
@@ -89,7 +122,7 @@ POST /api/domains ──► pending ──(worker tiap 30 dtk / POST .../verify)
 4. Kalau Garage menolak (mis. alias sudah dipakai bucket lain), status jadi `error`. `POST .../verify` mencoba ulang.
 5. Tiap 5 menit, worker memastikan alias domain aktif masih terpasang. Kalau bucket-nya hilang, status jadi `error`.
 
-Di lokal `DNS_VERIFY=off`, jadi domain langsung `active` tanpa cek DNS.
+Di lokal (`docker-compose.dev.yml`) verifikasi DNS dimatikan, jadi domain langsung `active`.
 
 ## API
 
@@ -124,10 +157,11 @@ Format respons mengikuti template `shadcn-vite` dan `go-service-boilerplate`:
 
 | Path | Isi |
 |---|---|
-| `docker-compose.yml` | Garage, control, Caddy, dan `awscli` (profile `tools`) |
-| `garage/garage.toml` | Config Garage. Secret diambil dari env |
-| `caddy/Caddyfile.dev` | Mode lokal (`local_certs`) |
-| `caddy/Caddyfile` | Mode production (Let's Encrypt). Set `CADDYFILE=Caddyfile` di `.env` |
+| `docker-compose.yml` | Production: Garage, control, Caddy |
+| `docker-compose.dev.yml` | Override development: port debug, setting longgar, `awscli` (profile `tools`) |
+| `garage/garage.toml.tmpl` | Template config Garage; `__BASE_DOMAIN__` diisi service `garage-config` |
+| `caddy/Caddyfile` | Production (Let's Encrypt) |
+| `caddy/Caddyfile.dev` | Development (`local_certs`) |
 | `control/Dockerfile` | Multi-stage: build dashboard (Node), lalu binary Go dengan dashboard di-embed |
 | `control/cmd/control` | Entry point: server, `createuser`, `setpassword` |
 | `control/internal/service` | Logika bisnis: bucket, access key, custom domain, worker |
@@ -138,18 +172,16 @@ Format respons mengikuti template `shadcn-vite` dan `go-service-boilerplate`:
 | `control/internal/ui` | Serve dashboard yang di-embed (SPA fallback, CSP, cache aset) |
 | `control/db` | Migrasi goose + query sqlc (`cd control/db && sqlc generate`) |
 | `web/` | Dashboard: Vite + React + TanStack Router/Query + shadcn |
-| `scripts/gen-env.sh` | Generate/lengkapi `.env` |
+| `scripts/gen-env.sh` | Buat/lengkapi `.env` (`--dev` untuk lokal) |
 | `scripts/init-dev.sh` | Setup development, aman dijalankan ulang |
 
 ## Catatan production
 
-- Ganti `root_domain` di `garage/garage.toml`, lalu sesuaikan `WEB_ROOT_DOMAIN`, `EDGE_HOSTNAME`, dan `RESERVED_DOMAINS` di `.env` dengan domain asli.
-- **Set `DNS_VERIFY=on` dan `COOKIE_SECURE=true`.** Isi `DNS_SERVER=1.1.1.1:53` supaya hasil cek DNS tidak tertahan cache lokal.
-- Buat akun admin dengan `control createuser`. Jangan pakai `scripts/init-dev.sh` di production.
-- Hapus port `127.0.0.1:8080` dari service `control` di compose kalau tidak dipakai. Dashboard cukup diakses lewat Caddy.
-- Isi `ACME_EMAIL`, `S3_DOMAIN`, `CONSOLE_DOMAIN` di `.env`, lalu set `CADDYFILE=Caddyfile`.
+- Semua domain diturunkan dari `BASE_DOMAIN`. `EDGE_HOSTNAME` dan `RESERVED_DOMAINS` bisa diganti di `.env` kalau perlu.
+- Kalau ada proxy atau load balancer lain di depan Caddy, isi `TRUSTED_PROXIES` dengan alamatnya. Defaultnya loopback dan jaringan privat (tempat Caddy bawaan berada). IP client dipakai untuk rate limit login.
+- Jangan pakai `scripts/init-dev.sh` atau `docker-compose.dev.yml` di production.
 - Wildcard `*.s3.domainku.com` (virtual-hosted style) butuh DNS challenge, artinya Caddy perlu di-build dengan plugin DNS provider. Tanpa itu, S3 API hanya path-style.
-- Jangan expose port 3900/3903 ke publik. Di compose, keduanya hanya di-bind ke 127.0.0.1. Port internal control-plane (9000) juga tidak boleh di-proxy ke publik.
+- Port internal control-plane (9000) tidak boleh di-proxy ke publik.
 - Mengaktifkan custom domain berarti website bucket dinyalakan, jadi isi bucket juga bisa dibaca publik lewat `<bucket>.web.<domain>`.
 - Nama alias bucket maksimal 63 karakter, jadi domain yang lebih panjang dari itu belum bisa dipakai sebagai custom domain.
 - `replication_factor = 1` berarti tanpa redundansi. Untuk data penting, pakai minimal 3 node.

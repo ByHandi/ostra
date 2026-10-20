@@ -18,7 +18,7 @@ origin yang sama dengan API. Jadi tidak ada CORS, dan `VITE_API_URL` defaultnya 
 | `npm run format`    | Prettier                                                                                |
 
 Untuk `npm run dev`, control-plane harus jalan (`docker compose up -d` di root repo).
-Cookie sesi hanya bekerja lewat `http://` kalau `COOKIE_SECURE=false` di `.env` root.
+Cookie sesi bisa dipakai lewat `http://` karena `docker-compose.dev.yml` mematikan flag `Secure` (setup dari `scripts/gen-env.sh --dev`).
 
 ## Struktur
 
