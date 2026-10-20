@@ -39,6 +39,9 @@ services:
       - garage-data:/var/lib/garage/data
 
   control:
+    # Image rilis dari GitHub Actions. Pin versi lewat CONTROL_IMAGE di .env, mis.
+    # ghcr.io/byhandi/storage-edge:0.1.0. `docker compose up -d --build` membangun dari source.
+    image: ${CONTROL_IMAGE:-ghcr.io/byhandi/storage-edge:latest}
     build:
       context: .
       dockerfile: control/Dockerfile

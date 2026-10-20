@@ -48,8 +48,11 @@ Butuh server dengan Docker dan port 80/443 yang bisa diakses dari internet.
 ```bash
 ./scripts/gen-env.sh          # buat .env dan isi semua secret
 # edit .env: isi BASE_DOMAIN=domainku.com dan ACME_EMAIL
-docker compose up -d --build
+docker compose pull           # image rilis dari ghcr.io/byhandi/storage-edge
+docker compose up -d
 ```
+
+Untuk memakai versi tertentu, isi `CONTROL_IMAGE=ghcr.io/byhandi/storage-edge:<versi>` di `.env`. Kalau mau membangun dari source, pakai `docker compose up -d --build`.
 
 Layout Garage dibuat otomatis (`garage server --single-node`), sertifikat diambil dari Let's Encrypt saat request pertama.
 
@@ -105,6 +108,19 @@ docker compose exec control /control setpassword --email kamu@contoh.com
 ```
 
 Password ditanyakan secara interaktif (atau `--password-stdin` untuk script). `setpassword` juga mengakhiri semua sesi user itu.
+
+## CI dan rilis
+
+- **CI** (`.github/workflows/ci.yml`) jalan untuk setiap PR dan push ke `main`: gofmt, `go vet`, `go test -race`, govulncheck, typecheck/lint/Prettier/`npm audit` untuk web, shellcheck, validasi compose, dan build image amd64 + arm64.
+- **Rilis** (`.github/workflows/release.yml`): ubah `[Unreleased]` di [CHANGELOG.md](CHANGELOG.md) jadi versi baru, lalu push tag:
+
+  ```bash
+  git tag v0.1.0
+  git push origin v0.1.0
+  ```
+
+  Workflow menjalankan CI, mem-push image multi-arch ke `ghcr.io/byhandi/storage-edge` (tag `0.1.0`, `0.1`, dan `latest`), lalu membuat GitHub Release dari isi CHANGELOG. Tag dengan akhiran seperti `-rc.1` jadi pre-release dan tidak mengubah `latest`.
+- **Dependabot** membuka PR mingguan untuk Go modules, npm, image Docker, dan GitHub Actions.
 
 ## Alur custom domain
 
@@ -174,6 +190,8 @@ Format respons mengikuti template `shadcn-vite` dan `go-service-boilerplate`:
 | `web/` | Dashboard: Vite + React + TanStack Router/Query + shadcn |
 | `scripts/gen-env.sh` | Buat/lengkapi `.env` (`--dev` untuk lokal) |
 | `scripts/init-dev.sh` | Setup development, aman dijalankan ulang |
+| `.github/workflows/` | CI dan release |
+| `CHANGELOG.md` | Catatan perubahan per versi (dipakai sebagai catatan rilis) |
 
 ## Catatan production
 

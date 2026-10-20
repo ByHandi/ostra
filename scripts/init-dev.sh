@@ -10,7 +10,11 @@ BUCKET="${BUCKET:-assets}"
 KEY_NAME="${KEY_NAME:-app-key}"
 CUSTOM_DOMAIN="${CUSTOM_DOMAIN:-cdn.brandku.localhost}"
 
-set -a; . ./.env; set +a
+set -a
+# .env dibuat gen-env.sh dan tidak ada di repo, jadi tidak bisa diikuti shellcheck.
+# shellcheck source=/dev/null
+. ./.env
+set +a
 if [[ "${COMPOSE_FILE:-}" != *docker-compose.dev.yml* ]]; then
   echo "Script ini hanya untuk development. Jalankan dulu: scripts/gen-env.sh --dev" >&2
   exit 1

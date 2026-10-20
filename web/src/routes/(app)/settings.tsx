@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { changePassword } from "@/lib/api/auth";
 import { sessionContextQuery } from "@/lib/api/session";
+import { versionQuery } from "@/lib/api/storage";
 import { applyApiError } from "@/lib/form-errors";
 
 export const Route = createFileRoute("/(app)/settings")({
@@ -28,6 +29,7 @@ function Settings() {
         <Profile />
         <ChangePassword />
         <Appearance />
+        <About />
       </div>
     </>
   );
@@ -145,6 +147,29 @@ function Appearance() {
         onValueChange={(value) => setTheme(value as typeof theme)}
         options={THEMES}
       />
+    </Section>
+  );
+}
+
+function About() {
+  const version = useQuery(versionQuery());
+
+  return (
+    <Section title="Tentang" description="Versi storage-edge yang sedang berjalan.">
+      <dl className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-1">
+          <dt className="text-xs text-muted-foreground">Versi</dt>
+          <dd className="font-mono text-sm">
+            {version.data ? version.data.version : <Skeleton className="h-5 w-20" />}
+          </dd>
+        </div>
+        <div className="space-y-1">
+          <dt className="text-xs text-muted-foreground">Commit</dt>
+          <dd className="font-mono text-sm">
+            {version.data ? version.data.commit : <Skeleton className="h-5 w-24" />}
+          </dd>
+        </div>
+      </dl>
     </Section>
   );
 }

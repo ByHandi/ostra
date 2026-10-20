@@ -40,7 +40,11 @@ func newTestServer(t *testing.T) *httptest.Server {
 	svc := service.New(store.New(db), stubGarage{}, nil, service.Options{})
 	ui := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("ui")) })
 
-	srv := httptest.NewServer(NewHandler(svc, authSvc, Options{CookieSecure: false, UI: ui}).Public())
+	srv := httptest.NewServer(NewHandler(svc, authSvc, Options{
+		CookieSecure: false,
+		Version:      Version{Version: "v1.2.3", Commit: "abc123"},
+		UI:           ui,
+	}).Public())
 	t.Cleanup(srv.Close)
 	return srv
 }
@@ -116,6 +120,14 @@ func TestAuthFlow(t *testing.T) {
 	me := call(t, srv, "GET", "/api/me", token, nil, "")
 	if data, _ := me.body.Data.(map[string]any); me.status != 200 || data["email"] != "admin@example.com" {
 		t.Fatalf("GET /api/me = %d %+v", me.status, me.body)
+	}
+
+	v := call(t, srv, "GET", "/api/version", token, nil, "")
+	if data, _ := v.body.Data.(map[string]any); v.status != 200 || data["version"] != "v1.2.3" || data["commit"] != "abc123" {
+		t.Fatalf("GET /api/version = %d %+v", v.status, v.body)
+	}
+	if r := call(t, srv, "GET", "/api/version", "", nil, ""); r.status != 401 {
+		t.Fatalf("GET /api/version tanpa token = %d, want 401", r.status)
 	}
 
 	// Refresh merotasi cookie; cookie lama tidak berlaku lagi.

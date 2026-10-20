@@ -92,9 +92,15 @@ export interface Overview {
   domains: Record<DomainStatus, number>;
 }
 
+export interface VersionInfo {
+  version: string;
+  commit: string;
+}
+
 // ── Query keys ───────────────────────────────────────────────────────────────
 
 export const storageKeys = {
+  version: ["version"] as const,
   overview: ["overview"] as const,
   buckets: ["buckets"] as const,
   bucket: (id: string) => ["buckets", id] as const,
@@ -109,6 +115,13 @@ async function data<T>(promise: Promise<{ data?: T }>): Promise<T> {
 }
 
 // ── Queries ──────────────────────────────────────────────────────────────────
+
+export const versionQuery = () =>
+  queryOptions({
+    queryKey: storageKeys.version,
+    queryFn: () => data(api.get<VersionInfo>("/version")),
+    staleTime: Infinity,
+  });
 
 export const overviewQuery = () =>
   queryOptions({

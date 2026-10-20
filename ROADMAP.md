@@ -57,7 +57,7 @@ Fase 1 dan 2 adalah syarat sebelum repo dibuka ke publik.
 ## Keputusan yang masih ditunggu
 
 - [ ] **Lisensi** (MIT / Apache-2.0 / AGPL-3.0). Menahan: `LICENSE`, catatan lisensi di README.
-- [ ] **Nama repo GitHub**. Menahan: nama image di GHCR, badge, dan URL di README.
+- [x] **Nama repo GitHub**: `ByHandi/storage-edge`, image `ghcr.io/byhandi/storage-edge`.
 
 ---
 
@@ -116,14 +116,16 @@ Di belakang proxy lain, header ini bisa dipalsukan sehingga rate limit bisa dibo
 
 ## Fase 2: CI/CD dan distribusi
 
-- [ ] GitHub Actions untuk PR:
+- [x] GitHub Actions untuk PR (`.github/workflows/ci.yml`), plus shellcheck dan validasi compose:
   - Go: `gofmt`, `go vet`, `go test`, `govulncheck`
   - Web: `typecheck`, `lint`, `prettier --check`, `npm audit --omit=dev`
   - `docker build` (tanpa push) untuk memastikan image tetap bisa dibangun
-- [ ] Release: tag `v*` → build image multi-arch (`linux/amd64`, `linux/arm64`) → push ke GHCR
-- [ ] Compose production memakai image dari GHCR, jadi user tidak perlu build sendiri
-- [ ] Dependabot (atau Renovate) untuk Go modules, npm, image Docker, dan GitHub Actions
-- [ ] `CHANGELOG.md` dan versi yang terlihat di dashboard (`/api/version`)
+- [x] Release: tag `v*` → CI → build image multi-arch (`linux/amd64`, `linux/arm64`, cross-compile
+      tanpa QEMU) → push ke GHCR dengan provenance + SBOM → GitHub Release dari CHANGELOG
+- [x] Compose production memakai image dari GHCR (`CONTROL_IMAGE` untuk pin versi); dev tetap build lokal
+- [x] Dependabot untuk Go modules, npm, image Docker (Dockerfile + compose), dan GitHub Actions
+- [x] `CHANGELOG.md`, `control version`, `/api/version`, dan versi di halaman Pengaturan
+- [ ] Rilis pertama `v0.1.0` (setelah lisensi diputuskan), lalu pastikan package GHCR berstatus Public
 
 ---
 
