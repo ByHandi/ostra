@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -147,6 +148,33 @@ func TestAuthFlow(t *testing.T) {
 	}
 	if r := call(t, srv, "POST", "/api/auth/refresh-token", "", newCookie, ""); r.status != 401 {
 		t.Fatalf("refresh setelah logout = %d", r.status)
+	}
+}
+
+func TestHealthz(t *testing.T) {
+	healthy := true
+	h := &Handler{opts: Options{Health: func(context.Context) error {
+		if !healthy {
+			return errors.New("database terkunci")
+		}
+		return nil
+	}}}
+	srv := httptest.NewServer(h.Internal())
+	defer srv.Close()
+
+	for _, tt := range []struct {
+		healthy bool
+		want    int
+	}{{true, 200}, {false, 503}} {
+		healthy = tt.healthy
+		resp, err := http.Get(srv.URL + "/healthz")
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode != tt.want {
+			t.Fatalf("healthy=%v: /healthz = %d, want %d", tt.healthy, resp.StatusCode, tt.want)
+		}
 	}
 }
 

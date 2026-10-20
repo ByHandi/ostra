@@ -7,6 +7,7 @@
 //	control createuser --email E --name N    buat akun admin (password ditanya)
 //	control setpassword --email E            reset password akun admin
 //	control version                          tampilkan versi build
+//	control healthcheck                      cek /healthz server lokal (untuk healthcheck Docker)
 //
 // Tambahkan --password-stdin untuk membaca password dari stdin (untuk script).
 package main
@@ -67,8 +68,10 @@ func main() {
 		err = setPassword(os.Args[2:])
 	case "version", "--version":
 		fmt.Printf("storage-edge %s (%s)\n", version, commit)
+	case "healthcheck":
+		err = healthcheck()
 	default:
-		err = fmt.Errorf("perintah tidak dikenal %q (pilihan: serve, createuser, setpassword, version)", cmd)
+		err = fmt.Errorf("perintah tidak dikenal %q (pilihan: serve, createuser, setpassword, version, healthcheck)", cmd)
 	}
 	if err != nil {
 		slog.Error("control berhenti", "err", err)
@@ -121,6 +124,7 @@ func serve() error {
 	}
 
 	h := api.NewHandler(svc, authSvc, api.Options{
+		Health:         sqlDB.PingContext,
 		EdgeHostname:   cfg.EdgeHostname,
 		TrustedProxies: cfg.TrustedProxies,
 		CookieSecure:   cfg.CookieSecure,
@@ -156,6 +160,29 @@ func serve() error {
 		return nil
 	})
 	return g.Wait()
+}
+
+// healthcheck dipakai HEALTHCHECK Docker: image scratch tidak punya curl/wget, jadi
+// binary ini sendiri yang memanggil /healthz. Sengaja tidak memuat config lengkap,
+// cukup alamat listen.
+func healthcheck() error {
+	addr := os.Getenv("LISTEN_ADDR")
+	if addr == "" {
+		addr = ":8080"
+	}
+	if strings.HasPrefix(addr, ":") {
+		addr = "127.0.0.1" + addr
+	}
+	client := http.Client{Timeout: 3 * time.Second}
+	resp, err := client.Get("http://" + addr + "/healthz")
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("/healthz membalas %s", resp.Status)
+	}
+	return nil
 }
 
 func createUser(args []string) error {
