@@ -94,7 +94,7 @@ docker compose exec control /control createuser --email kamu@domainku.com --name
 
 **Rollback:** migrasi tidak dibatalkan otomatis. Kembalikan `CONTROL_IMAGE` ke versi lama, lalu `./scripts/restore.sh <backup-sebelum-upgrade>`.
 
-Versi Garage dan Caddy di-pin di `docker-compose.yml` dan dinaikkan lewat PR Dependabot. Untuk upgrade Garage, baca juga catatan rilis Garage dan selalu backup dulu.
+Caddy dan image lain dinaikkan lewat PR Dependabot bulanan. Garage sengaja dikecualikan: naikkan manual (ganti tag `dxflrs/garage` di `docker-compose.yml`) setelah membaca catatan rilis Garage dan membuat backup.
 
 ## Menjalankan di lokal
 
@@ -152,7 +152,7 @@ Password ditanyakan secara interaktif (atau `--password-stdin` untuk script). `s
   ```
 
   Workflow menjalankan CI, mem-push image multi-arch ke `ghcr.io/byhandi/storage-edge` (tag `0.1.0`, `0.1`, dan `latest`), lalu membuat GitHub Release dari isi CHANGELOG. Tag dengan akhiran seperti `-rc.1` jadi pre-release dan tidak mengubah `latest`.
-- **Dependabot** membuka PR mingguan untuk Go modules, npm, image Docker, dan GitHub Actions.
+- **Dependabot** membuka paling banyak satu PR gabungan per ekosistem per bulan (Go, npm, Docker, Compose, GitHub Actions). CI juga jalan tiap Senin, jadi celah keamanan yang baru diumumkan tetap membuat govulncheck/npm audit gagal walau tidak ada commit baru.
 
 ## Alur custom domain
 

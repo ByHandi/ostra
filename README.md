@@ -97,7 +97,7 @@ docker compose exec control /control createuser --email you@example.com --name "
 
 **Rollback:** migrations are not reverted automatically. Set `CONTROL_IMAGE` back to the old version, then run `./scripts/restore.sh <pre-upgrade-backup>`.
 
-Garage and Caddy versions are pinned in `docker-compose.yml` and bumped through Dependabot PRs. Before upgrading Garage, also read the Garage release notes, and always back up first.
+Caddy and the other images are bumped through a monthly Dependabot PR. Garage is deliberately excluded: upgrade it by hand (change the `dxflrs/garage` tag in `docker-compose.yml`) after reading the Garage release notes and taking a backup.
 
 ## Local development
 
@@ -155,7 +155,7 @@ The password is prompted for interactively (or use `--password-stdin` in scripts
   ```
 
   The workflow runs CI, pushes a multi-arch image to `ghcr.io/byhandi/storage-edge` (tags `0.1.0`, `0.1`, and `latest`), and creates a GitHub Release from the CHANGELOG section. Tags with a suffix such as `-rc.1` become pre-releases and leave `latest` untouched.
-- **Dependabot** opens weekly PRs for Go modules, npm, Docker images, and GitHub Actions.
+- **Dependabot** opens at most one grouped PR per ecosystem per month (Go, npm, Docker, Compose, GitHub Actions). CI also runs every Monday so newly disclosed vulnerabilities fail govulncheck/npm audit even without new commits.
 
 ## Custom domain flow
 

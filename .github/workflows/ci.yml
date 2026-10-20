@@ -6,6 +6,10 @@ on:
   pull_request:
   # Dipanggil release.yml supaya image hanya dirilis dari commit yang lolos CI.
   workflow_call:
+  # Tiap Senin pagi (WIB): menangkap celah keamanan yang baru diumumkan di dependency
+  # (govulncheck, npm audit) walaupun tidak ada commit baru.
+  schedule:
+    - cron: "0 0 * * 1"
 
 permissions:
   contents: read
@@ -64,7 +68,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - run: shellcheck scripts/*.sh
+      # Versi di-pin (sama dengan yang dipakai lokal di CONTRIBUTING.md), karena shellcheck
+      # bawaan runner bisa berbeda versi dan hasilnya.
+      - name: shellcheck
+        run: docker run --rm -v "$PWD:/mnt" -w /mnt koalaman/shellcheck:v0.11.0 scripts/*.sh
 
   docker:
     name: Docker image & compose

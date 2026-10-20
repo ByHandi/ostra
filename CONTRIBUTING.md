@@ -39,8 +39,8 @@ npm run lint
 npx prettier --check .
 npm audit --omit=dev
 
-# Scripts (repo root)
-shellcheck scripts/*.sh
+# Scripts (repo root), same shellcheck version as CI
+docker run --rm -v "$PWD:/mnt" -w /mnt koalaman/shellcheck:v0.11.0 scripts/*.sh
 ```
 
 ## Conventions

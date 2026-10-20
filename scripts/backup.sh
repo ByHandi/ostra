@@ -48,9 +48,11 @@ dest="$(cd "$dest" && pwd)"
 # bisa memicu build).
 version="tidak diketahui"
 container="$(docker compose ps -aq control 2>/dev/null | head -1)"
-image="$([[ -n "$container" ]] && docker inspect --format '{{.Config.Image}}' "$container" 2>/dev/null || true)"
-if [[ -n "$image" ]]; then
-  version="$(docker run --rm "$image" version 2>/dev/null || echo "tidak diketahui")"
+if [[ -n "$container" ]]; then
+  image="$(docker inspect --format '{{.Config.Image}}' "$container" 2>/dev/null || true)"
+  if [[ -n "$image" ]]; then
+    version="$(docker run --rm "$image" version 2>/dev/null || echo "tidak diketahui")"
+  fi
 fi
 
 running="$(docker compose ps --services --status running)"
