@@ -5,7 +5,7 @@ name: storage-edge
 services:
   # Membuat garage.toml dari template dengan BASE_DOMAIN, lalu selesai.
   garage-config:
-    image: busybox:1.37.0
+    image: busybox:1.38.0
     environment:
       BASE_DOMAIN: ${BASE_DOMAIN:?isi BASE_DOMAIN di .env, mis. domainku.com}
     volumes:
