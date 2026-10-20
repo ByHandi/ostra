@@ -7,6 +7,9 @@ services:
       - "127.0.0.1:3903:3903" # admin API, untuk control-plane yang dijalankan di host
 
   control:
+    # Selalu build lokal, dan jangan menimpa tag image rilis.
+    image: storage-edge-control:dev
+    pull_policy: build
     ports:
       - "127.0.0.1:8080:8080" # untuk `npm run dev` di web/ (proxy /api)
     environment:

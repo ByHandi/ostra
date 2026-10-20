@@ -6,6 +6,7 @@
 //	control                                  jalankan server
 //	control createuser --email E --name N    buat akun admin (password ditanya)
 //	control setpassword --email E            reset password akun admin
+//	control version                          tampilkan versi build
 //
 // Tambahkan --password-stdin untuk membaca password dari stdin (untuk script).
 package main
@@ -37,6 +38,12 @@ import (
 	"github.com/handi7/storage-edge/control/internal/ui"
 )
 
+// Diisi saat build lewat -ldflags "-X main.version=... -X main.commit=..." (lihat control/Dockerfile).
+var (
+	version = "dev"
+	commit  = "unknown"
+)
+
 // exitUserExists membedakan "user sudah ada" dari error lain, supaya script bisa melewatinya.
 const exitUserExists = 3
 
@@ -58,8 +65,10 @@ func main() {
 		}
 	case "setpassword":
 		err = setPassword(os.Args[2:])
+	case "version", "--version":
+		fmt.Printf("storage-edge %s (%s)\n", version, commit)
 	default:
-		err = fmt.Errorf("perintah tidak dikenal %q (pilihan: serve, createuser, setpassword)", cmd)
+		err = fmt.Errorf("perintah tidak dikenal %q (pilihan: serve, createuser, setpassword, version)", cmd)
 	}
 	if err != nil {
 		slog.Error("control berhenti", "err", err)
@@ -103,6 +112,7 @@ func serve() error {
 		ReservedDomains: cfg.ReservedDomains,
 		WebRootDomain:   cfg.WebRootDomain,
 	})
+	slog.Info("storage-edge", "version", version, "commit", commit)
 	if !cfg.DNSVerify {
 		slog.Warn("DNS_VERIFY=off: domain langsung aktif tanpa verifikasi DNS (hanya untuk development)")
 	}
@@ -114,6 +124,7 @@ func serve() error {
 		EdgeHostname:   cfg.EdgeHostname,
 		TrustedProxies: cfg.TrustedProxies,
 		CookieSecure:   cfg.CookieSecure,
+		Version:        api.Version{Version: version, Commit: commit},
 		UI:             ui.Handler(),
 	})
 	servers := []*http.Server{

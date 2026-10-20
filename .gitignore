@@ -2,6 +2,7 @@
 *.db
 *.db-*
 
-# Hasil build dashboard (di-embed ke binary Go); .gitkeep supaya go:embed tetap jalan tanpa build.
+# Hasil build dashboard (dist/web, di-embed ke binary Go). dist/.gitkeep WAJIB di-commit:
+# tanpa file itu go:embed gagal di clone baru (mis. di CI).
 control/internal/ui/dist/*
 !control/internal/ui/dist/.gitkeep
