@@ -55,7 +55,7 @@ function StatCards({ overview }: { overview: Overview }) {
             <span className="text-sm">{stat.label}</span>
             <Icon name={stat.icon} className="size-4" />
           </div>
-          <span className="font-heading text-2xl">{stat.value}</span>
+          <span className="text-2xl font-semibold tabular-nums">{stat.value}</span>
           <span className="text-xs text-muted-foreground">{stat.hint}</span>
         </div>
       ))}

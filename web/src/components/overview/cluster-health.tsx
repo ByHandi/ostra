@@ -30,7 +30,7 @@ function ClusterHealth({ cluster }: { cluster: Overview["cluster"] }) {
         {rows.map((row) => (
           <div key={row.label} className="space-y-1">
             <dt className="text-xs text-muted-foreground">{row.label}</dt>
-            <dd className="font-mono text-sm">{row.value}</dd>
+            <dd className="text-sm font-medium tabular-nums">{row.value}</dd>
           </div>
         ))}
       </dl>
