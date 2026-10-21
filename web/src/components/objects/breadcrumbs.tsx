@@ -27,9 +27,11 @@ function Breadcrumbs({ bucketId, bucketName, prefix }: BreadcrumbsProps) {
         <Icon name="archive" className="size-4 text-muted-foreground" />
         {bucketName}
       </Link>
+
       {segments.map((segment, i) => {
         const target = `${segments.slice(0, i + 1).join("/")}/`;
         const isLast = i === segments.length - 1;
+
         return (
           <Fragment key={target}>
             <Icon name="chevron-right" className="size-3.5 text-muted-foreground" />

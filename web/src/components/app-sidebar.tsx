@@ -19,7 +19,7 @@ import {
   SidebarRail,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { type NavItem, navGroups } from "@/config/navigation";
+import { type NavItem, isActivePath, navGroups } from "@/config/navigation";
 
 export interface SidebarUser {
   name: string;
@@ -35,10 +35,6 @@ function initials(name: string): string {
       .map((part) => part[0]?.toUpperCase() ?? "")
       .join("") || "?"
   );
-}
-
-function isActivePath(pathname: string, href: string): boolean {
-  return href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
 }
 
 interface Props {

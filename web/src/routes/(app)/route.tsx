@@ -1,7 +1,7 @@
 import { Outlet, createFileRoute, redirect } from "@tanstack/react-router";
 
 import AppSidebar from "@/components/app-sidebar";
-import { MobileFloatingNav } from "@/components/mobile-floating-nav";
+import { MobileTabBar } from "@/components/mobile-tab-bar";
 import { SIDEBAR_COOKIE_NAME, SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { ensureSession, isAuthenticated, logout } from "@/lib/api/auth";
 import { sessionContextQuery } from "@/lib/api/session";
@@ -50,12 +50,18 @@ function AppLayout() {
     <SidebarProvider defaultOpen={defaultOpen}>
       <AppSidebar user={user} onLogout={logout} />
 
-      <SidebarInset className="bg-transparent pb-20 md:pb-0">
+      {/*
+        Phones: the window scrolls (the collapsing header tracks it), with bottom
+        padding to clear the tab bar plus the home indicator.
+        Desktop: the viewport is pinned — sidebar and page header stay put, and
+        only the page body (each page's last child, after its AppHeader) scrolls.
+      */}
+      <SidebarInset className="bg-transparent pb-[calc(3.5rem+env(safe-area-inset-bottom)+1rem)] md:h-svh md:overflow-hidden md:pb-0 md:*:last:min-h-0 md:*:last:flex-1 md:*:last:overflow-y-auto">
         <Outlet />
       </SidebarInset>
 
-      {/* The only way to open the sidebar on mobile — the desktop rail is hidden there. */}
-      <MobileFloatingNav />
+      {/* Phones navigate with the tab bar; the sidebar is desktop-only. */}
+      <MobileTabBar />
     </SidebarProvider>
   );
 }

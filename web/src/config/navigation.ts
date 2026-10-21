@@ -9,6 +9,8 @@ export interface NavItem {
   /** Typed against the generated route tree, so a typo fails `tsc`. */
   href: NonNullable<LinkProps["to"]>;
   icon: IconName;
+  /** Label under the icon in the mobile tab bar, where the full title doesn't fit. */
+  shortTitle?: string;
 }
 
 export interface NavGroup {
@@ -19,14 +21,14 @@ export interface NavGroup {
 export const navGroups: NavGroup[] = [
   {
     label: "Overview",
-    items: [{ title: "Dashboard", href: "/", icon: "layout-dashboard" }],
+    items: [{ title: "Dashboard", shortTitle: "Home", href: "/", icon: "layout-dashboard" }],
   },
   {
     label: "Storage",
     items: [
       { title: "Buckets", href: "/buckets", icon: "archive" },
-      { title: "Custom Domains", href: "/domains", icon: "globe" },
-      { title: "Access Keys", href: "/keys", icon: "key-round" },
+      { title: "Custom Domains", shortTitle: "Domains", href: "/domains", icon: "globe" },
+      { title: "Access Keys", shortTitle: "Keys", href: "/keys", icon: "key-round" },
     ],
   },
   {
@@ -34,3 +36,9 @@ export const navGroups: NavGroup[] = [
     items: [{ title: "Settings", href: "/settings", icon: "settings" }],
   },
 ];
+
+export const navItems: NavItem[] = navGroups.flatMap((group) => group.items);
+
+export function isActivePath(pathname: string, href: string): boolean {
+  return href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
+}

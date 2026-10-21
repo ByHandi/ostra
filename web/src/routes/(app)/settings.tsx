@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 
+import { useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
@@ -10,8 +11,9 @@ import InputText from "@/components/form/input-text";
 import Section from "@/components/section";
 import { useTheme } from "@/components/theme-provider";
 import { Button } from "@/components/ui/button";
+import Icon from "@/components/ui/icon";
 import { Skeleton } from "@/components/ui/skeleton";
-import { changePassword } from "@/lib/api/auth";
+import { changePassword, logout } from "@/lib/api/auth";
 import { sessionContextQuery } from "@/lib/api/session";
 import { versionQuery } from "@/lib/api/storage";
 import { applyApiError } from "@/lib/form-errors";
@@ -30,6 +32,7 @@ function Settings() {
         <ChangePassword />
         <Appearance />
         <About />
+        <SignOut />
       </div>
     </>
   );
@@ -171,5 +174,23 @@ function About() {
         </div>
       </dl>
     </Section>
+  );
+}
+
+/** Phones only — on desktop, logging out lives in the sidebar footer. */
+function SignOut() {
+  const [isLoggingOut, startLogout] = useTransition();
+
+  return (
+    <Button
+      variant="destructive"
+      className="h-11 text-base md:hidden"
+      isLoading={isLoggingOut}
+      loadingText="Logging out"
+      startContent={<Icon name="log-out" className="size-4" />}
+      onClick={() => startLogout(async () => void (await logout()))}
+    >
+      Log out
+    </Button>
   );
 }

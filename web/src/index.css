@@ -156,6 +156,11 @@
   }
   html {
     @apply font-sans;
+    /* Native-app feel on touch screens: no grey tap flash, no double-tap zoom
+       delay, no rubber-band scroll chaining past the page. */
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    overscroll-behavior-y: none;
   }
   h1,
   h2,
@@ -182,4 +187,32 @@
   box-shadow:
     0 0 0 1px color-mix(in oklch, var(--primary) 40%, transparent),
     0 0 18px -2px color-mix(in oklch, var(--primary) 45%, transparent);
+}
+
+/* Page transitions (router `defaultViewTransition`): a quick cross-fade with a
+   slight rise. The tab bar and compact header have their own names, so they
+   stay still instead of fading with the page. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 180ms;
+  animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+
+::view-transition-new(root) {
+  animation-name: page-in;
+}
+
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
 }
