@@ -20,7 +20,7 @@ function AuthLayout() {
     <div className="flex min-h-svh items-center justify-center p-6">
       <div className="flex w-full max-w-sm flex-col gap-8">
         <div className="flex items-center gap-2">
-          <span className="flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
+          <span className="flex size-8 items-center justify-center rounded-md bg-aurora text-white glow-primary">
             <Icon name="cloud" className="size-4" />
           </span>
           <span className="font-medium">storage-edge</span>

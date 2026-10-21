@@ -53,7 +53,7 @@ function KeyPermissions({ accessKey, buckets }: KeyPermissionsProps) {
   const granted = new Map(accessKey.buckets.map((b) => [b.bucketId, b.permissions]));
 
   return (
-    <div className="rounded-lg border">
+    <div className="panel">
       <Table>
         <TableHeader>
           <TableRow>

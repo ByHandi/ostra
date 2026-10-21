@@ -40,7 +40,7 @@ function ClusterHealth({ cluster }: { cluster: Overview["cluster"] }) {
 
 function ClusterHealthSkeleton() {
   return (
-    <div className="flex flex-col gap-4 rounded-lg border p-4" role="status" aria-label="Loading">
+    <div className="flex flex-col gap-4 panel p-4" role="status" aria-label="Loading">
       <div className="flex justify-between">
         <div className="space-y-2">
           <Skeleton className="h-4 w-32" />

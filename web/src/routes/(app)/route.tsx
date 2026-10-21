@@ -50,7 +50,7 @@ function AppLayout() {
     <SidebarProvider defaultOpen={defaultOpen}>
       <AppSidebar user={user} onLogout={logout} />
 
-      <SidebarInset className="pb-20 md:pb-0">
+      <SidebarInset className="bg-transparent pb-20 md:pb-0">
         <Outlet />
       </SidebarInset>
 

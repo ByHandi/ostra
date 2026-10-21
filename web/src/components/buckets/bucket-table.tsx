@@ -18,7 +18,7 @@ const COLUMNS = ["Name", "Objects", "Size", "Custom domain", "Created"];
 
 function BucketTable({ buckets }: { buckets: Bucket[] }) {
   return (
-    <div className="rounded-lg border">
+    <div className="panel">
       <Table>
         <TableHeader>
           <TableRow>

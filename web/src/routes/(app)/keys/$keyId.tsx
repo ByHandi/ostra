@@ -99,7 +99,7 @@ function KeyPage() {
 
 function KeyInfo({ id, created }: { id: string; created: string }) {
   return (
-    <div className="grid gap-4 rounded-lg border p-4 sm:grid-cols-[1fr_auto]">
+    <div className="grid gap-4 panel p-4 sm:grid-cols-[1fr_auto]">
       <div className="min-w-0 space-y-1">
         <p className="text-xs text-muted-foreground">Access key ID</p>
         <div className="flex items-center gap-1">
@@ -121,7 +121,7 @@ function KeyInfo({ id, created }: { id: string; created: string }) {
 function KeyInfoSkeleton() {
   return (
     <div
-      className="grid gap-4 rounded-lg border p-4 sm:grid-cols-[1fr_auto]"
+      className="grid gap-4 panel p-4 sm:grid-cols-[1fr_auto]"
       role="status"
       aria-label="Loading"
     >
