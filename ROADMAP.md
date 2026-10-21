@@ -147,7 +147,25 @@ Behind another proxy this header can be spoofed, so the rate limit can be bypass
 
 ## Phase 4: Other deployment targets
 
-- [ ] Guide for Coolify / Dokploy (Docker hosts that own ports 80/443 themselves)
+- [x] `docker-compose.external-proxy.yml`: the stack without the bundled Caddy, for hosts where an
+      external proxy (Traefik, a tunnel, ...) owns 80/443 and TLS. Self-contained (Garage config inlined, no bind mounts), `garage-config` with
+      `restart: "no"`, and Traefik labels for a priority-1 catch-all to the Garage web endpoint
+- [x] Guide for Coolify behind a Cloudflare Tunnel (Full TLS), including custom domains through
+      Cloudflare for SaaS (fallback origin + tunnel catch-all + proxy catch-all). Tested end-to-end:
+      console, S3 API, and a custom domain serving a bucket
+- [ ] Verify on Dokploy: its Traefik only reaches services on `dokploy-network`, and its entrypoints
+      are named differently (`web` / `websecure`)
+- [ ] Optional `cloudflared` service in `docker-compose.external-proxy.yml` for a plain Cloudflare Tunnel
+      without a proxy (the services are only `expose`d, so a `cloudflared` on the host cannot reach them):
+  - Behind a compose profile (e.g. `--profile cloudflared`) and `TUNNEL_TOKEN`, so Coolify/Dokploy
+    deployments are unaffected; check that those platforms do not start profiled services
+  - Ingress straight to the Docker network: `console` → `http://control:8080`,
+    `s3` → `http://garage:3900`, catch-all → `http://garage:3902` (keeps the `Host` for custom domains)
+  - README section for this setup, and an end-to-end test including a custom domain
+- [ ] Backup and restore for stacks deployed by Coolify/Dokploy: `scripts/backup.sh` finds volumes
+      through `docker compose config` in the repo directory, which does not exist there
+- [ ] CI check that the Garage config inlined in `docker-compose.external-proxy.yml` matches
+      `garage/garage.toml.tmpl`
 - [ ] Postgres option for the control-plane (sqlc is ready; needs migrations and the pgx driver),
       so it can run more than 1 replica
 - [ ] Kubernetes manifests / Helm chart (Garage, control-plane, Caddy or an ingress with
@@ -176,6 +194,17 @@ hidden S3 access key, created automatically and granted to a bucket on first use
 
 Later: image/text preview, rename/move, empty folders, direct-to-S3 uploads with presigned URLs
 for very large files.
+
+### Behind Cloudflare (not scheduled)
+
+Limits found while running Ostra behind a Cloudflare Tunnel.
+
+- [ ] Chunked (multipart) uploads in the object browser. Cloudflare rejects request bodies over
+      100 MB on the Free and Pro plans, so for now the README tells Cloudflare setups to set
+      `MAX_UPLOAD_SIZE_MB=95`
+- [ ] Cloudflare for SaaS integration: create the custom hostname through the Cloudflare API when a
+      domain is registered (and delete it with the domain), and show its certificate status in the
+      dashboard. Today every custom domain has to be added by hand under Custom Hostnames
 
 ---
 

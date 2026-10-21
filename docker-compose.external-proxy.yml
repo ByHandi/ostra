@@ -1,10 +1,10 @@
-# Production behind a TLS-terminating tunnel or proxy (Cloudflare Tunnel, Coolify's Traefik, ...).
-# Same stack as docker-compose.yml without the bundled Caddy: the tunnel/proxy owns TLS and
-# routes hostnames to these services over the Docker network.
+# Production behind an external proxy that owns ports 80/443 and TLS (Coolify's or Dokploy's
+# Traefik, a Cloudflare Tunnel, Nginx Proxy Manager, ...). Same stack as docker-compose.yml without
+# the bundled Caddy: the proxy routes hostnames to these services over the Docker network.
 #
 #   console.<BASE_DOMAIN>   → control:8080
 #   s3.<BASE_DOMAIN>        → garage:3900
-#   *.web.<BASE_DOMAIN>     → garage:3902   (optional, two-level wildcard: needs a matching cert)
+#   any other host          → garage:3902   (custom domains and *.web.<BASE_DOMAIN>; keep the Host)
 #
 # Never route control:9000 (internal API) to the public.
 # Coolify: pick this file as the Docker Compose location and set the domains per service in the UI.
@@ -107,9 +107,9 @@ services:
       DB_PATH: /data/control.db
       GARAGE_ADMIN_URL: http://garage:3903
       S3_ENDPOINT: garage:3900
-      # Cloudflare rejects request bodies over 100 MB (Free/Pro plans), and the object browser
-      # uploads a file in one request. 95 MiB stays under it; raise it on Business/Enterprise.
-      MAX_UPLOAD_SIZE_MB: ${MAX_UPLOAD_SIZE_MB:-95}
+      # The object browser uploads a file in one request, so it must fit the proxy's body limit.
+      # Behind Cloudflare (100 MB on Free/Pro plans) set MAX_UPLOAD_SIZE_MB=95.
+      MAX_UPLOAD_SIZE_MB: ${MAX_UPLOAD_SIZE_MB:-5120}
       GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN:?run scripts/gen-env.sh first}
       CONTROL_JWT_SECRET: ${CONTROL_JWT_SECRET:?run scripts/gen-env.sh first}
       EDGE_HOSTNAME: ${EDGE_HOSTNAME:-edge.${BASE_DOMAIN}}
