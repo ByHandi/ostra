@@ -7,8 +7,14 @@ import { CreateBucketDialog } from "@/components/buckets/create-bucket-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { QueryError } from "@/components/query-error";
 import { bucketsQuery } from "@/lib/api/storage";
+import { pageMeta } from "@/lib/page-meta";
 
 export const Route = createFileRoute("/(app)/buckets/")({
+  head: () =>
+    pageMeta(
+      "Buckets",
+      "Containers for objects. Accessed through the S3 API with an access key, or publicly through a custom domain.",
+    ),
   component: Buckets,
 });
 

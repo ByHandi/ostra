@@ -17,8 +17,23 @@ import { Button } from "@/components/ui/button";
 import Icon from "@/components/ui/icon";
 import { ApiError } from "@/lib/api/errors";
 import { bucketQuery, deleteBucket, storageKeys } from "@/lib/api/storage";
+import { pageMeta } from "@/lib/page-meta";
 
 export const Route = createFileRoute("/(app)/buckets/$bucketId/")({
+  /**
+   * Loads the bucket up front so the tab title can name it. A failure is left to
+   * the page's own error state rather than the route's error screen.
+   */
+  loader: ({ context, params }) =>
+    context.queryClient.ensureQueryData(bucketQuery(params.bucketId)).then(
+      (b) => b.name,
+      () => undefined,
+    ),
+  head: ({ loaderData }) =>
+    pageMeta(
+      loaderData ?? "Bucket",
+      "Bucket details, custom domains, and the access keys that can access it.",
+    ),
   component: BucketPage,
 });
 

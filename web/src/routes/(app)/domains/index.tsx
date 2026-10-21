@@ -7,8 +7,14 @@ import DomainTable from "@/components/domains/domain-table";
 import { EmptyState } from "@/components/empty-state";
 import { QueryError } from "@/components/query-error";
 import { domainsQuery } from "@/lib/api/storage";
+import { pageMeta } from "@/lib/page-meta";
 
 export const Route = createFileRoute("/(app)/domains/")({
+  head: () =>
+    pageMeta(
+      "Custom Domains",
+      "Serve a bucket's contents publicly on your own domain, with automatic HTTPS.",
+    ),
   component: Domains,
 });
 

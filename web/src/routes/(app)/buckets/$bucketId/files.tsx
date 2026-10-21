@@ -18,6 +18,7 @@ import { useInvalidateBucketContents } from "@/hooks/use-invalidate-bucket-conte
 import { useUploads } from "@/hooks/use-uploads";
 import { type ObjectPage, folderQuery } from "@/lib/api/objects";
 import { bucketQuery } from "@/lib/api/storage";
+import { pageMeta } from "@/lib/page-meta";
 
 export const Route = createFileRoute("/(app)/buckets/$bucketId/files")({
   /** ?prefix= is the open folder; anything that is not a folder path means the bucket root. */
@@ -26,6 +27,24 @@ export const Route = createFileRoute("/(app)/buckets/$bucketId/files")({
     return typeof prefix === "string" && prefix.endsWith("/") && !prefix.startsWith("/")
       ? { prefix }
       : {};
+  },
+  /**
+   * Loads the bucket up front so the tab title can name it. A failure is left to
+   * the page's own error state rather than the route's error screen.
+   */
+  loader: ({ context, params }) =>
+    context.queryClient.ensureQueryData(bucketQuery(params.bucketId)).then(
+      (b) => b.name,
+      () => undefined,
+    ),
+  /** "photos/2024 · my-bucket" inside a folder, "Files · my-bucket" at the root. */
+  head: ({ loaderData, match }) => {
+    const bucket = loaderData ?? "Bucket";
+    const folder = match.search.prefix?.slice(0, -1);
+    return pageMeta(
+      folder ? `${folder} · ${bucket}` : `Files · ${bucket}`,
+      "Browse, upload, download, and delete the files in this bucket.",
+    );
   },
   component: FilesPage,
 });

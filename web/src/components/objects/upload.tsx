@@ -2,6 +2,7 @@ import { type DragEvent, type ReactNode, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import Icon from "@/components/ui/icon";
+import { useIsMobile } from "@/hooks/use-mobile";
 import type { Upload } from "@/hooks/use-uploads";
 import { formatBytes } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -9,15 +10,16 @@ import { cn } from "@/lib/utils";
 /** Opens the file picker; selected files are passed to onFiles. */
 export function UploadButton({ onFiles }: { onFiles(files: FileList): void }) {
   const input = useRef<HTMLInputElement>(null);
+  const isMobile = useIsMobile();
 
   return (
     <>
       <Button
-        size="sm"
+        size={isMobile ? "icon-sm" : "sm"}
         startContent={<Icon name="upload" className="size-4" />}
         onClick={() => input.current?.click()}
       >
-        Upload
+        {isMobile ? " " : "Upload"}
       </Button>
       <input
         ref={input}

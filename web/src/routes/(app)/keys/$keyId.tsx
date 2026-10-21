@@ -15,8 +15,20 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError } from "@/lib/api/errors";
 import { bucketsQuery, deleteKey, keyQuery, storageKeys } from "@/lib/api/storage";
 import { formatDate } from "@/lib/format";
+import { pageMeta } from "@/lib/page-meta";
 
 export const Route = createFileRoute("/(app)/keys/$keyId")({
+  /**
+   * Loads the key up front so the tab title can name it. A failure is left to
+   * the page's own error state rather than the route's error screen.
+   */
+  loader: ({ context, params }) =>
+    context.queryClient.ensureQueryData(keyQuery(params.keyId)).then(
+      (k) => k.name || "Unnamed",
+      () => undefined,
+    ),
+  head: ({ loaderData }) =>
+    pageMeta(loaderData ?? "Access key", "This key's permissions on each bucket."),
   component: KeyPage,
 });
 
