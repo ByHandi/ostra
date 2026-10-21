@@ -38,7 +38,7 @@ function KeyPage() {
     queryClient.invalidateQueries({ queryKey: storageKeys.keys, exact: true });
     queryClient.invalidateQueries({ queryKey: storageKeys.overview });
     toast.success("Access key deleted");
-    navigate({ to: "/keys" });
+    navigate({ to: "/keys", replace: true });
   };
 
   const k = key.data;
@@ -46,8 +46,7 @@ function KeyPage() {
   return (
     <>
       <AppHeader
-        showBackButton
-        onBack={() => navigate({ to: "/keys" })}
+        backTo="/keys"
         title={k ? k.name || "Unnamed" : "Access key"}
         description="This key's permissions on each bucket."
         endContent={

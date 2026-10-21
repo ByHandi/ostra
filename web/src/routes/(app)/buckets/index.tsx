@@ -23,7 +23,8 @@ function Buckets() {
         endContent={<CreateBucketDialog />}
       />
 
-      <div className="p-4 md:p-6">
+      {/* Desktop: a flex column, so the table shrinks to the viewport and scrolls inside. */}
+      <div className="p-4 md:flex md:flex-col md:p-6">
         {buckets.isPending ? (
           <BucketTable.Skeleton />
         ) : buckets.isError ? (

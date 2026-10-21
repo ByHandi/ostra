@@ -4,7 +4,7 @@ import {
   useInfiniteQuery,
   useQuery,
 } from "@tanstack/react-query";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 
 import AppHeader from "@/components/app-header";
 import { BucketTabs } from "@/components/buckets/bucket-tabs";
@@ -33,7 +33,6 @@ export const Route = createFileRoute("/(app)/buckets/$bucketId/files")({
 function FilesPage() {
   const { bucketId } = Route.useParams();
   const { prefix = "" } = Route.useSearch();
-  const navigate = useNavigate();
 
   const bucket = useQuery(bucketQuery(bucketId));
   const folder = useInfiniteQuery(folderQuery(bucketId, prefix));
@@ -45,15 +44,21 @@ function FilesPage() {
   return (
     <>
       <AppHeader
-        showBackButton
-        onBack={() => navigate({ to: "/buckets" })}
+        backTo="/buckets"
         title={bucket.data?.name ?? "Bucket"}
         description="Browse, upload, download, and delete the files in this bucket."
         bottomContent={<BucketTabs bucketId={bucketId} />}
       />
 
+      {/* Desktop: the file table takes the remaining height and scrolls inside. */}
       <div className="flex flex-col gap-4 p-4 md:p-6">
-        <div className="flex flex-wrap items-center justify-between gap-2">
+        {/*
+          Phones: pinned under the collapsed header (--app-header-pinned, set by the
+          header) while the window scrolls, bleeding to the screen edges so rows
+          slide under a full-width bar. Desktop needs none of that — only the
+          table body scrolls there.
+        */}
+        <div className="sticky top-(--app-header-pinned,0px) z-10 -mx-4 -my-2 flex flex-wrap items-center justify-between gap-2 bg-background/80 px-4 py-2 backdrop-blur-lg md:static md:m-0 md:bg-transparent md:p-0 md:backdrop-blur-none">
           {bucket.data ? (
             <Breadcrumbs bucketId={bucketId} bucketName={bucket.data.name} prefix={prefix} />
           ) : (
@@ -64,7 +69,7 @@ function FilesPage() {
 
         <UploadQueue uploads={uploads} onCancel={cancel} onClear={clearFinished} />
 
-        <DropZone onFiles={upload}>
+        <DropZone onFiles={upload} className="md:flex md:min-h-0 md:flex-col">
           <FolderContents
             bucketId={bucketId}
             prefix={prefix}

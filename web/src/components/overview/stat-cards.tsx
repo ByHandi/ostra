@@ -44,7 +44,7 @@ function stats(o: Overview): Stat[] {
   ];
 }
 
-const GRID = "grid gap-4 sm:grid-cols-2 xl:grid-cols-4";
+const GRID = "grid grid-cols-2 gap-3 md:gap-4 xl:grid-cols-4";
 
 function StatCards({ overview }: { overview: Overview }) {
   return (
@@ -59,15 +59,15 @@ function StatCards({ overview }: { overview: Overview }) {
             className="absolute inset-x-0 top-0 h-px bg-aurora opacity-60 transition-opacity group-hover:opacity-100"
           />
           <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-sm">{stat.label}</span>
+            <span className="truncate text-sm">{stat.label}</span>
             <span className="flex size-7 items-center justify-center rounded-md bg-primary/10 text-primary">
               <Icon name={stat.icon} className="size-4" />
             </span>
           </div>
-          <span className="font-mono text-2xl font-semibold tracking-tight tabular-nums">
+          <span className="font-mono text-xl font-semibold tracking-tight tabular-nums md:text-2xl">
             {stat.value}
           </span>
-          <span className="text-xs text-muted-foreground">{stat.hint}</span>
+          <span className="truncate text-xs text-muted-foreground">{stat.hint}</span>
         </div>
       ))}
     </div>

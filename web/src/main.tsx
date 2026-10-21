@@ -19,6 +19,8 @@ const router = createRouter({
   defaultPendingComponent: RoutePending,
   // Loads that finish faster than this never show a spinner at all.
   defaultPendingMs: 300,
+  // Cross-fade between pages where the browser supports it (styled in index.css).
+  defaultViewTransition: true,
 });
 
 declare module "@tanstack/react-router" {
