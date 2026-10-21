@@ -6,9 +6,9 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/handi7/storage-edge/control/internal/auth"
-	"github.com/handi7/storage-edge/control/internal/garage"
-	"github.com/handi7/storage-edge/control/internal/service"
+	"github.com/ByHandi/ostra/control/internal/auth"
+	"github.com/ByHandi/ostra/control/internal/garage"
+	"github.com/ByHandi/ostra/control/internal/service"
 )
 
 // envelope is the shape of every /api response, matching what

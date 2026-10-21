@@ -1,4 +1,4 @@
-# storage-edge
+# Ostra
 
 Self-hosted object storage in the spirit of Cloudflare R2: **Garage** stores the data, **Caddy** sits in front with automatic TLS, and a **control-plane** (Go + React dashboard) manages buckets, access keys, and per-bucket custom domains.
 
@@ -52,11 +52,11 @@ You need a server with Docker and ports 80/443 reachable from the internet.
 ```bash
 ./scripts/gen-env.sh          # create .env and fill in every secret
 # edit .env: set BASE_DOMAIN=example.com and ACME_EMAIL
-docker compose pull           # release image from ghcr.io/byhandi/storage-edge
+docker compose pull           # release image from ghcr.io/byhandi/ostra
 docker compose up -d
 ```
 
-To pin a version, set `CONTROL_IMAGE=ghcr.io/byhandi/storage-edge:<version>` in `.env`. To build from source instead, run `docker compose up -d --build`.
+To pin a version, set `CONTROL_IMAGE=ghcr.io/byhandi/ostra:<version>` in `.env`. To build from source instead, run `docker compose up -d --build`.
 
 The Garage layout is created automatically (`garage server --single-node`), and certificates are fetched from Let's Encrypt on the first request.
 
@@ -71,8 +71,8 @@ docker compose exec control /control createuser --email you@example.com --name "
 ## Backup and restore
 
 ```bash
-./scripts/backup.sh                 # → backups/storage-edge-<UTC time>/
-./scripts/restore.sh backups/storage-edge-20261020T082634Z
+./scripts/backup.sh                 # → backups/ostra-<UTC time>/
+./scripts/restore.sh backups/ostra-20261020T082634Z
 ```
 
 - **Cold backup:** all services are stopped while copying (usually a few seconds, depending on data size) so the Garage metadata, data blocks, and control-plane database stay consistent with each other. Services are started again automatically, even if the backup fails.
@@ -87,7 +87,7 @@ docker compose exec control /control createuser --email you@example.com --name "
 2. Back up: `./scripts/backup.sh`.
 3. Switch the version and restart:
    ```bash
-   # in .env: CONTROL_IMAGE=ghcr.io/byhandi/storage-edge:<new-version>
+   # in .env: CONTROL_IMAGE=ghcr.io/byhandi/ostra:<new-version>
    docker compose pull
    docker compose up -d
    ```
@@ -153,7 +153,7 @@ The password is prompted for interactively (or use `--password-stdin` in scripts
   git push origin v0.1.0
   ```
 
-  The workflow runs CI, pushes a multi-arch image to `ghcr.io/byhandi/storage-edge` (tags `0.1.0`, `0.1`, and `latest`), and creates a GitHub Release from the CHANGELOG section. Tags with a suffix such as `-rc.1` become pre-releases and leave `latest` untouched.
+  The workflow runs CI, pushes a multi-arch image to `ghcr.io/byhandi/ostra` (tags `0.1.0`, `0.1`, and `latest`), and creates a GitHub Release from the CHANGELOG section. Tags with a suffix such as `-rc.1` become pre-releases and leave `latest` untouched.
 - **Dependabot** opens at most one grouped PR per ecosystem per month (Go, npm, Docker, Compose, GitHub Actions). CI also runs every Monday so newly disclosed vulnerabilities fail govulncheck/npm audit even without new commits.
 
 ## Custom domain flow
@@ -166,7 +166,7 @@ POST /api/domains ──► pending ──(worker every 30s / POST .../verify)�
 
 1. A user registers a domain for a bucket. The response lists the `dnsRecords` to create:
    - `CNAME <domain> → EDGE_HOSTNAME` (an apex domain may use A/AAAA records matching the edge IP)
-   - `TXT _storage-edge.<domain> = storage-edge-verify=<token>`
+   - `TXT _ostra.<domain> = ostra-verify=<token>`
 2. The worker checks `pending` domains. Once DNS is correct, the control-plane enables website access on the bucket and attaches the domain as a global alias in Garage.
 3. The status becomes `active`. On the first request, Caddy asks `/caddy/ask` and then issues a certificate.
 4. If Garage rejects the alias (for example, it already points to another bucket), the status becomes `error`. `POST .../verify` retries.
@@ -236,7 +236,7 @@ Responses use the same envelope as the `shadcn-vite` template and `go-service-bo
 
 ## Production notes
 
-- The object browser goes through the control-plane with its own S3 access key ("storage-edge dashboard (system)"). It is created automatically, stored in the control-plane database, granted read/write on a bucket the first time that bucket is browsed, and hidden from the dashboard's key lists. Deleting it in Garage is harmless: a new one is created on next use. Uploads are streamed, and `MAX_UPLOAD_SIZE_MB` (default 5120) caps a single file.
+- The object browser goes through the control-plane with its own S3 access key ("Ostra dashboard (system)"). It is created automatically, stored in the control-plane database, granted read/write on a bucket the first time that bucket is browsed, and hidden from the dashboard's key lists. Deleting it in Garage is harmless: a new one is created on next use. Uploads are streamed, and `MAX_UPLOAD_SIZE_MB` (default 5120) caps a single file.
 
 - Every domain is derived from `BASE_DOMAIN`. `EDGE_HOSTNAME` and `RESERVED_DOMAINS` can be overridden in `.env`.
 - If another proxy or load balancer sits in front of Caddy, put its addresses in `TRUSTED_PROXIES`. The default is loopback plus private networks (where the bundled Caddy lives). The client IP is used for login rate limiting.

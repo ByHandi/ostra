@@ -9,8 +9,8 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"github.com/handi7/storage-edge/control/internal/garage"
-	"github.com/handi7/storage-edge/control/internal/store"
+	"github.com/ByHandi/ostra/control/internal/garage"
+	"github.com/ByHandi/ostra/control/internal/store"
 )
 
 type Bucket struct {

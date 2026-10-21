@@ -159,7 +159,7 @@ function DialogFooter({
       data-slot="dialog-footer"
       className={cn(
         // Phones: full-width, thumb-sized buttons stacked with the primary on top.
-        "flex flex-col-reverse gap-2 sm:flex-row sm:justify-end max-md:[&_[data-slot=button]]:h-11 max-md:[&_[data-slot=button]]:text-base",
+        "flex flex-col-reverse gap-2 max-md:**:data-[slot=button]:h-11 max-md:**:data-[slot=button]:text-base sm:flex-row sm:justify-end",
         className,
       )}
       {...props}

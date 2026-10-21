@@ -10,7 +10,7 @@ import (
 	"github.com/lestrrat-go/jwx/v3/jwt"
 )
 
-const issuer = "storage-edge"
+const issuer = "ostra"
 
 // ErrInvalidToken deliberately omits the failure reason, so as not to help forgery.
 var ErrInvalidToken = errors.New("auth: invalid token")

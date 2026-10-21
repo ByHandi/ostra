@@ -9,7 +9,7 @@ import (
 	"github.com/pressly/goose/v3"
 	_ "modernc.org/sqlite"
 
-	"github.com/handi7/storage-edge/control/db"
+	"github.com/ByHandi/ostra/control/db"
 )
 
 // Open opens the SQLite database at path and runs the embedded migrations.

@@ -1,4 +1,4 @@
-module github.com/handi7/storage-edge/control
+module github.com/ByHandi/ostra/control
 
 go 1.26.10
 

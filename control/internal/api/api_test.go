@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/handi7/storage-edge/control/internal/auth"
-	"github.com/handi7/storage-edge/control/internal/service"
-	"github.com/handi7/storage-edge/control/internal/store"
+	"github.com/ByHandi/ostra/control/internal/auth"
+	"github.com/ByHandi/ostra/control/internal/service"
+	"github.com/ByHandi/ostra/control/internal/store"
 )
 
 // stubGarage is not used by the endpoints tested here.

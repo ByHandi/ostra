@@ -1,4 +1,4 @@
-// Command control is the storage-edge control-plane: dashboard + API for buckets,
+// Command control is the Ostra control-plane: dashboard + API for buckets,
 // access keys, and custom domains, plus the on-demand TLS responder for Caddy.
 //
 // Usage:
@@ -29,15 +29,15 @@ import (
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/term"
 
-	"github.com/handi7/storage-edge/control/internal/api"
-	"github.com/handi7/storage-edge/control/internal/auth"
-	"github.com/handi7/storage-edge/control/internal/config"
-	"github.com/handi7/storage-edge/control/internal/dnscheck"
-	"github.com/handi7/storage-edge/control/internal/garage"
-	"github.com/handi7/storage-edge/control/internal/objects"
-	"github.com/handi7/storage-edge/control/internal/service"
-	"github.com/handi7/storage-edge/control/internal/store"
-	"github.com/handi7/storage-edge/control/internal/ui"
+	"github.com/ByHandi/ostra/control/internal/api"
+	"github.com/ByHandi/ostra/control/internal/auth"
+	"github.com/ByHandi/ostra/control/internal/config"
+	"github.com/ByHandi/ostra/control/internal/dnscheck"
+	"github.com/ByHandi/ostra/control/internal/garage"
+	"github.com/ByHandi/ostra/control/internal/objects"
+	"github.com/ByHandi/ostra/control/internal/service"
+	"github.com/ByHandi/ostra/control/internal/store"
+	"github.com/ByHandi/ostra/control/internal/ui"
 )
 
 // Set at build time via -ldflags "-X main.version=... -X main.commit=..." (see control/Dockerfile).
@@ -68,7 +68,7 @@ func main() {
 	case "setpassword":
 		err = setPassword(os.Args[2:])
 	case "version", "--version":
-		fmt.Printf("storage-edge %s (%s)\n", version, commit)
+		fmt.Printf("ostra %s (%s)\n", version, commit)
 	case "healthcheck":
 		err = healthcheck()
 	default:
@@ -119,7 +119,7 @@ func serve() error {
 			return objects.New(cfg.S3Endpoint, cfg.S3Region, accessKey, secretKey)
 		},
 	})
-	slog.Info("storage-edge", "version", version, "commit", commit)
+	slog.Info("ostra", "version", version, "commit", commit)
 	if !cfg.DNSVerify {
 		slog.Warn("DNS_VERIFY=off: domains become active immediately without DNS verification (development only)")
 	}

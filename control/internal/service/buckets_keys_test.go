@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/handi7/storage-edge/control/internal/garage"
+	"github.com/ByHandi/ostra/control/internal/garage"
 )
 
 func TestBuckets(t *testing.T) {
