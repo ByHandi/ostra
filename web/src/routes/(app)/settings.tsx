@@ -155,7 +155,7 @@ function About() {
   const version = useQuery(versionQuery());
 
   return (
-    <Section title="About" description="The storage-edge version currently running.">
+    <Section title="About" description="The Ostra version currently running.">
       <dl className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1">
           <dt className="text-xs text-muted-foreground">Version</dt>

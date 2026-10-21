@@ -2,6 +2,7 @@ import { Link, useLocation } from "@tanstack/react-router";
 
 import { useTransition } from "react";
 
+import { LogoMark } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 import Icon from "@/components/ui/icon";
 import {
@@ -81,12 +82,10 @@ function AppSidebar({ user, onLogout }: Props) {
       <SidebarHeader>
         <SidebarMenu className="space-y-2">
           <SidebarMenuItem className="flex gap-2 pt-1">
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-aurora text-white glow-primary">
-              <Icon name="cloud" className="size-4" />
-            </span>
+            <LogoMark tile className="size-8 drop-shadow-[0_0_10px_var(--glow)]" />
 
             <span className="flex min-w-0 flex-col overflow-hidden leading-none whitespace-nowrap transition-[width,opacity] group-data-[collapsible=icon]:opacity-0">
-              <span className="font-medium">storage-edge</span>
+              <span className="font-semibold tracking-tight">Ostra</span>
               <span className="text-xs text-sidebar-foreground/70">Object storage</span>
             </span>
           </SidebarMenuItem>
