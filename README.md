@@ -68,28 +68,35 @@ docker compose exec control /control createuser --email you@example.com --name "
 
 `docker-compose.yml` is production-safe as is: custom-domain DNS verification is on, session cookies are `Secure`, and the Garage admin port is not published. Every development shortcut lives in `docker-compose.dev.yml`, and the control-plane refuses to start if those shortcuts are combined with a domain other than `.localhost`/`.test`.
 
-### Behind a tunnel (Cloudflare Tunnel, Coolify)
+### Behind an external proxy (Coolify, Dokploy, Cloudflare Tunnel)
 
-When ports 80/443 belong to something else, such as a Cloudflare Tunnel or Coolify's proxy, use `docker-compose.tunnel.yml` instead. It is the same stack without the bundled Caddy, so the tunnel or proxy terminates TLS and routes each hostname over the Docker network:
+When ports 80/443 and TLS belong to something else, such as Coolify's or Dokploy's Traefik, a Cloudflare Tunnel, or Nginx Proxy Manager, use `docker-compose.external-proxy.yml` instead. It is the same stack without the bundled Caddy, so the proxy terminates TLS and routes each hostname over the Docker network:
 
 | Hostname | Service |
 |---|---|
 | `console.example.com` | `control:8080` |
 | `s3.example.com` | `garage:3900` |
-| `*.web.example.com` (optional) | `garage:3902` |
+| Any other host (custom domains, `*.web.example.com`) | `garage:3902`, with the original `Host` |
 
 ```bash
-docker compose -f docker-compose.tunnel.yml up -d
+docker compose -f docker-compose.external-proxy.yml up -d
 ```
 
-On Coolify, create a Docker Compose resource from this repository, set the compose location to `/docker-compose.tunnel.yml`, set `BASE_DOMAIN` and the four secrets in the environment variables (`openssl rand -hex 32` each), and assign the domains in the UI: the console to `control` (port 8080) and the S3 API to `garage` (port 3900). If those hostnames are not `console.` and `s3.` under `BASE_DOMAIN`, also set `RESERVED_DOMAINS` to them so nobody can register them as custom domains. The `control` image has no shell, so Coolify's container terminal cannot open it. Create the first admin over SSH on the server instead: `docker exec -it $(docker ps -q --filter name=control-<resource-uuid>) /control createuser --email you@example.com --name "Your Name"`.
+For a Traefik that reads Docker labels, `garage` already carries that last route as a priority-1 catch-all, so only the console and S3 hostnames need to be set up. Other proxies need a default route to `garage:3902` that keeps the `Host` header. The object browser uploads a file in one request, so `MAX_UPLOAD_SIZE_MB` (default 5120) must fit the proxy's request body limit.
 
-Limits when the tunnel is Cloudflare:
+`scripts/backup.sh` finds the volumes through `docker compose config` in this directory, so it does not work for a stack deployed by a platform such as Coolify (which renames the project).
 
-- Request bodies are capped at 100 MB on the Free and Pro plans. The object browser uploads a file in one request, so `MAX_UPLOAD_SIZE_MB` defaults to 95 here. S3 clients are unaffected as long as they use multipart uploads with smaller parts (the AWS CLI and SDKs do).
+#### Coolify
+
+On Coolify, create a Docker Compose resource from this repository, set the compose location to `/docker-compose.external-proxy.yml`, set `BASE_DOMAIN` and the four secrets in the environment variables (`openssl rand -hex 32` each), and assign the domains in the UI: the console to `control` (port 8080) and the S3 API to `garage` (port 3900). If those hostnames are not `console.` and `s3.` under `BASE_DOMAIN`, also set `RESERVED_DOMAINS` to them so nobody can register them as custom domains. The `control` image has no shell, so Coolify's container terminal cannot open it. Create the first admin over SSH on the server instead: `docker exec -it $(docker ps -q --filter name=control-<resource-uuid>) /control createuser --email you@example.com --name "Your Name"`.
+
+#### Cloudflare Tunnel
+
+Limits that apply to any setup whose traffic goes through Cloudflare:
+
+- Request bodies are capped at 100 MB on the Free and Pro plans. Set `MAX_UPLOAD_SIZE_MB=95` so the object browser rejects larger files with a clear error instead of a 413 from Cloudflare. S3 clients are unaffected as long as they use multipart uploads with smaller parts (the AWS CLI and SDKs do).
 - `<bucket>.web.example.com` is two levels deep, which Universal SSL and a default Origin Certificate do not cover. It needs Advanced Certificate Manager or a certificate that includes `*.web.example.com`.
 - Custom domains need Cloudflare for SaaS (see below): Cloudflare refuses to proxy a CNAME from another account's domain to yours unless that domain is added as a custom hostname.
-- `scripts/backup.sh` finds the volumes through `docker compose config` in this directory, so it does not work for a stack deployed by Coolify (which renames the project).
 
 #### Custom domains through a Cloudflare Tunnel
 
@@ -108,7 +115,7 @@ A request for a custom domain reaches the tunnel with its own `Host` (for exampl
    ```
 
    The PUT replaces the whole configuration, which is why it starts from the current one. To undo, PUT `{config: <tunnel.json>}`.
-3. **Proxy catch-all.** `docker-compose.tunnel.yml` labels `garage` with a Traefik router that sends every host no other router matches to Garage's web endpoint (priority 1, below every `Host()` rule, so other apps keep their routes). Coolify's proxy picks it up on deploy, so there is nothing to configure. Only one catch-all can win: if the proxy already has one (for example a default redirect for unknown hosts), remove it or this one never matches.
+3. **Proxy catch-all.** `docker-compose.external-proxy.yml` labels `garage` with a Traefik router that sends every host no other router matches to Garage's web endpoint (priority 1, below every `Host()` rule, so other apps keep their routes). Coolify's proxy picks it up on deploy, so there is nothing to configure. Only one catch-all can win: if the proxy already has one (for example a default redirect for unknown hosts), remove it or this one never matches.
 4. **Per domain.** When a user registers `files.customer.com` in Ostra, add it under Custom Hostnames as well. The user creates the CNAME to `edge.example.com` and the `_ostra.` TXT record that Ostra shows. Cloudflare validates the certificate through that CNAME, and Ostra activates the domain once its own DNS check passes. Only subdomains work: an apex custom hostname needs Cloudflare's apex proxying (Enterprise).
 
 Unknown hosts now get Garage's 404 instead of the proxy's.
