@@ -14,6 +14,9 @@ services:
   # Renders garage.toml from the template with BASE_DOMAIN, then exits.
   garage-config:
     image: busybox:1.37.0
+    # One-shot job. Explicit, because Coolify gives services without a policy
+    # `unless-stopped`, and a restarting job never satisfies `service_completed_successfully`.
+    restart: "no"
     environment:
       BASE_DOMAIN: ${BASE_DOMAIN:?set BASE_DOMAIN, e.g. example.com}
     volumes:
