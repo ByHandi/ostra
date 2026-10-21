@@ -71,6 +71,11 @@ services:
       DNS_SERVER: ${DNS_SERVER:-1.1.1.1:53}
       # Empty = loopback + private networks (the bundled Caddy). Set it if another proxy sits in front of Caddy.
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
+      # Optional: creates the first admin account at startup while there are no accounts yet.
+      # Ignored once one exists, so changing them later changes nothing (use `control setpassword`).
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_NAME: ${ADMIN_NAME:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
     volumes:
       - control-data:/data
     healthcheck:

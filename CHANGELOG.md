@@ -16,6 +16,8 @@ The release workflow uses the contents of that version's section as the GitHub R
 - Admin dashboard: overview, buckets, custom domains, access keys with per-bucket permissions, account settings.
 - Admin login with JWT access tokens + rotating refresh tokens in an httpOnly cookie, login rate limiting.
 - CLI `control createuser`, `control setpassword`, and `control version`.
+- `ADMIN_EMAIL`/`ADMIN_PASSWORD` (and `ADMIN_NAME`) create the first admin account on startup
+  while there are no accounts yet; the dev override fills them from `DEV_ADMIN_*`.
 - `/api/version` endpoint and version info on the Settings page.
 - Production configuration through a single `BASE_DOMAIN` variable; development override in
   `docker-compose.dev.yml`.

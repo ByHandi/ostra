@@ -117,6 +117,36 @@ func TestSessionLifecycle(t *testing.T) {
 	}
 }
 
+func TestBootstrapAdmin(t *testing.T) {
+	ctx := context.Background()
+	svc := newTestService(t)
+
+	if _, _, err := svc.BootstrapAdmin(ctx, "admin@example.com", "Admin", "short"); err == nil {
+		t.Fatal("short password must be rejected")
+	}
+	user, created, err := svc.BootstrapAdmin(ctx, "admin@example.com", "Admin", "secret123")
+	if err != nil || !created || user.Email != "admin@example.com" {
+		t.Fatalf("first run: user = %+v, created = %v, err = %v", user, created, err)
+	}
+
+	// Once an account exists, later starts leave it alone: a password changed in the
+	// dashboard survives, and a different ADMIN_EMAIL adds no second account.
+	if err := svc.SetPassword(ctx, "admin@example.com", "changed123"); err != nil {
+		t.Fatal(err)
+	}
+	for _, email := range []string{"admin@example.com", "other@example.com"} {
+		if _, created, err := svc.BootstrapAdmin(ctx, email, "Admin", "secret123"); err != nil || created {
+			t.Fatalf("restart with %s: created = %v, err = %v", email, created, err)
+		}
+	}
+	if _, err := svc.Login(ctx, "admin@example.com", "changed123", Client{}); err != nil {
+		t.Fatalf("changed password no longer works: %v", err)
+	}
+	if _, err := svc.Login(ctx, "other@example.com", "secret123", Client{}); !errors.Is(err, ErrInvalidCredentials) {
+		t.Fatalf("second account was created: err = %v", err)
+	}
+}
+
 func TestExpiredRefreshToken(t *testing.T) {
 	ctx := context.Background()
 	svc := newTestService(t)

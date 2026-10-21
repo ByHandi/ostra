@@ -119,6 +119,11 @@ services:
       # Empty = loopback + private networks, which covers cloudflared and a proxy on the Docker
       # network. Set it if a proxy reaches the control-plane from a public address.
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
+      # Optional: creates the first admin account at startup while there are no accounts yet.
+      # Ignored once one exists, so changing them later changes nothing (use `control setpassword`).
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_NAME: ${ADMIN_NAME:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
     expose:
       - "8080" # dashboard + /api (9000 stays internal)
     volumes:
