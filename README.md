@@ -82,7 +82,7 @@ When ports 80/443 belong to something else, such as a Cloudflare Tunnel or Cooli
 docker compose -f docker-compose.tunnel.yml up -d
 ```
 
-On Coolify, create a Docker Compose resource from this repository, set the compose location to `/docker-compose.tunnel.yml`, set `BASE_DOMAIN` and the four secrets in the environment variables (`openssl rand -hex 32` each), and assign the domains to `control` (port 8080) and `garage` (port 3900) in the UI. Create the first admin from the `control` container's terminal with `/control createuser`.
+On Coolify, create a Docker Compose resource from this repository, set the compose location to `/docker-compose.tunnel.yml`, set `BASE_DOMAIN` and the four secrets in the environment variables (`openssl rand -hex 32` each), and assign the domains in the UI: the console to `control` (port 8080) and the S3 API to `garage` (port 3900). If those hostnames are not `console.` and `s3.` under `BASE_DOMAIN`, also set `RESERVED_DOMAINS` to them so nobody can register them as custom domains. The `control` image has no shell, so Coolify's container terminal cannot open it. Create the first admin over SSH on the server instead: `docker exec -it $(docker ps -q --filter name=control-<resource-uuid>) /control createuser --email you@example.com --name "Your Name"`.
 
 Limits when the tunnel is Cloudflare:
 
@@ -108,25 +108,7 @@ A request for a custom domain reaches the tunnel with its own `Host` (for exampl
    ```
 
    The PUT replaces the whole configuration, which is why it starts from the current one. To undo, PUT `{config: <tunnel.json>}`.
-3. **Proxy catch-all.** In Coolify, under Servers → Proxy → Dynamic Configuration, add a file that sends every host no other router matches to Garage's web endpoint. `garage-<uuid>` is the container name Coolify gives the `garage` service (shown on the resource page and in `docker ps`):
-
-   ```yaml
-   http:
-     routers:
-       ostra-web-catchall:
-         rule: "PathPrefix(`/`)"
-         priority: 1 # below every Host() rule, so other apps keep their routes
-         entryPoints: [https]
-         tls: {}
-         service: ostra-web
-     services:
-       ostra-web:
-         loadBalancer:
-           servers:
-             - url: "http://garage-<uuid>:3902"
-   ```
-
-   Only one catch-all can win. If the proxy already has one (for example a default redirect for unknown hosts), remove it or this one never matches.
+3. **Proxy catch-all.** `docker-compose.tunnel.yml` labels `garage` with a Traefik router that sends every host no other router matches to Garage's web endpoint (priority 1, below every `Host()` rule, so other apps keep their routes). Coolify's proxy picks it up on deploy, so there is nothing to configure. Only one catch-all can win: if the proxy already has one (for example a default redirect for unknown hosts), remove it or this one never matches.
 4. **Per domain.** When a user registers `files.customer.com` in Ostra, add it under Custom Hostnames as well. The user creates the CNAME to `edge.example.com` and the `_ostra.` TXT record that Ostra shows. Cloudflare validates the certificate through that CNAME, and Ostra activates the domain once its own DNS check passes. Only subdomains work: an apex custom hostname needs Cloudflare's apex proxying (Enterprise).
 
 Unknown hosts now get Garage's 404 instead of the proxy's.
