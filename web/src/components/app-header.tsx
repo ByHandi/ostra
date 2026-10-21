@@ -1,4 +1,4 @@
-import { useRouter } from "@tanstack/react-router";
+import { type NavigateOptions, useRouter } from "@tanstack/react-router";
 
 import { type ReactNode, type Ref, useMemo, useRef } from "react";
 
@@ -14,7 +14,16 @@ export interface AppHeaderProps {
   endContent?: ReactNode;
   bottomContent?: ReactNode;
   className?: string;
-  showBackButton?: boolean;
+  /**
+   * Shows a back button. It pops the history entry (a real back, like the
+   * browser's) when there is one inside the app, else replaces the current entry
+   * with this parent page (e.g. a deep link opened in a fresh tab) — it never
+   * pushes a new entry.
+   */
+  backTo?: NavigateOptions["to"];
+}
+
+interface HeaderViewProps extends AppHeaderProps {
   onBack?(): void;
 }
 
@@ -25,7 +34,14 @@ export interface AppHeaderProps {
 function AppHeader(props: AppHeaderProps) {
   const router = useRouter();
   const isMobile = useIsMobile();
-  const back = props.showBackButton ? (props.onBack ?? (() => router.history.back())) : undefined;
+  const { backTo } = props;
+  const back =
+    backTo === undefined
+      ? undefined
+      : () => {
+          if (router.history.canGoBack()) router.history.back();
+          else router.navigate({ to: backTo, replace: true });
+        };
 
   return isMobile ? (
     <MobileHeader {...props} onBack={back} />
@@ -66,7 +82,7 @@ function MobileActions({ children, className, ref }: MobileActionsProps) {
  * Actions: on detail pages (with Back) they sit at the right of the nav row;
  * on top-level pages they sit right of the large title and ride up with it.
  */
-function MobileHeader({ title, description, endContent, bottomContent, onBack }: AppHeaderProps) {
+function MobileHeader({ title, description, endContent, bottomContent, onBack }: HeaderViewProps) {
   const header = useRef<HTMLElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const nav = useRef<HTMLDivElement>(null);
@@ -160,7 +176,7 @@ function MobileHeader({ title, description, endContent, bottomContent, onBack }:
  * pins the viewport, see `(app)/route.tsx`). A hairline marks where content
  * scrolls under; pages with tabs get it from the tab strip instead.
  */
-function DesktopHeader(props: AppHeaderProps) {
+function DesktopHeader(props: HeaderViewProps) {
   const { title, description, endContent, bottomContent, className, onBack } = props;
 
   return (

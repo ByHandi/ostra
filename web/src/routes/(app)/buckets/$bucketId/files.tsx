@@ -4,7 +4,7 @@ import {
   useInfiniteQuery,
   useQuery,
 } from "@tanstack/react-query";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 
 import AppHeader from "@/components/app-header";
 import { BucketTabs } from "@/components/buckets/bucket-tabs";
@@ -33,7 +33,6 @@ export const Route = createFileRoute("/(app)/buckets/$bucketId/files")({
 function FilesPage() {
   const { bucketId } = Route.useParams();
   const { prefix = "" } = Route.useSearch();
-  const navigate = useNavigate();
 
   const bucket = useQuery(bucketQuery(bucketId));
   const folder = useInfiniteQuery(folderQuery(bucketId, prefix));
@@ -45,8 +44,7 @@ function FilesPage() {
   return (
     <>
       <AppHeader
-        showBackButton
-        onBack={() => navigate({ to: "/buckets" })}
+        backTo="/buckets"
         title={bucket.data?.name ?? "Bucket"}
         description="Browse, upload, download, and delete the files in this bucket."
         bottomContent={<BucketTabs bucketId={bucketId} />}

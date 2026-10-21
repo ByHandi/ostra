@@ -39,14 +39,13 @@ function BucketPage() {
     queryClient.invalidateQueries({ queryKey: storageKeys.buckets });
     queryClient.invalidateQueries({ queryKey: storageKeys.overview });
     toast.success(`Bucket ${bucket.data?.name ?? ""} deleted`);
-    navigate({ to: "/buckets" });
+    navigate({ to: "/buckets", replace: true });
   };
 
   return (
     <>
       <AppHeader
-        showBackButton
-        onBack={() => navigate({ to: "/buckets" })}
+        backTo="/buckets"
         title={bucket.data?.name ?? "Bucket"}
         description="Bucket details, custom domains, and the access keys that can access it."
         bottomContent={<BucketTabs bucketId={bucketId} />}
