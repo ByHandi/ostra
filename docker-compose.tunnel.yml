@@ -68,6 +68,16 @@ services:
     expose:
       - "3900" # S3 API
       - "3902" # web (per-bucket and custom domains)
+    # For a Traefik that watches Docker (Coolify's proxy): send every host no other router
+    # matches to the web endpoint, keeping its Host so Garage can find the bucket. Priority 1
+    # loses to every Host() rule, so other apps keep their routes. Ignored without Traefik.
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.ostra-web-catchall.rule=PathPrefix(`/`)
+      - traefik.http.routers.ostra-web-catchall.priority=1
+      - traefik.http.routers.ostra-web-catchall.tls=true
+      - traefik.http.routers.ostra-web-catchall.service=ostra-web-catchall
+      - traefik.http.services.ostra-web-catchall.loadbalancer.server.port=3902
     volumes:
       - garage-config:/etc/garage:ro
       - garage-meta:/var/lib/garage/meta
