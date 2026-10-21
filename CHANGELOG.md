@@ -26,6 +26,11 @@ The release workflow uses the contents of that version's section as the GitHub R
 - `scripts/backup.sh` and `scripts/restore.sh` (cold backup with checksums).
 - English README, `SECURITY.md`, and `CONTRIBUTING.md`.
 
+- Object browser: a Files tab on each bucket to browse folders, upload (drag and drop, per-file
+  progress), download, copy a file's public URL, and delete files or whole folders. The
+  control-plane uses its own hidden S3 access key, created automatically on first use.
+- `MAX_UPLOAD_SIZE_MB` (default 5120) caps a single upload from the dashboard.
+
 ### Security
 - The control-plane refuses to start if development settings (`DNS_VERIFY=off`,
   `COOKIE_SECURE=false`) are used with a domain other than `.localhost`/`.test`.

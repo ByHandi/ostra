@@ -28,6 +28,7 @@ Self-hosted object storage in the spirit of Cloudflare R2: **Garage** stores the
 - **Custom domains per bucket** with automatic HTTPS. Certificates are issued on demand, and only for domains the control-plane has approved.
 - **Domain ownership verification** via DNS (CNAME or A/AAAA to the edge, plus a TXT token), re-checked automatically.
 - **Admin dashboard** for buckets, custom domains, access keys with per-bucket permissions, and account settings.
+- **Object browser** in the dashboard: browse folders, drag-and-drop uploads with progress, downloads, public URLs, and deleting files or folders.
 - **Security by default:** argon2id passwords, short-lived JWT access tokens with rotating httpOnly refresh cookies, login rate limiting, a strict CSP, and a non-root `scratch` image. Development shortcuts refuse to run against real domains.
 - **One-command operations:** production `docker compose`, cold backup/restore scripts, health checks, and multi-arch release images on GHCR.
 
@@ -202,6 +203,11 @@ Responses use the same envelope as the `shadcn-vite` template and `go-service-bo
 | GET/POST | `/api/domains` | List / register (`{"domain","bucket"}`) |
 | GET/DELETE | `/api/domains/{id}` | Details + `dnsRecords` / delete |
 | POST | `/api/domains/{id}/verify` | Check DNS now |
+| GET | `/api/buckets/{id}/objects` | List a folder: `?prefix=` (`""` or ending in `/`), `&cursor=`, `&limit=` (max 1000) |
+| PUT | `/api/buckets/{id}/objects?key=` | Upload the raw request body as that file (capped by `MAX_UPLOAD_SIZE_MB`) |
+| DELETE | `/api/buckets/{id}/objects` | Delete one file (`?key=`) or a whole folder (`?prefix=`) |
+| POST | `/api/buckets/{id}/objects/download-link` | `{"key"}` → a signed `/api/downloads/{token}` link, valid 5 minutes |
+| GET | `/api/downloads/{token}` | Download the file (no session needed; the signed token is the authorization) |
 
 ## Repository layout
 
@@ -229,6 +235,8 @@ Responses use the same envelope as the `shadcn-vite` template and `go-service-bo
 | `CHANGELOG.md` | Per-version changes (used as release notes) |
 
 ## Production notes
+
+- The object browser goes through the control-plane with its own S3 access key ("storage-edge dashboard (system)"). It is created automatically, stored in the control-plane database, granted read/write on a bucket the first time that bucket is browsed, and hidden from the dashboard's key lists. Deleting it in Garage is harmless: a new one is created on next use. Uploads are streamed, and `MAX_UPLOAD_SIZE_MB` (default 5120) caps a single file.
 
 - Every domain is derived from `BASE_DOMAIN`. `EDGE_HOSTNAME` and `RESERVED_DOMAINS` can be overridden in `.env`.
 - If another proxy or load balancer sits in front of Caddy, put its addresses in `TRUSTED_PROXIES`. The default is loopback plus private networks (where the bundled Caddy lives). The client IP is used for login rate limiting.
