@@ -11,7 +11,9 @@
 name: ostra
 
 services:
-  # Renders garage.toml from the template with BASE_DOMAIN, then exits.
+  # Writes garage.toml with BASE_DOMAIN, then exits. The config is inlined (keep it in sync with
+  # garage/garage.toml.tmpl) because platforms such as Coolify run compose from a directory the
+  # Docker host cannot see, so a bind-mounted template silently becomes an empty directory.
   garage-config:
     image: busybox:1.37.0
     # One-shot job. Explicit, because Coolify gives services without a policy
@@ -20,7 +22,6 @@ services:
     environment:
       BASE_DOMAIN: ${BASE_DOMAIN:?set BASE_DOMAIN, e.g. example.com}
     volumes:
-      - ./garage/garage.toml.tmpl:/template/garage.toml.tmpl:ro
       - garage-config:/config
     command:
       - sh
@@ -29,7 +30,27 @@ services:
         case "$$BASE_DOMAIN" in
           *[!a-z0-9.-]*) echo "invalid BASE_DOMAIN: $$BASE_DOMAIN" >&2; exit 1 ;;
         esac
-        sed "s/__BASE_DOMAIN__/$$BASE_DOMAIN/g" /template/garage.toml.tmpl > /config/garage.toml
+        cat > /config/garage.toml <<EOF
+        metadata_dir = "/var/lib/garage/meta"
+        data_dir = "/var/lib/garage/data"
+        db_engine = "lmdb"
+        replication_factor = 1
+        rpc_bind_addr = "[::]:3901"
+        rpc_public_addr = "127.0.0.1:3901"
+
+        [s3_api]
+        s3_region = "garage"
+        api_bind_addr = "[::]:3900"
+        root_domain = ".s3.$$BASE_DOMAIN"
+
+        [s3_web]
+        bind_addr = "[::]:3902"
+        root_domain = ".web.$$BASE_DOMAIN"
+        index = "index.html"
+
+        [admin]
+        api_bind_addr = "[::]:3903"
+        EOF
 
   garage:
     image: dxflrs/garage:v2.4.1
