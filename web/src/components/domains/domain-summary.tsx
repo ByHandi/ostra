@@ -30,7 +30,7 @@ function DomainSummary({ domain }: { domain: Domain }) {
   ];
 
   return (
-    <div className="flex flex-col gap-4 rounded-lg border p-4">
+    <div className="flex flex-col gap-4 panel p-4">
       <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {items.map((item) => (
           <div key={item.label} className="space-y-1">
@@ -74,7 +74,7 @@ function DomainSummary({ domain }: { domain: Domain }) {
 function DomainSummarySkeleton() {
   return (
     <div
-      className="grid gap-4 rounded-lg border p-4 sm:grid-cols-2 lg:grid-cols-4"
+      className="grid gap-4 panel p-4 sm:grid-cols-2 lg:grid-cols-4"
       role="status"
       aria-label="Loading"
     >

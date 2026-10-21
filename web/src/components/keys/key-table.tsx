@@ -18,7 +18,7 @@ const COLUMNS = ["Name", "Access key ID", "Created"];
 
 function KeyTable({ keys }: { keys: AccessKey[] }) {
   return (
-    <div className="rounded-lg border">
+    <div className="panel">
       <Table>
         <TableHeader>
           <TableRow>

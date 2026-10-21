@@ -20,7 +20,7 @@ function BucketSummary({ bucket }: { bucket: BucketDetail }) {
   ];
 
   return (
-    <div className="flex flex-col gap-4 rounded-lg border p-4">
+    <div className="flex flex-col gap-4 panel p-4">
       <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {items.map((item) => (
           <div key={item.label} className="space-y-1">
@@ -42,7 +42,7 @@ function BucketSummary({ bucket }: { bucket: BucketDetail }) {
 
 function BucketSummarySkeleton() {
   return (
-    <div className="flex flex-col gap-4 rounded-lg border p-4" role="status" aria-label="Loading">
+    <div className="flex flex-col gap-4 panel p-4" role="status" aria-label="Loading">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {Array.from({ length: 4 }, (_, i) => (
           <div key={i} className="space-y-2">

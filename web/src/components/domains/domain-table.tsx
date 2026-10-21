@@ -26,7 +26,7 @@ function DomainTable({ domains, hideBucket = false }: DomainTableProps) {
   const columns = hideBucket ? COLUMNS.filter((c) => c !== "Bucket") : COLUMNS;
 
   return (
-    <div className="rounded-lg border">
+    <div className="panel">
       <Table>
         <TableHeader>
           <TableRow>
