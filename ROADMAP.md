@@ -33,6 +33,7 @@ Phases 1 and 2 are prerequisites before the repo is made public.
 - [x] Changing the password ends all other sessions; logout revokes the refresh token
 - [x] Login rate limiting per IP
 - [x] CLI `control createuser` and `control setpassword`
+- [x] First admin from `ADMIN_EMAIL`/`ADMIN_PASSWORD` on startup while there are no accounts
 - [x] Dashboard served with a strict CSP, `X-Frame-Options`, `nosniff`; hashed assets cached as immutable
 - [x] `scratch` image, non-root user; Garage admin and debug ports only bound to `127.0.0.1`
 

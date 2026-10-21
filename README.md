@@ -66,6 +66,8 @@ The Garage layout is created automatically (`garage server --single-node`), and 
 docker compose exec control /control createuser --email you@example.com --name "Your Name"
 ```
 
+Or set `ADMIN_EMAIL` and `ADMIN_PASSWORD` (optionally `ADMIN_NAME`) in `.env` before step 2: the control-plane creates that account on startup while there are no accounts yet. See [Admin accounts](#admin-accounts).
+
 `docker-compose.yml` is production-safe as is: custom-domain DNS verification is on, session cookies are `Secure`, and the Garage admin port is not published. Every development shortcut lives in `docker-compose.dev.yml`, and the control-plane refuses to start if those shortcuts are combined with a domain other than `.localhost`/`.test`.
 
 ### Behind an external proxy (Coolify, Dokploy, Cloudflare Tunnel)
@@ -88,7 +90,7 @@ For a Traefik that reads Docker labels, `garage` already carries that last route
 
 #### Coolify
 
-On Coolify, create a Docker Compose resource from this repository, set the compose location to `/docker-compose.external-proxy.yml`, set `BASE_DOMAIN` and the four secrets in the environment variables (`openssl rand -hex 32` each), and assign the domains in the UI: the console to `control` (port 8080) and the S3 API to `garage` (port 3900). If those hostnames are not `console.` and `s3.` under `BASE_DOMAIN`, also set `RESERVED_DOMAINS` to them so nobody can register them as custom domains. The `control` image has no shell, so Coolify's container terminal cannot open it. Create the first admin over SSH on the server instead: `docker exec -it $(docker ps -q --filter name=control-<resource-uuid>) /control createuser --email you@example.com --name "Your Name"`.
+On Coolify, create a Docker Compose resource from this repository, set the compose location to `/docker-compose.external-proxy.yml`, set `BASE_DOMAIN` and the four secrets in the environment variables (`openssl rand -hex 32` each), and assign the domains in the UI: the console to `control` (port 8080) and the S3 API to `garage` (port 3900). If those hostnames are not `console.` and `s3.` under `BASE_DOMAIN`, also set `RESERVED_DOMAINS` to them so nobody can register them as custom domains. Also set `ADMIN_EMAIL` and `ADMIN_PASSWORD` there, so the first admin is created when the stack starts. The `control` image has no shell, so Coolify's container terminal cannot open it; without those variables, create the first admin over SSH on the server instead: `docker exec -it $(docker ps -q --filter name=control-<resource-uuid>) /control createuser --email you@example.com --name "Your Name"`.
 
 #### Cloudflare Tunnel
 
@@ -157,12 +159,12 @@ Requires Docker, with ports 80, 443, and 8080 free.
 ```bash
 ./scripts/gen-env.sh --dev    # local .env: BASE_DOMAIN=localhost, also uses docker-compose.dev.yml
 docker compose up -d --build
-./scripts/init-dev.sh         # "assets" bucket, key, sample/, admin account, cdn.brandku.localhost
+./scripts/init-dev.sh         # "assets" bucket, key, sample/, cdn.brandku.localhost
 ```
 
 `--dev` writes `COMPOSE_FILE=docker-compose.yml:docker-compose.dev.yml` to `.env`, so every `docker compose` command picks up the development override: DNS verification off, cookies without `Secure`, certificates from Caddy's local CA, debug ports (`3900`, `3903`, `8080`) bound to `127.0.0.1`, and an `awscli` service.
 
-Dashboard: **https://console.localhost** (or http://127.0.0.1:8080). Log in with `DEV_ADMIN_EMAIL` and `DEV_ADMIN_PASSWORD` from `.env`.
+Dashboard: **https://console.localhost** (or http://127.0.0.1:8080). Log in with `DEV_ADMIN_EMAIL` and `DEV_ADMIN_PASSWORD` from `.env`: the control-plane creates that account on its first start with an empty database, so it is back right after a `docker compose down -v`.
 
 Try the custom domain and the S3 API:
 
@@ -194,6 +196,8 @@ docker compose exec control /control setpassword --email you@example.com
 ```
 
 The password is prompted for interactively (or use `--password-stdin` in scripts). `setpassword` also ends all of that user's sessions.
+
+The first account can also come from the environment: with `ADMIN_EMAIL` and `ADMIN_PASSWORD` set (and optionally `ADMIN_NAME`, default `Admin`), the control-plane creates it on startup when the database has no accounts. Once any account exists the variables are ignored, so they can stay set: changing `ADMIN_PASSWORD` later does not change the password, and a password changed in the dashboard is never overwritten. Setting only one of the two stops the control-plane from starting, and so does a password shorter than the minimum while the account still has to be created.
 
 ## CI and releases
 

@@ -190,8 +190,8 @@
 }
 
 /* Page transitions (router `defaultViewTransition`): a quick cross-fade with a
-   slight rise. The tab bar and compact header have their own names, so they
-   stay still instead of fading with the page. */
+   slight rise. The tab bar and sidebar have their own names, so they stay
+   still instead of fading with the page. */
 ::view-transition-old(root),
 ::view-transition-new(root) {
   animation-duration: 180ms;

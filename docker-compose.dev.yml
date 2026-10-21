@@ -17,6 +17,9 @@ services:
       DNS_VERIFY: "off"
       COOKIE_SECURE: "false"
       DNS_SERVER: ""
+      # The dev admin account, created on the first start of an empty database.
+      ADMIN_EMAIL: ${DEV_ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${DEV_ADMIN_PASSWORD:-}
 
   caddy:
     volumes:

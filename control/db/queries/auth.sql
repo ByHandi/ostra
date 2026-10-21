@@ -9,6 +9,9 @@ SELECT * FROM users WHERE id = ?;
 -- name: GetUserByEmail :one
 SELECT * FROM users WHERE email = ?;
 
+-- name: CountUsers :one
+SELECT COUNT(*) FROM users;
+
 -- name: UpdateUserPassword :exec
 UPDATE users
 SET password_hash = ?,

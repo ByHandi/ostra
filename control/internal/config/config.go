@@ -60,6 +60,12 @@ type Config struct {
 
 	VerifyInterval    time.Duration
 	ReconcileInterval time.Duration
+
+	// AdminEmail/AdminPassword create the first account at startup, only while there are no
+	// accounts yet. Both empty = disabled (create one with `control createuser` instead).
+	AdminEmail    string
+	AdminName     string
+	AdminPassword string
 }
 
 func Load() (Config, error) {
@@ -77,6 +83,9 @@ func Load() (Config, error) {
 		DNSVerify:        env("DNS_VERIFY", "on") != "off",
 		S3Endpoint:       env("S3_ENDPOINT", "127.0.0.1:3900"),
 		S3Region:         env("S3_REGION", "garage"),
+		AdminEmail:       strings.TrimSpace(os.Getenv("ADMIN_EMAIL")),
+		AdminName:        env("ADMIN_NAME", "Admin"),
+		AdminPassword:    os.Getenv("ADMIN_PASSWORD"),
 	}
 
 	maxUploadMB, err := strconv.ParseInt(env("MAX_UPLOAD_SIZE_MB", "5120"), 10, 64)
@@ -114,6 +123,10 @@ func Load() (Config, error) {
 		"EDGE_HOSTNAME":      cfg.EdgeHostname,
 	}); err != nil {
 		return cfg, err
+	}
+
+	if (cfg.AdminEmail == "") != (cfg.AdminPassword == "") {
+		return cfg, errors.New("ADMIN_EMAIL and ADMIN_PASSWORD must be set together")
 	}
 
 	if err := checkDevSettings(cfg); err != nil {
