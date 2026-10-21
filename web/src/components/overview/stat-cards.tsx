@@ -50,12 +50,23 @@ function StatCards({ overview }: { overview: Overview }) {
   return (
     <div className={GRID}>
       {stats(overview).map((stat) => (
-        <div key={stat.label} className="flex flex-col gap-2 rounded-lg border p-4">
+        <div
+          key={stat.label}
+          className="group relative flex flex-col gap-2 overflow-hidden panel p-4 transition-shadow hover:glow-primary"
+        >
+          <span
+            aria-hidden
+            className="absolute inset-x-0 top-0 h-px bg-aurora opacity-60 transition-opacity group-hover:opacity-100"
+          />
           <div className="flex items-center justify-between text-muted-foreground">
             <span className="text-sm">{stat.label}</span>
-            <Icon name={stat.icon} className="size-4" />
+            <span className="flex size-7 items-center justify-center rounded-md bg-primary/10 text-primary">
+              <Icon name={stat.icon} className="size-4" />
+            </span>
           </div>
-          <span className="text-2xl font-semibold tabular-nums">{stat.value}</span>
+          <span className="font-mono text-2xl font-semibold tracking-tight tabular-nums">
+            {stat.value}
+          </span>
           <span className="text-xs text-muted-foreground">{stat.hint}</span>
         </div>
       ))}
@@ -67,7 +78,7 @@ function StatCardsSkeleton() {
   return (
     <div className={GRID} role="status" aria-label="Loading statistics">
       {Array.from({ length: 4 }, (_, i) => (
-        <div key={i} className="flex flex-col gap-3 rounded-lg border p-4">
+        <div key={i} className="flex flex-col gap-3 panel p-4">
           <div className="flex items-center justify-between">
             <Skeleton className="h-4 w-24" />
             <Skeleton className="size-4 rounded-full" />

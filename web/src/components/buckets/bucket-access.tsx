@@ -28,7 +28,7 @@ function BucketAccess({ keys }: { keys: BucketKeyAccess[] }) {
   }
 
   return (
-    <div className="rounded-lg border">
+    <div className="panel">
       <Table>
         <TableHeader>
           <TableRow>

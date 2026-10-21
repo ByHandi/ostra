@@ -95,7 +95,7 @@ export function UploadQueue({ uploads, onCancel, onClear }: UploadQueueProps) {
   const active = uploads.filter((u) => u.status === "queued" || u.status === "uploading").length;
 
   return (
-    <section className="flex flex-col gap-2 rounded-lg border p-3" aria-label="Uploads">
+    <section className="flex flex-col gap-2 panel p-3" aria-label="Uploads">
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-sm font-semibold">
           {active > 0 ? `Uploading ${active} of ${uploads.length}` : "Uploads finished"}
@@ -147,7 +147,7 @@ function UploadRow({ upload: u, onCancel }: { upload: Upload; onCancel(): void }
         <div
           className={cn(
             "h-full rounded-full transition-[width]",
-            u.status === "error" ? "bg-destructive" : "bg-primary",
+            u.status === "error" ? "bg-destructive" : "bg-aurora",
           )}
           style={{ width: `${u.status === "done" ? 100 : percent}%` }}
         />

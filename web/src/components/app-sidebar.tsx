@@ -81,7 +81,7 @@ function AppSidebar({ user, onLogout }: Props) {
       <SidebarHeader>
         <SidebarMenu className="space-y-2">
           <SidebarMenuItem className="flex gap-2 pt-1">
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-aurora text-white glow-primary">
               <Icon name="cloud" className="size-4" />
             </span>
 

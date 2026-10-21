@@ -27,7 +27,7 @@ interface ObjectTableProps {
 
 function ObjectTable({ bucketId, folders, objects, publicBaseUrl }: ObjectTableProps) {
   return (
-    <div className="rounded-lg border">
+    <div className="panel">
       <Table>
         <TableHeader>
           <TableRow>

@@ -47,7 +47,7 @@ function Field({ label, value }: { label: string; value: string }) {
 
 function DnsRecordsSkeleton() {
   return (
-    <div className="flex flex-col gap-4 rounded-lg border p-4" role="status" aria-label="Loading">
+    <div className="flex flex-col gap-4 panel p-4" role="status" aria-label="Loading">
       <div className="space-y-2">
         <Skeleton className="h-4 w-24" />
         <Skeleton className="h-3.5 w-80 max-w-full" />
