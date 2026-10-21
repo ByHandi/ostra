@@ -68,6 +68,69 @@ docker compose exec control /control createuser --email you@example.com --name "
 
 `docker-compose.yml` is production-safe as is: custom-domain DNS verification is on, session cookies are `Secure`, and the Garage admin port is not published. Every development shortcut lives in `docker-compose.dev.yml`, and the control-plane refuses to start if those shortcuts are combined with a domain other than `.localhost`/`.test`.
 
+### Behind a tunnel (Cloudflare Tunnel, Coolify)
+
+When ports 80/443 belong to something else, such as a Cloudflare Tunnel or Coolify's proxy, use `docker-compose.tunnel.yml` instead. It is the same stack without the bundled Caddy, so the tunnel or proxy terminates TLS and routes each hostname over the Docker network:
+
+| Hostname | Service |
+|---|---|
+| `console.example.com` | `control:8080` |
+| `s3.example.com` | `garage:3900` |
+| `*.web.example.com` (optional) | `garage:3902` |
+
+```bash
+docker compose -f docker-compose.tunnel.yml up -d
+```
+
+On Coolify, create a Docker Compose resource from this repository, set the compose location to `/docker-compose.tunnel.yml`, set `BASE_DOMAIN` and the four secrets in the environment variables (`openssl rand -hex 32` each), and assign the domains to `control` (port 8080) and `garage` (port 3900) in the UI. Create the first admin from the `control` container's terminal with `/control createuser`.
+
+Limits when the tunnel is Cloudflare:
+
+- Request bodies are capped at 100 MB on the Free and Pro plans. The object browser uploads a file in one request, so `MAX_UPLOAD_SIZE_MB` defaults to 95 here. S3 clients are unaffected as long as they use multipart uploads with smaller parts (the AWS CLI and SDKs do).
+- `<bucket>.web.example.com` is two levels deep, which Universal SSL and a default Origin Certificate do not cover. It needs Advanced Certificate Manager or a certificate that includes `*.web.example.com`.
+- Custom domains need Cloudflare for SaaS (see below): Cloudflare refuses to proxy a CNAME from another account's domain to yours unless that domain is added as a custom hostname.
+- `scripts/backup.sh` finds the volumes through `docker compose config` in this directory, so it does not work for a stack deployed by Coolify (which renames the project).
+
+#### Custom domains through a Cloudflare Tunnel
+
+A request for a custom domain reaches the tunnel with its own `Host` (for example `files.customer.com`), and Garage needs that `Host` to find the bucket. It therefore matches none of the tunnel's hostname rules, so both the tunnel and the proxy behind it need a catch-all that passes it through unchanged. The steps below assume Coolify's Traefik behind the tunnel, as in Coolify's Full TLS guide.
+
+1. **Fallback origin.** Add a public hostname `edge.example.com` to the tunnel with the same service and Origin Server Name as the other routes. In the zone, enable SSL/TLS → Custom Hostnames and set `edge.example.com` as the fallback origin. It matches the default `EDGE_HOSTNAME`, so the DNS records Ostra shows users stay correct.
+2. **Tunnel catch-all.** A remotely managed tunnel's last ingress rule is `http_status:404`. Replace it through the API (a token with *Account → Cloudflare Tunnel → Edit*) so unmatched hostnames go to the proxy. Use the same service as the existing routes, and keep `matchSNItoHost` off so `cloudflared` checks the certificate against `edge.example.com`:
+
+   ```bash
+   api=https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/cfd_tunnel/$CF_TUNNEL_ID/configurations
+   curl -s "$api" -H "Authorization: Bearer $CF_API_TOKEN" | jq '.result.config' > tunnel.json  # keep as a backup
+   jq '.ingress[-1] = {service: "https://localhost:443", originRequest: {originServerName: "edge.example.com"}} | {config: .}' \
+     tunnel.json > tunnel-new.json
+   curl -s -X PUT "$api" -H "Authorization: Bearer $CF_API_TOKEN" -H "Content-Type: application/json" \
+     --data @tunnel-new.json | jq '.success'
+   ```
+
+   The PUT replaces the whole configuration, which is why it starts from the current one. To undo, PUT `{config: <tunnel.json>}`.
+3. **Proxy catch-all.** In Coolify, under Servers → Proxy → Dynamic Configuration, add a file that sends every host no other router matches to Garage's web endpoint. `garage-<uuid>` is the container name Coolify gives the `garage` service (shown on the resource page and in `docker ps`):
+
+   ```yaml
+   http:
+     routers:
+       ostra-web-catchall:
+         rule: "PathPrefix(`/`)"
+         priority: 1 # below every Host() rule, so other apps keep their routes
+         entryPoints: [https]
+         tls: {}
+         service: ostra-web
+     services:
+       ostra-web:
+         loadBalancer:
+           servers:
+             - url: "http://garage-<uuid>:3902"
+   ```
+
+   Only one catch-all can win. If the proxy already has one (for example a default redirect for unknown hosts), remove it or this one never matches.
+4. **Per domain.** When a user registers `files.customer.com` in Ostra, add it under Custom Hostnames as well. The user creates the CNAME to `edge.example.com` and the `_ostra.` TXT record that Ostra shows. Cloudflare validates the certificate through that CNAME, and Ostra activates the domain once its own DNS check passes. Only subdomains work: an apex custom hostname needs Cloudflare's apex proxying (Enterprise).
+
+Unknown hosts now get Garage's 404 instead of the proxy's.
+
 ## Backup and restore
 
 ```bash
@@ -184,7 +247,7 @@ Responses use the same envelope as the `shadcn-vite` template and `go-service-bo
   "error": { "type": "validation", "message": "...", "errors": { "domain": ["..."] } } }
 ```
 
-**Auth.** A JWT access token (15 minutes) is sent in the `Authorization: Bearer` header. The refresh token (30 days, rotated on every use) lives in the httpOnly cookie `se_refresh`, scoped to `/api/auth`. Login allows 5 attempts per IP, then 1 attempt every 12 seconds.
+**Auth.** A JWT access token (15 minutes) is sent in the `Authorization: Bearer` header. The refresh token (30 days, rotated on every use) lives in the httpOnly cookie `ostra_refresh`, scoped to `/api/auth`. Login allows 5 attempts per IP, then 1 attempt every 12 seconds.
 
 | Method | Path | Description |
 |---|---|---|

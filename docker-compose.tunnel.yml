@@ -1,0 +1,105 @@
+# Production behind a TLS-terminating tunnel or proxy (Cloudflare Tunnel, Coolify's Traefik, ...).
+# Same stack as docker-compose.yml without the bundled Caddy: the tunnel/proxy owns TLS and
+# routes hostnames to these services over the Docker network.
+#
+#   console.<BASE_DOMAIN>   → control:8080
+#   s3.<BASE_DOMAIN>        → garage:3900
+#   *.web.<BASE_DOMAIN>     → garage:3902   (optional, two-level wildcard: needs a matching cert)
+#
+# Never route control:9000 (internal API) to the public.
+# Coolify: pick this file as the Docker Compose location and set the domains per service in the UI.
+name: ostra
+
+services:
+  # Renders garage.toml from the template with BASE_DOMAIN, then exits.
+  garage-config:
+    image: busybox:1.37.0
+    environment:
+      BASE_DOMAIN: ${BASE_DOMAIN:?set BASE_DOMAIN, e.g. example.com}
+    volumes:
+      - ./garage/garage.toml.tmpl:/template/garage.toml.tmpl:ro
+      - garage-config:/config
+    command:
+      - sh
+      - -c
+      - |
+        case "$$BASE_DOMAIN" in
+          *[!a-z0-9.-]*) echo "invalid BASE_DOMAIN: $$BASE_DOMAIN" >&2; exit 1 ;;
+        esac
+        sed "s/__BASE_DOMAIN__/$$BASE_DOMAIN/g" /template/garage.toml.tmpl > /config/garage.toml
+
+  garage:
+    image: dxflrs/garage:v2.4.1
+    restart: unless-stopped
+    # --single-node: the cluster layout is created automatically on first start.
+    command: ["/garage", "server", "--single-node"]
+    depends_on:
+      garage-config:
+        condition: service_completed_successfully
+    environment:
+      GARAGE_CONFIG_FILE: /etc/garage/garage.toml
+      GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET:?run scripts/gen-env.sh first}
+      GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN:?run scripts/gen-env.sh first}
+      GARAGE_METRICS_TOKEN: ${GARAGE_METRICS_TOKEN:?run scripts/gen-env.sh first}
+    expose:
+      - "3900" # S3 API
+      - "3902" # web (per-bucket and custom domains)
+    volumes:
+      - garage-config:/etc/garage:ro
+      - garage-meta:/var/lib/garage/meta
+      - garage-data:/var/lib/garage/data
+    healthcheck:
+      test: ["CMD", "/garage", "status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+      start_interval: 2s
+
+  control:
+    # Release image from GitHub Actions. Pin a version with CONTROL_IMAGE, e.g.
+    # ghcr.io/byhandi/ostra:0.1.0. `docker compose up -d --build` builds from source.
+    image: ${CONTROL_IMAGE:-ghcr.io/byhandi/ostra:latest}
+    build:
+      context: .
+      dockerfile: control/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      garage:
+        condition: service_healthy
+    environment:
+      LISTEN_ADDR: ":8080"
+      INTERNAL_LISTEN_ADDR: ":9000"
+      DB_PATH: /data/control.db
+      GARAGE_ADMIN_URL: http://garage:3903
+      S3_ENDPOINT: garage:3900
+      # Cloudflare rejects request bodies over 100 MB (Free/Pro plans), and the object browser
+      # uploads a file in one request. 95 MiB stays under it; raise it on Business/Enterprise.
+      MAX_UPLOAD_SIZE_MB: ${MAX_UPLOAD_SIZE_MB:-95}
+      GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN:?run scripts/gen-env.sh first}
+      CONTROL_JWT_SECRET: ${CONTROL_JWT_SECRET:?run scripts/gen-env.sh first}
+      EDGE_HOSTNAME: ${EDGE_HOSTNAME:-edge.${BASE_DOMAIN}}
+      WEB_ROOT_DOMAIN: .web.${BASE_DOMAIN}
+      RESERVED_DOMAINS: ${RESERVED_DOMAINS:-s3.${BASE_DOMAIN},console.${BASE_DOMAIN}}
+      DNS_SERVER: ${DNS_SERVER:-1.1.1.1:53}
+      # Empty = loopback + private networks, which covers cloudflared and a proxy on the Docker
+      # network. Set it if a proxy reaches the control-plane from a public address.
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
+    expose:
+      - "8080" # dashboard + /api (9000 stays internal)
+    volumes:
+      - control-data:/data
+    healthcheck:
+      # The scratch image has no curl; the binary itself calls /healthz.
+      test: ["CMD", "/control", "healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+      start_interval: 2s
+
+volumes:
+  garage-config:
+  garage-meta:
+  garage-data:
+  control-data:
