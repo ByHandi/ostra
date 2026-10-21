@@ -97,6 +97,8 @@ function ChangePassword() {
           name="currentPassword"
           type="password"
           label="Current password"
+          placeholder="Enter your current password"
+          startContent={<Icon name="lock" />}
           autoComplete="current-password"
           required
         />
@@ -105,6 +107,8 @@ function ChangePassword() {
           name="newPassword"
           type="password"
           label="New password"
+          placeholder="Enter a new password"
+          startContent={<Icon name="lock-keyhole" />}
           autoComplete="new-password"
           required
           description="At least 8 characters."
@@ -115,6 +119,8 @@ function ChangePassword() {
           name="confirmPassword"
           type="password"
           label="Confirm new password"
+          placeholder="Re-enter the new password"
+          startContent={<Icon name="lock-keyhole" />}
           autoComplete="new-password"
           required
           rules={{
@@ -147,6 +153,8 @@ function Appearance() {
     <Section title="Appearance" description="Press D anywhere to quickly toggle the theme.">
       <InputSelect
         label="Theme"
+        placeholder="Select a theme"
+        startContent={<Icon name="sun-moon" />}
         className="max-w-xs"
         value={theme}
         onValueChange={(value) => setTheme(value as typeof theme)}

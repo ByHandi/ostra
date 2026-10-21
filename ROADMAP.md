@@ -193,8 +193,8 @@ hidden S3 access key, created automatically and granted to a bucket on first use
 - [x] Skeletons, tests, and an end-to-end check against Garage (upload, paginated listing,
       download, copy public URL, delete file/folder, AccessDenied re-grant)
 
-Later: image/text preview, rename/move, empty folders, direct-to-S3 uploads with presigned URLs
-for very large files.
+Later: empty folders, direct-to-S3 uploads with presigned URLs for very large files. Preview and
+rename/move are listed under [Console features](#console-features-not-scheduled).
 
 ### Behind Cloudflare (not scheduled)
 
@@ -207,13 +207,62 @@ Limits found while running Ostra behind a Cloudflare Tunnel.
       domain is registered (and delete it with the domain), and show its certificate status in the
       dashboard. Today every custom domain has to be added by hand under Custom Hostnames
 
+### Console features (not scheduled)
+
+What the consoles of AWS S3, Cloudflare R2, MinIO, Backblaze B2, and DigitalOcean Spaces usually
+offer and Ostra does not yet, limited to what Garage v2 supports. In priority order; check the
+Garage API for each one before starting, since this list was put together from its documentation.
+
+- [ ] Share links: a download link for one file with a chosen lifetime (1 hour, 1 day, 7 days).
+      The control-plane already signs short-lived download links, so this mostly exposes them
+- [ ] File preview in the object browser: images, video, PDF, and text
+- [ ] Per-bucket quotas: maximum size and maximum number of objects (Garage admin API)
+- [ ] CORS editor per bucket (`PutBucketCors`), needed for browser uploads straight to S3
+- [ ] Lifecycle rules per bucket: expire objects after N days, abort incomplete multipart uploads
+      (Garage supports only these two, no storage-class transitions)
+- [ ] Connection snippets on the access key page: aws-cli, rclone, and the JS/Python SDKs with the
+      endpoint, region, and key filled in
+- [ ] Website settings per bucket: index document and error page (today the website is only
+      switched on with the defaults)
+- [ ] Object metadata: view and edit `Content-Type`, `Cache-Control`, `Content-Disposition`
+      (through a copy onto itself)
+- [ ] Rename, move, and copy files and folders (`CopyObject` + delete)
+- [ ] Search and sort in the object browser: by prefix (native), by size or date (per loaded page)
+- [ ] Access keys with an expiry date (Garage key expiration)
+- [ ] Bucket size and object count over time. Garage only reports the current numbers, so the
+      control-plane has to record them
+
+Not possible with Garage, so no UI for them: versioning and restoring deleted objects, Object
+Lock/retention, bucket policies and per-object ACLs (access is per key per bucket, public only
+through the website), event notifications, per-bucket replication (Garage replicates the whole
+cluster), object tagging, storage classes, SSE-KMS (only SSE-C), and keys limited to a prefix.
+
+### Multi-user and roles (not scheduled)
+
+More than one person on the dashboard, with an `admin` role (everything, including users) and a
+`viewer` role (read-only). Stays on SQLite: the write load is tiny, and Postgres is only needed
+once the control-plane runs as more than one instance.
+
+- [ ] Migration: `role` column on `users` (`admin` / `viewer`), existing accounts become `admin`
+- [ ] Authorization in the API, not only the UI: `viewer` gets read endpoints only, checked per
+      route with tests. `Authenticate` already loads the user on every request, so a role change
+      applies immediately instead of when the access token expires
+- [ ] Users page (admin only): list, create with a one-time password, change role, delete.
+      Deleting a user or changing their role ends their sessions; the last admin cannot be
+      deleted or demoted
+- [ ] CLI: `createuser --role`, plus `setrole`; `ADMIN_EMAIL` keeps creating an `admin`
+- [ ] Dashboard: hide or disable write actions for `viewer`, show the role on the Settings page
+- [ ] Audit log: who did what to which bucket/key/domain/user, with IP and time, written in the
+      same transaction as the change where possible. Admin-only page with filters, and old entries
+      removed after a retention period (e.g. `AUDIT_LOG_RETENTION`, default 90 days)
+
+Later: roles per bucket (a `user_buckets` table), so a user only sees and manages their own buckets.
+
 ---
 
 ## Feature ideas (not scheduled)
 
-- Per-bucket quotas (already supported by the Garage admin API)
 - Periodic re-verification of active domains (detect DNS records that have been removed)
 - Wildcard virtual-hosted S3 (`*.s3.domain`) through Caddy with a DNS challenge plugin
-- Multi-user with roles (admin / read-only) and an audit log
 - Caching in front of custom domains (Caddy cache or an external CDN)
 - Multi-node Garage: a 3-node cluster guide and `replication_factor = 3`
