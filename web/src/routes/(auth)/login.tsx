@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 
 import InputText from "@/components/form/input-text";
 import { Button } from "@/components/ui/button";
+import Icon from "@/components/ui/icon";
 import { login } from "@/lib/api/auth";
 import { applyApiError } from "@/lib/form-errors";
 import { pageMeta } from "@/lib/page-meta";
@@ -78,6 +79,7 @@ function Login() {
           type="email"
           label="Email"
           placeholder="admin@example.com"
+          startContent={<Icon name="mail" />}
           autoComplete="email"
           autoFocus
           required
@@ -87,6 +89,8 @@ function Login() {
           name="password"
           type="password"
           label="Password"
+          placeholder="Enter your password"
+          startContent={<Icon name="lock" />}
           autoComplete="current-password"
           required
         />

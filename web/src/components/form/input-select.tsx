@@ -31,6 +31,7 @@ export interface InputSelectProps extends React.ComponentProps<typeof Select> {
   required?: boolean;
   disabled?: boolean;
   options?: InputSelectOption[];
+  startContent?: React.ReactNode;
   className?: string;
   classNames?: {
     base?: string;
@@ -51,6 +52,7 @@ function InputSelect(props: InputSelectProps) {
     required,
     disabled,
     options,
+    startContent,
     className,
     classNames,
     children,
@@ -80,8 +82,15 @@ function InputSelect(props: InputSelectProps) {
           id={triggerId}
           aria-invalid={Boolean(errorMessage)}
           aria-describedby={describedBy || undefined}
-          className={cn("w-full", classNames?.trigger)}
+          // pl-2 + gap-1.5 puts the value where InputText puts its text next to a start icon;
+          // mr-auto keeps the value left-aligned instead of centred between icon and chevron.
+          className={cn(
+            "w-full",
+            startContent && "pl-2 *:data-[slot=select-value]:mr-auto",
+            classNames?.trigger,
+          )}
         >
+          {startContent && <span className="flex text-muted-foreground">{startContent}</span>}
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
 

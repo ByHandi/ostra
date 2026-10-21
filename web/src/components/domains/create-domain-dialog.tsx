@@ -95,6 +95,7 @@ export function CreateDomainDialog({ bucket }: CreateDomainDialogProps) {
               name="domain"
               label="Domain"
               placeholder="cdn.example.com"
+              startContent={<Icon name="globe" />}
               autoComplete="off"
               autoFocus
               required
@@ -105,6 +106,7 @@ export function CreateDomainDialog({ bucket }: CreateDomainDialogProps) {
                 name="bucket"
                 label="Bucket"
                 placeholder={buckets.isPending ? "Loading buckets…" : "Select a bucket"}
+                startContent={<Icon name="archive" />}
                 disabled={buckets.isPending}
                 required
                 options={(buckets.data ?? []).map((b) => ({ label: b.name, value: b.name }))}

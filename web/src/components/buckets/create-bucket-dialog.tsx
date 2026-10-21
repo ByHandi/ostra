@@ -79,6 +79,7 @@ export function CreateBucketDialog() {
             name="name"
             label="Name"
             placeholder="assets"
+            startContent={<Icon name="archive" />}
             autoComplete="off"
             autoFocus
             required

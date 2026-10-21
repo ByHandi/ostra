@@ -119,6 +119,7 @@ export function CreateKeyDialog() {
               name="name"
               label="Name"
               placeholder="backend-production"
+              startContent={<Icon name="key-round" />}
               autoComplete="off"
               autoFocus
               required
