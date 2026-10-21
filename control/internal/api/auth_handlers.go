@@ -10,7 +10,7 @@ import (
 
 // refreshCookie is only sent to /api/auth/*, so it is not included in other API requests.
 const (
-	refreshCookie     = "se_refresh"
+	refreshCookie     = "ostra_refresh"
 	refreshCookiePath = "/api/auth"
 )
 
