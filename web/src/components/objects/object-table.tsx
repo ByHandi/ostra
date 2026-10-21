@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 
 import { FileActions, FolderActions } from "./object-actions";
 
+import { ListGroup, ListRowContent } from "@/components/list-group";
 import { TableSkeleton } from "@/components/table-skeleton";
 import Icon from "@/components/ui/icon";
 import {
@@ -14,7 +15,9 @@ import {
 } from "@/components/ui/table";
 import type { StoredObject } from "@/lib/api/objects";
 import { formatBytes, formatDate } from "@/lib/format";
+import { listRowClass } from "@/lib/list-row";
 import { baseName } from "@/lib/object-path";
+import { cn } from "@/lib/utils";
 
 const COLUMNS = ["Name", "Size", "Last modified", ""];
 
@@ -27,63 +30,101 @@ interface ObjectTableProps {
 
 function ObjectTable({ bucketId, folders, objects, publicBaseUrl }: ObjectTableProps) {
   return (
-    <div className="panel">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            {COLUMNS.map((c) => (
-              <TableHead key={c} className={c === "" ? "w-12" : undefined}>
-                {c}
-              </TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {folders.map((prefix) => (
-            <TableRow key={prefix}>
-              <TableCell>
-                <Link
-                  to="/buckets/$bucketId/files"
-                  params={{ bucketId }}
-                  search={{ prefix }}
-                  className="inline-flex items-center gap-2 font-medium hover:underline"
-                >
-                  <Icon name="folder" className="size-4 text-muted-foreground" />
-                  {baseName(prefix)}
-                </Link>
-              </TableCell>
-              <TableCell className="text-muted-foreground">—</TableCell>
-              <TableCell className="text-muted-foreground">—</TableCell>
-              <TableCell>
-                <FolderActions bucketId={bucketId} prefix={prefix} name={baseName(prefix)} />
-              </TableCell>
-            </TableRow>
-          ))}
-          {objects.map((o) => (
-            <TableRow key={o.key}>
-              <TableCell>
-                <span className="inline-flex min-w-0 items-center gap-2">
-                  <Icon name="file" className="size-4 shrink-0 text-muted-foreground" />
-                  <span className="truncate" title={o.key}>
-                    {baseName(o.key)}
-                  </span>
-                </span>
-              </TableCell>
-              <TableCell className="tabular-nums">{formatBytes(o.size)}</TableCell>
-              <TableCell className="text-muted-foreground">{formatDate(o.lastModified)}</TableCell>
-              <TableCell>
+    <>
+      <ListGroup>
+        {folders.map((prefix) => (
+          <li key={prefix} className="flex items-center">
+            <Link
+              to="/buckets/$bucketId/files"
+              params={{ bucketId }}
+              search={{ prefix }}
+              className={cn(listRowClass, "min-w-0 flex-1")}
+            >
+              <ListRowContent icon="folder" title={baseName(prefix)} subtitle="Folder" chevron />
+            </Link>
+            <span className="pr-2">
+              <FolderActions bucketId={bucketId} prefix={prefix} name={baseName(prefix)} />
+            </span>
+          </li>
+        ))}
+        {objects.map((o) => (
+          <li key={o.key} className="flex min-h-14 items-center gap-3 py-2.5 pr-2 pl-3">
+            <ListRowContent
+              icon="file"
+              title={baseName(o.key)}
+              subtitle={`${formatBytes(o.size)} · ${formatDate(o.lastModified)}`}
+              trailing={
                 <FileActions
                   bucketId={bucketId}
                   objectKey={o.key}
                   name={baseName(o.key)}
                   publicBaseUrl={publicBaseUrl}
                 />
-              </TableCell>
+              }
+            />
+          </li>
+        ))}
+      </ListGroup>
+      <div className="hidden min-h-0 flex-col overflow-hidden panel md:flex">
+        <Table scrollable>
+          <TableHeader>
+            <TableRow>
+              {COLUMNS.map((c) => (
+                <TableHead key={c} className={c === "" ? "w-12" : undefined}>
+                  {c}
+                </TableHead>
+              ))}
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
+          </TableHeader>
+          <TableBody>
+            {folders.map((prefix) => (
+              <TableRow key={prefix}>
+                <TableCell>
+                  <Link
+                    to="/buckets/$bucketId/files"
+                    params={{ bucketId }}
+                    search={{ prefix }}
+                    className="inline-flex items-center gap-2 font-medium hover:underline"
+                  >
+                    <Icon name="folder" className="size-4 text-muted-foreground" />
+                    {baseName(prefix)}
+                  </Link>
+                </TableCell>
+                <TableCell className="text-muted-foreground">—</TableCell>
+                <TableCell className="text-muted-foreground">—</TableCell>
+                <TableCell>
+                  <FolderActions bucketId={bucketId} prefix={prefix} name={baseName(prefix)} />
+                </TableCell>
+              </TableRow>
+            ))}
+            {objects.map((o) => (
+              <TableRow key={o.key}>
+                <TableCell>
+                  <span className="inline-flex min-w-0 items-center gap-2">
+                    <Icon name="file" className="size-4 shrink-0 text-muted-foreground" />
+                    <span className="truncate" title={o.key}>
+                      {baseName(o.key)}
+                    </span>
+                  </span>
+                </TableCell>
+                <TableCell className="tabular-nums">{formatBytes(o.size)}</TableCell>
+                <TableCell className="text-muted-foreground">
+                  {formatDate(o.lastModified)}
+                </TableCell>
+                <TableCell>
+                  <FileActions
+                    bucketId={bucketId}
+                    objectKey={o.key}
+                    name={baseName(o.key)}
+                    publicBaseUrl={publicBaseUrl}
+                  />
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </>
   );
 }
 

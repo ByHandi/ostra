@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 
 import { DomainStatusBadge } from "./domain-status-badge";
 
+import { ListGroup, ListRowContent } from "@/components/list-group";
 import { TableSkeleton } from "@/components/table-skeleton";
 import {
   Table,
@@ -13,6 +14,7 @@ import {
 } from "@/components/ui/table";
 import type { Domain } from "@/lib/api/storage";
 import { formatRelative } from "@/lib/format";
+import { listRowClass } from "@/lib/list-row";
 
 const COLUMNS = ["Domain", "Bucket", "Status", "Last checked"];
 
@@ -26,49 +28,70 @@ function DomainTable({ domains, hideBucket = false }: DomainTableProps) {
   const columns = hideBucket ? COLUMNS.filter((c) => c !== "Bucket") : COLUMNS;
 
   return (
-    <div className="panel">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            {columns.map((c) => (
-              <TableHead key={c}>{c}</TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {domains.map((d) => (
-            <TableRow key={d.id}>
-              <TableCell>
-                <Link
-                  to="/domains/$domainId"
-                  params={{ domainId: d.id }}
-                  className="font-medium hover:underline"
-                >
-                  {d.domain}
-                </Link>
-              </TableCell>
-              {!hideBucket && (
+    <>
+      <ListGroup>
+        {domains.map((d) => (
+          <li key={d.id}>
+            <Link to="/domains/$domainId" params={{ domainId: d.id }} className={listRowClass}>
+              <ListRowContent
+                icon="globe"
+                title={d.domain}
+                subtitle={
+                  hideBucket
+                    ? formatRelative(d.lastCheckedAt)
+                    : `${d.bucketName} · ${formatRelative(d.lastCheckedAt)}`
+                }
+                trailing={<DomainStatusBadge status={d.status} />}
+                chevron
+              />
+            </Link>
+          </li>
+        ))}
+      </ListGroup>
+      <div className="hidden min-h-0 flex-col overflow-hidden panel md:flex">
+        <Table scrollable>
+          <TableHeader>
+            <TableRow>
+              {columns.map((c) => (
+                <TableHead key={c}>{c}</TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {domains.map((d) => (
+              <TableRow key={d.id}>
                 <TableCell>
                   <Link
-                    to="/buckets/$bucketId"
-                    params={{ bucketId: d.bucketId }}
-                    className="text-muted-foreground hover:text-foreground hover:underline"
+                    to="/domains/$domainId"
+                    params={{ domainId: d.id }}
+                    className="font-medium hover:underline"
                   >
-                    {d.bucketName}
+                    {d.domain}
                   </Link>
                 </TableCell>
-              )}
-              <TableCell>
-                <DomainStatusBadge status={d.status} />
-              </TableCell>
-              <TableCell className="text-muted-foreground">
-                {formatRelative(d.lastCheckedAt)}
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
+                {!hideBucket && (
+                  <TableCell>
+                    <Link
+                      to="/buckets/$bucketId"
+                      params={{ bucketId: d.bucketId }}
+                      className="text-muted-foreground hover:text-foreground hover:underline"
+                    >
+                      {d.bucketName}
+                    </Link>
+                  </TableCell>
+                )}
+                <TableCell>
+                  <DomainStatusBadge status={d.status} />
+                </TableCell>
+                <TableCell className="text-muted-foreground">
+                  {formatRelative(d.lastCheckedAt)}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </>
   );
 }
 

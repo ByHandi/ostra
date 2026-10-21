@@ -55,7 +55,7 @@ function DomainPage() {
     queryClient.removeQueries({ queryKey: storageKeys.domain(domainId) });
     invalidateLists();
     toast.success(`${domain.data?.domain ?? "Domain"} deleted`);
-    navigate({ to: "/domains" });
+    navigate({ to: "/domains", replace: true });
   };
 
   const d = domain.data;
@@ -63,8 +63,7 @@ function DomainPage() {
   return (
     <>
       <AppHeader
-        showBackButton
-        onBack={() => navigate({ to: "/domains" })}
+        backTo="/domains"
         title={d?.domain ?? "Custom domain"}
         description={d ? `Serves the contents of bucket ${d.bucketName}.` : undefined}
         endContent={

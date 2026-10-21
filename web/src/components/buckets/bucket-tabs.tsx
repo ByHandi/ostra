@@ -5,13 +5,17 @@ import Icon from "@/components/ui/icon";
 const TAB =
   "inline-flex items-center gap-1.5 border-b-2 border-transparent px-1 pb-2 text-sm text-muted-foreground transition-colors hover:text-foreground data-[status=active]:border-primary data-[status=active]:text-foreground";
 
-/** Overview / Files navigation shown under the bucket page header. */
+/**
+ * Overview / Files navigation shown under the bucket page header. Switching tabs
+ * replaces the history entry, so Back leaves the bucket instead of toggling tabs.
+ */
 export function BucketTabs({ bucketId }: { bucketId: string }) {
   return (
     <nav className="mt-2 -mb-4 flex gap-4 border-b" aria-label="Bucket sections">
       <Link
         to="/buckets/$bucketId"
         params={{ bucketId }}
+        replace
         activeOptions={{ exact: true, includeSearch: false }}
         className={TAB}
       >
@@ -21,6 +25,7 @@ export function BucketTabs({ bucketId }: { bucketId: string }) {
       <Link
         to="/buckets/$bucketId/files"
         params={{ bucketId }}
+        replace
         activeOptions={{ includeSearch: false }}
         className={TAB}
       >

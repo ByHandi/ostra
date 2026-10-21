@@ -37,16 +37,18 @@ export function UploadButton({ onFiles }: { onFiles(files: FileList): void }) {
 export function DropZone({
   onFiles,
   children,
+  className,
 }: {
   onFiles(files: FileList): void;
   children: ReactNode;
+  className?: string;
 }) {
   const [over, setOver] = useState(false);
   const hasFiles = (e: DragEvent) => e.dataTransfer.types.includes("Files");
 
   return (
     <div
-      className="relative"
+      className={cn("relative", className)}
       onDragOver={(e) => {
         if (!hasFiles(e)) return;
         e.preventDefault();

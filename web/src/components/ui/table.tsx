@@ -1,8 +1,24 @@
 import { cn } from "@/lib/utils";
 
-function Table({ className, ...props }: React.ComponentProps<"table">) {
+/**
+ * `scrollable`: the container becomes the scroll area and the header cells
+ * stick to its top. Give the table a bounded height (a shrinking flex item, as
+ * the list pages do on desktop) and only the body scrolls.
+ */
+function Table({
+  className,
+  scrollable = false,
+  ...props
+}: React.ComponentProps<"table"> & { scrollable?: boolean }) {
   return (
-    <div data-slot="table-container" className="relative w-full overflow-x-auto">
+    <div
+      data-slot="table-container"
+      className={cn(
+        "relative w-full overflow-x-auto",
+        scrollable &&
+          "min-h-0 overflow-y-auto [&_th]:sticky [&_th]:top-0 [&_th]:z-10 [&_th]:bg-card [&_th]:shadow-[inset_0_-1px_0_var(--border)] [&_thead_tr]:border-b-0",
+      )}
+    >
       <table
         data-slot="table"
         className={cn("w-full caption-bottom text-sm", className)}
@@ -54,7 +70,7 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
     <th
       data-slot="table-head"
       className={cn(
-        "h-10 px-3 text-left align-middle font-medium whitespace-nowrap text-muted-foreground [&:has([role=checkbox])]:pr-0",
+        "h-10 px-3 text-left align-middle font-medium whitespace-nowrap text-muted-foreground has-[[role=checkbox]]:pr-0",
         className,
       )}
       {...props}
@@ -66,7 +82,7 @@ function TableCell({ className, ...props }: React.ComponentProps<"td">) {
   return (
     <td
       data-slot="table-cell"
-      className={cn("p-3 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0", className)}
+      className={cn("p-3 align-middle whitespace-nowrap has-[[role=checkbox]]:pr-0", className)}
       {...props}
     />
   );

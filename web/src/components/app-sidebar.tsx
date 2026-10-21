@@ -2,6 +2,7 @@ import { Link, useLocation } from "@tanstack/react-router";
 
 import { useTransition } from "react";
 
+import { LogoMark } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 import Icon from "@/components/ui/icon";
 import {
@@ -18,7 +19,7 @@ import {
   SidebarRail,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { type NavItem, navGroups } from "@/config/navigation";
+import { type NavItem, isActivePath, navGroups } from "@/config/navigation";
 
 export interface SidebarUser {
   name: string;
@@ -34,10 +35,6 @@ function initials(name: string): string {
       .map((part) => part[0]?.toUpperCase() ?? "")
       .join("") || "?"
   );
-}
-
-function isActivePath(pathname: string, href: string): boolean {
-  return href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
 }
 
 interface Props {
@@ -81,12 +78,10 @@ function AppSidebar({ user, onLogout }: Props) {
       <SidebarHeader>
         <SidebarMenu className="space-y-2">
           <SidebarMenuItem className="flex gap-2 pt-1">
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-aurora text-white glow-primary">
-              <Icon name="cloud" className="size-4" />
-            </span>
+            <LogoMark tile className="size-8 drop-shadow-[0_0_10px_var(--glow)]" />
 
             <span className="flex min-w-0 flex-col overflow-hidden leading-none whitespace-nowrap transition-[width,opacity] group-data-[collapsible=icon]:opacity-0">
-              <span className="font-medium">storage-edge</span>
+              <span className="font-semibold tracking-tight">Ostra</span>
               <span className="text-xs text-sidebar-foreground/70">Object storage</span>
             </span>
           </SidebarMenuItem>
