@@ -6,8 +6,10 @@ import InputText from "@/components/form/input-text";
 import { Button } from "@/components/ui/button";
 import { login } from "@/lib/api/auth";
 import { applyApiError } from "@/lib/form-errors";
+import { pageMeta } from "@/lib/page-meta";
 
 export const Route = createFileRoute("/(auth)/login")({
+  head: () => pageMeta("Sign in"),
   /**
    * Where the guard wanted to go before it bounced us here. Sanitised at the
    * boundary: only same-origin absolute paths survive, so a crafted

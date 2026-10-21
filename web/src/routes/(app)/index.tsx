@@ -9,8 +9,10 @@ import { QueryError } from "@/components/query-error";
 import Section from "@/components/section";
 import { Button } from "@/components/ui/button";
 import { domainsQuery, overviewQuery } from "@/lib/api/storage";
+import { pageMeta } from "@/lib/page-meta";
 
 export const Route = createFileRoute("/(app)/")({
+  head: () => pageMeta("Dashboard", "Overview of storage and custom domains."),
   component: Dashboard,
 });
 

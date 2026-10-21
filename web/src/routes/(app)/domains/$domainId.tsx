@@ -12,12 +12,23 @@ import { Button } from "@/components/ui/button";
 import Icon from "@/components/ui/icon";
 import { ApiError } from "@/lib/api/errors";
 import { deleteDomain, domainQuery, storageKeys, verifyDomain } from "@/lib/api/storage";
+import { pageMeta } from "@/lib/page-meta";
 
 export const Route = createFileRoute("/(app)/domains/$domainId")({
   params: {
     parse: ({ domainId }) => ({ domainId: Number(domainId) }),
     stringify: ({ domainId }) => ({ domainId: String(domainId) }),
   },
+  /**
+   * Loads the domain up front so the tab title can name it. A failure is left to
+   * the page's own error state rather than the route's error screen.
+   */
+  loader: ({ context, params }) =>
+    context.queryClient.ensureQueryData(domainQuery(params.domainId)).then(
+      (d) => d.domain,
+      () => undefined,
+    ),
+  head: ({ loaderData }) => pageMeta(loaderData ?? "Custom domain"),
   component: DomainPage,
 });
 

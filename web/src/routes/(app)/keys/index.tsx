@@ -7,8 +7,14 @@ import { CreateKeyDialog } from "@/components/keys/create-key-dialog";
 import KeyTable from "@/components/keys/key-table";
 import { QueryError } from "@/components/query-error";
 import { keysQuery } from "@/lib/api/storage";
+import { pageMeta } from "@/lib/page-meta";
 
 export const Route = createFileRoute("/(app)/keys/")({
+  head: () =>
+    pageMeta(
+      "Access Keys",
+      "S3 API credentials for apps and tools. Permissions are set per bucket.",
+    ),
   component: Keys,
 });
 

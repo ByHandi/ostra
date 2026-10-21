@@ -1,8 +1,9 @@
 import type { QueryClient } from "@tanstack/react-query";
-import { Link, Outlet, createRootRouteWithContext } from "@tanstack/react-router";
+import { HeadContent, Link, Outlet, createRootRouteWithContext } from "@tanstack/react-router";
 
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { pageMeta } from "@/lib/page-meta";
 
 /**
  * Handed to every route's `beforeLoad`/`loader` from `main.tsx`. Passing the
@@ -14,6 +15,7 @@ export interface RouterContext {
 }
 
 export const Route = createRootRouteWithContext<RouterContext>()({
+  head: () => pageMeta(undefined, "Self-hosted S3-compatible object storage dashboard."),
   component: RootLayout,
   notFoundComponent: NotFound,
 });
@@ -26,10 +28,14 @@ export const Route = createRootRouteWithContext<RouterContext>()({
  * `TooltipProvider` is required here because `ui/sidebar.tsx` renders a bare
  * `Tooltip` for its `tooltip` prop without providing the context itself, and
  * Radix throws without a provider ancestor.
+ *
+ * `HeadContent` renders each route's `head` (title, description); React hoists
+ * the tags into <head>.
  */
 function RootLayout() {
   return (
     <TooltipProvider>
+      <HeadContent />
       <Outlet />
       <Toaster />
     </TooltipProvider>

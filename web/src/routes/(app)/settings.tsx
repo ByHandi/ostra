@@ -17,8 +17,10 @@ import { changePassword, logout } from "@/lib/api/auth";
 import { sessionContextQuery } from "@/lib/api/session";
 import { versionQuery } from "@/lib/api/storage";
 import { applyApiError } from "@/lib/form-errors";
+import { pageMeta } from "@/lib/page-meta";
 
 export const Route = createFileRoute("/(app)/settings")({
+  head: () => pageMeta("Settings", "Your account and the dashboard's appearance."),
   component: Settings,
 });
 
