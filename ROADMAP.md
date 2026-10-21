@@ -57,7 +57,7 @@ Phases 1 and 2 are prerequisites before the repo is made public.
 ## Pending decisions
 
 - [ ] **License** (MIT / Apache-2.0 / AGPL-3.0). Blocks: `LICENSE`, the license note in the README.
-- [x] **GitHub repo name**: `ByHandi/storage-edge`, image `ghcr.io/byhandi/storage-edge`.
+- [x] **GitHub repo name**: `ByHandi/ostra`, image `ghcr.io/byhandi/ostra`.
 
 ---
 
@@ -78,7 +78,7 @@ that follows `gen-env.sh` gets development settings straight away.
 ### 1.2 License
 - [ ] Add `LICENSE` according to the decision above
 - [ ] License section in the README, including a note that Garage is licensed under AGPL-3.0 and
-      is used as a separate service through its API (the storage-edge code is not bound by the AGPL)
+      is used as a separate service through its API (the Ostra code is not bound by the AGPL)
 - [ ] Check that the dependency licenses (Go and npm) are compatible with the chosen license
 
 ### 1.3 Production config without editing files

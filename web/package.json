@@ -1,5 +1,5 @@
 {
-  "name": "storage-edge-web",
+  "name": "ostra-web",
   "private": true,
   "version": "0.0.1",
   "type": "module",

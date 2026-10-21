@@ -5,7 +5,7 @@
 Please **do not open a public issue** for security problems.
 
 Report privately through GitHub instead: go to the repository's **Security** tab and choose
-**Report a vulnerability** (<https://github.com/ByHandi/storage-edge/security/advisories/new>).
+**Report a vulnerability** (<https://github.com/ByHandi/ostra/security/advisories/new>).
 
 Include as much of the following as you can:
 

@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 
-	"github.com/handi7/storage-edge/control/internal/garage"
+	"github.com/ByHandi/ostra/control/internal/garage"
 )
 
 type DomainCounts struct {

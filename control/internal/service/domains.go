@@ -15,8 +15,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/handi7/storage-edge/control/internal/garage"
-	"github.com/handi7/storage-edge/control/internal/store"
+	"github.com/ByHandi/ostra/control/internal/garage"
+	"github.com/ByHandi/ostra/control/internal/store"
 )
 
 const (

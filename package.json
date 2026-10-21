@@ -1,5 +1,5 @@
 {
-  "name": "storage-edge",
+  "name": "ostra",
   "private": true,
   "description": "Repository tooling (git hooks). The dashboard has its own package in web/.",
   "scripts": {

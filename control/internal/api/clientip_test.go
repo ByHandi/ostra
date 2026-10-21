@@ -4,7 +4,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/handi7/storage-edge/control/internal/config"
+	"github.com/ByHandi/ostra/control/internal/config"
 )
 
 func TestClientIP(t *testing.T) {

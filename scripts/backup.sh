@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Back up all storage-edge data to backups/storage-edge-<UTC time>/.
+# Back up all Ostra data to backups/ostra-<UTC time>/.
 #
 #   scripts/backup.sh [--with-env] [destination-folder]
 #
@@ -40,7 +40,7 @@ for v in "${VOLUMES[@]}"; do
   fi
 done
 
-dest="$out_root/storage-edge-$(date -u +%Y%m%dT%H%M%SZ)"
+dest="$out_root/ostra-$(date -u +%Y%m%dT%H%M%SZ)"
 mkdir -p "$dest"
 dest="$(cd "$dest" && pwd)"
 

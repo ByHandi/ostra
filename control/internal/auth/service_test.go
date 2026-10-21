@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/handi7/storage-edge/control/internal/store"
+	"github.com/ByHandi/ostra/control/internal/store"
 )
 
 func newTestService(t *testing.T) *Service {
