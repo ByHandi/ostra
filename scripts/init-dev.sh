@@ -61,6 +61,9 @@ else
     else
       echo "$kv" >> .env
     fi
+    # .env was sourced (and exported) above while these were still empty, and docker compose
+    # prefers the shell environment over .env, so update the exported values too.
+    export "${kv?}"
   done
   echo "    key $key_id saved to .env"
 fi
