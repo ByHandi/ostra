@@ -64,6 +64,32 @@ func TestTrustedProxies(t *testing.T) {
 	}
 }
 
+func TestAdminBootstrapPair(t *testing.T) {
+	tests := []struct {
+		name, email, password string
+		wantErr               bool
+	}{
+		{"disabled", "", "", false},
+		{"both set", "admin@example.com", "secret123", false},
+		{"email only", "admin@example.com", "", true},
+		{"password only", "", "secret123", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setRequired(t, "edge.example.com")
+			t.Setenv("ADMIN_EMAIL", tt.email)
+			t.Setenv("ADMIN_PASSWORD", tt.password)
+			cfg, err := Load()
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("Load() err = %v, wantErr %v", err, tt.wantErr)
+			}
+			if err == nil && cfg.AdminName != "Admin" {
+				t.Fatalf("AdminName = %q, want the default", cfg.AdminName)
+			}
+		})
+	}
+}
+
 func contains(prefixes []netip.Prefix, ip string) bool {
 	addr := netip.MustParseAddr(ip)
 	for _, p := range prefixes {

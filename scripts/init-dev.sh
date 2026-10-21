@@ -70,6 +70,8 @@ echo "==> Uploading sample files"
 docker compose run --rm -T --quiet-pull awscli s3 cp --only-show-errors --recursive /sample "s3://$BUCKET/"
 
 echo "==> Dashboard admin account '$DEV_ADMIN_EMAIL'"
+# The control-plane already creates it on startup when the database has no accounts
+# (ADMIN_EMAIL in docker-compose.dev.yml); this covers a database that already had others.
 set +e
 printf '%s\n' "$DEV_ADMIN_PASSWORD" |
   docker compose exec -T control /control createuser \

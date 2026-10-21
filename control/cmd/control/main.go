@@ -103,6 +103,9 @@ func serve() error {
 	if err != nil {
 		return err
 	}
+	if err := bootstrapAdmin(ctx, authSvc, cfg); err != nil {
+		return err
+	}
 
 	gc := garage.NewClient(cfg.GarageAdminURL, cfg.GarageAdminToken)
 	if _, err := gc.Health(ctx); err != nil {
@@ -166,6 +169,22 @@ func serve() error {
 		return nil
 	})
 	return g.Wait()
+}
+
+// bootstrapAdmin creates the first account from ADMIN_EMAIL/ADMIN_PASSWORD while there are none.
+// A bad ADMIN_PASSWORD (e.g. too short) stops the start, so it is not missed in the logs.
+func bootstrapAdmin(ctx context.Context, authSvc *auth.Service, cfg config.Config) error {
+	if cfg.AdminEmail == "" {
+		return nil
+	}
+	user, created, err := authSvc.BootstrapAdmin(ctx, cfg.AdminEmail, cfg.AdminName, cfg.AdminPassword)
+	if err != nil {
+		return fmt.Errorf("ADMIN_EMAIL: %w", err)
+	}
+	if created {
+		slog.Info("admin account created from ADMIN_EMAIL", "email", user.Email)
+	}
+	return nil
 }
 
 // healthcheck is used by the Docker HEALTHCHECK: the scratch image has no curl/wget, so

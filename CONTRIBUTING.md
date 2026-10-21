@@ -16,11 +16,11 @@ conventions the codebase follows.
 npm install                    # repo root: installs the git pre-commit hook (husky)
 ./scripts/gen-env.sh --dev     # local .env, uses docker-compose.dev.yml
 docker compose up -d --build
-./scripts/init-dev.sh          # sample bucket, key, admin account, custom domain
+./scripts/init-dev.sh          # sample bucket, key, custom domain
 ```
 
 Then open http://127.0.0.1:8080 and log in with `DEV_ADMIN_EMAIL` / `DEV_ADMIN_PASSWORD` from
-`.env`. For dashboard work with hot reload, run `npm run dev` in `web/` (it proxies `/api` to the
+`.env` (the control-plane creates that account on its first start with an empty database). For dashboard work with hot reload, run `npm run dev` in `web/` (it proxies `/api` to the
 control-plane). See the [README](README.md#local-development) for more.
 
 ## Pre-commit hook

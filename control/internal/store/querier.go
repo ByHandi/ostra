@@ -9,6 +9,7 @@ import (
 )
 
 type Querier interface {
+	CountUsers(ctx context.Context) (int64, error)
 	CreateDomain(ctx context.Context, arg CreateDomainParams) (Domain, error)
 	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)

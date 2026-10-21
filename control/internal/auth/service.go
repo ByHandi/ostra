@@ -234,6 +234,21 @@ func (s *Service) CreateUser(ctx context.Context, email, name, password string) 
 	return s.q.CreateUser(ctx, store.CreateUserParams{Email: email, Name: name, PasswordHash: hash})
 }
 
+// BootstrapAdmin creates the first account from ADMIN_EMAIL/ADMIN_PASSWORD at startup. It does
+// nothing once any account exists, so it never overwrites a password changed since then.
+// created reports whether an account was made.
+func (s *Service) BootstrapAdmin(ctx context.Context, email, name, password string) (user store.User, created bool, err error) {
+	count, err := s.q.CountUsers(ctx)
+	if err != nil || count > 0 {
+		return store.User{}, false, err
+	}
+	user, err = s.CreateUser(ctx, email, name, password)
+	if err != nil {
+		return store.User{}, false, err
+	}
+	return user, true, nil
+}
+
 // SetPassword is used by the CLI `control setpassword` to reset a password without the old one.
 func (s *Service) SetPassword(ctx context.Context, email, password string) error {
 	user, err := s.q.GetUserByEmail(ctx, strings.TrimSpace(email))

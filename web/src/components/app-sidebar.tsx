@@ -65,7 +65,7 @@ function AppSidebar({ user, onLogout }: Props) {
     ));
 
   return (
-    <Sidebar collapsible="icon" className="z-50">
+    <Sidebar collapsible="icon" className="z-50 [view-transition-name:sidebar]">
       <Button
         size="icon-xs"
         variant="outline"
