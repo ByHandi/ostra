@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/handi7/storage-edge/control/internal/store"
+	"github.com/ByHandi/ostra/control/internal/store"
 )
 
 // timeLayout matches the timestamp format SQLite writes (strftime), so that

@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/handi7/storage-edge/control/internal/auth"
+	"github.com/ByHandi/ostra/control/internal/auth"
 )
 
 // refreshCookie is only sent to /api/auth/*, so it is not included in other API requests.

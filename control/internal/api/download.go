@@ -28,7 +28,7 @@ type downloadClaims struct {
 // used as (or confused with) an access token signed with the same secret.
 func newDownloadTokens(secret string, ttl time.Duration) downloadTokens {
 	mac := hmac.New(sha256.New, []byte(secret))
-	mac.Write([]byte("storage-edge download link v1"))
+	mac.Write([]byte("ostra download link v1"))
 	return downloadTokens{key: mac.Sum(nil), ttl: ttl, now: time.Now}
 }
 

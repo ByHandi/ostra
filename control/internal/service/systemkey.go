@@ -12,13 +12,13 @@ import (
 	"log/slog"
 	"sync"
 
-	"github.com/handi7/storage-edge/control/internal/garage"
-	"github.com/handi7/storage-edge/control/internal/objects"
-	"github.com/handi7/storage-edge/control/internal/store"
+	"github.com/ByHandi/ostra/control/internal/garage"
+	"github.com/ByHandi/ostra/control/internal/objects"
+	"github.com/ByHandi/ostra/control/internal/store"
 )
 
 const (
-	systemKeyName          = "storage-edge dashboard (system)"
+	systemKeyName          = "Ostra dashboard (system)"
 	settingSystemKeyID     = "system_s3_access_key_id"
 	settingSystemKeySecret = "system_s3_secret_access_key"
 )

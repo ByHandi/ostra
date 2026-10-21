@@ -1,6 +1,6 @@
-# storage-edge web
+# Ostra web
 
-Dashboard for storage-edge: buckets, custom domains, and access keys. Built from the
+Dashboard for Ostra: buckets, custom domains, and access keys. Built from the
 [`shadcn-vite`](https://github.com/ByHandi/shadcn-vite) template (Vite + React 19 +
 TanStack Router/Query + shadcn + Tailwind 4).
 

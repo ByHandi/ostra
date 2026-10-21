@@ -45,7 +45,7 @@ func (f fakeResolver) LookupHost(_ context.Context, host string) ([]string, erro
 
 func TestCheck(t *testing.T) {
 	const token = "tok123"
-	txtOK := map[string][]string{"_storage-edge.cdn.brand.com": {"other", TXTValue(token)}}
+	txtOK := map[string][]string{"_ostra.cdn.brand.com": {"other", TXTValue(token)}}
 	edgeHosts := map[string][]string{"edge.example.com": {"203.0.113.10"}}
 
 	tests := []struct {
@@ -72,7 +72,7 @@ func TestCheck(t *testing.T) {
 		{
 			name: "TXT with wrong token",
 			res: fakeResolver{
-				txt:   map[string][]string{"_storage-edge.cdn.brand.com": {TXTValue("other")}},
+				txt:   map[string][]string{"_ostra.cdn.brand.com": {TXTValue("other")}},
 				cname: map[string]string{"cdn.brand.com": "edge.example.com."}, hosts: edgeHosts,
 			},
 			wantErr: "does not contain",

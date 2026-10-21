@@ -14,7 +14,7 @@ export interface SessionContext {
 }
 
 /**
- * storage-edge has a single admin role, so the session is just who is signed in.
+ * Ostra has a single admin role, so the session is just who is signed in.
  * Kept as a context object so the shell has one place to read from if roles are
  * ever added.
  */

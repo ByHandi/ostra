@@ -1,6 +1,6 @@
 # Production configuration. Everything development-specific lives in docker-compose.dev.yml
 # (used automatically when .env was created with `scripts/gen-env.sh --dev`).
-name: storage-edge
+name: ostra
 
 services:
   # Renders garage.toml from the template with BASE_DOMAIN, then exits.
@@ -47,8 +47,8 @@ services:
 
   control:
     # Release image from GitHub Actions. Pin a version with CONTROL_IMAGE in .env, e.g.
-    # ghcr.io/byhandi/storage-edge:0.1.0. `docker compose up -d --build` builds from source.
-    image: ${CONTROL_IMAGE:-ghcr.io/byhandi/storage-edge:latest}
+    # ghcr.io/byhandi/ostra:0.1.0. `docker compose up -d --build` builds from source.
+    image: ${CONTROL_IMAGE:-ghcr.io/byhandi/ostra:latest}
     build:
       context: .
       dockerfile: control/Dockerfile

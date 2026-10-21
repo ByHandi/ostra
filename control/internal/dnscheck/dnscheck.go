@@ -11,11 +11,11 @@ import (
 	"time"
 )
 
-// TXTPrefix is the label where the verification token is placed: _storage-edge.<domain>.
-const TXTPrefix = "_storage-edge."
+// TXTPrefix is the label where the verification token is placed: _ostra.<domain>.
+const TXTPrefix = "_ostra."
 
 // TXTValue is the expected TXT record content for a token.
-func TXTValue(token string) string { return "storage-edge-verify=" + token }
+func TXTValue(token string) string { return "ostra-verify=" + token }
 
 // Resolver is the subset of net.Resolver in use, so it can be faked in tests.
 type Resolver interface {

@@ -9,8 +9,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/handi7/storage-edge/control/internal/garage"
-	"github.com/handi7/storage-edge/control/internal/store"
+	"github.com/ByHandi/ostra/control/internal/garage"
+	"github.com/ByHandi/ostra/control/internal/store"
 )
 
 // fakeGarage mimics the relevant Garage admin API behavior, including a 500 on

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/handi7/storage-edge/control/internal/objects"
+	"github.com/ByHandi/ostra/control/internal/objects"
 )
 
 // ObjectStore is the S3 side of the object browser. *objects.Client implements it.
