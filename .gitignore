@@ -8,3 +8,6 @@ control/internal/ui/dist/*
 !control/internal/ui/dist/.gitkeep
 backups/
 node_modules/
+
+# Worktrees that Claude Code creates for isolated agent runs
+.claude/worktrees/
