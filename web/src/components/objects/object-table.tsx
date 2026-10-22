@@ -59,6 +59,7 @@ function ObjectTable({ bucketId, folders, objects, publicBaseUrl }: ObjectTableP
                   objectKey={o.key}
                   name={baseName(o.key)}
                   publicBaseUrl={publicBaseUrl}
+                  contentType={o.contentType}
                 />
               }
             />
@@ -117,6 +118,7 @@ function ObjectTable({ bucketId, folders, objects, publicBaseUrl }: ObjectTableP
                     objectKey={o.key}
                     name={baseName(o.key)}
                     publicBaseUrl={publicBaseUrl}
+                    contentType={o.contentType}
                   />
                 </TableCell>
               </TableRow>
