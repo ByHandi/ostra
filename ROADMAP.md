@@ -199,7 +199,9 @@ hidden S3 access key, created automatically and granted to a bucket on first use
 - [x] API: list a "folder" (prefix + delimiter, paginated), upload (streamed), download through
       a short-lived signed link, delete a file or a whole folder
 - [x] Dashboard: Files tab on the bucket page with breadcrumbs, "Load more", drag-and-drop
-      upload with per-file progress, download, copy public URL, delete with confirmation
+       upload with per-file progress, download, copy public URL, delete with confirmation
+- [x] Global upload manager: floating progress survives dashboard navigation, supports cancellation,
+      and warns before a reload or close would cancel active uploads
 - [x] Skeletons, tests, and an end-to-end check against Garage (upload, paginated listing,
       download, copy public URL, delete file/folder, AccessDenied re-grant)
 
