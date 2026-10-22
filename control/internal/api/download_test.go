@@ -21,11 +21,18 @@ func TestDownloadTokens(t *testing.T) {
 	if !shareExp.Equal(now.Add(7 * 24 * time.Hour)) {
 		t.Fatalf("share expires = %v", shareExp)
 	}
-	if b, k, ok := tokens.verify(share); !ok || b != "bucket-1" || k != "photos/cat.jpg" {
-		t.Fatalf("verify(share) = %q %q %v", b, k, ok)
+	if claims, ok := tokens.verify(share); !ok || claims.Bucket != "bucket-1" || claims.Key != "photos/cat.jpg" || claims.Preview {
+		t.Fatalf("verify(share) = %+v %v", claims, ok)
 	}
-	if b, k, ok := tokens.verify(tok); !ok || b != "bucket-1" || k != "photos/cat.jpg" {
-		t.Fatalf("verify(valid) = %q %q %v", b, k, ok)
+	preview, previewExp := tokens.issuePreview("bucket-1", "photos/cat.jpg")
+	if !previewExp.Equal(now.Add(time.Minute)) {
+		t.Fatalf("preview expires = %v", previewExp)
+	}
+	if claims, ok := tokens.verify(preview); !ok || !claims.Preview || claims.Bucket != "bucket-1" || claims.Key != "photos/cat.jpg" {
+		t.Fatalf("verify(preview) = %+v %v", claims, ok)
+	}
+	if claims, ok := tokens.verify(tok); !ok || claims.Bucket != "bucket-1" || claims.Key != "photos/cat.jpg" || claims.Preview {
+		t.Fatalf("verify(valid) = %+v %v", claims, ok)
 	}
 
 	payload, sig, _ := strings.Cut(tok, ".")
@@ -45,13 +52,13 @@ func TestDownloadTokens(t *testing.T) {
 		}(),
 	}
 	for name, tk := range bad {
-		if _, _, ok := tokens.verify(tk); ok {
+		if _, ok := tokens.verify(tk); ok {
 			t.Errorf("verify(%s) accepted an invalid token", name)
 		}
 	}
 
 	now = now.Add(2 * time.Minute)
-	if _, _, ok := tokens.verify(tok); ok {
+	if _, ok := tokens.verify(tok); ok {
 		t.Fatal("verify accepted an expired token")
 	}
 }

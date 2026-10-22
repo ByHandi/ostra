@@ -117,6 +117,38 @@ func (h *Handler) createObjectLink(w http.ResponseWriter, r *http.Request, key s
 	writeData(w, http.StatusOK, downloadLink{URL: "/api/downloads/" + token, ExpiresAt: exp})
 }
 
+// createPreviewLink checks a previewable file and returns a short-lived inline link.
+func (h *Handler) createPreviewLink(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		Key string `json:"key"`
+	}
+	if !decode(w, r, &in) {
+		return
+	}
+	bucketID := chi.URLParam(r, "id")
+	body, obj, err := h.svc.OpenObject(r.Context(), bucketID, in.Key)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	body.Close()
+	if !isPreviewable(in.Key, obj.ContentType) {
+		writeFail(w, http.StatusBadRequest, "validation", "file type cannot be previewed", map[string][]string{
+			"key": {"choose an image, video, PDF, or text file"},
+		})
+		return
+	}
+	if isTextPreview(in.Key, obj.ContentType) && obj.Size > maxTextPreviewBytes {
+		writeFail(w, http.StatusBadRequest, "validation", "text file is too large to preview", map[string][]string{
+			"key": {"choose a text file smaller than 1 MB"},
+		})
+		return
+	}
+
+	token, exp := h.downloads.issuePreview(bucketID, in.Key)
+	writeData(w, http.StatusOK, downloadLink{URL: "/api/downloads/" + token, ExpiresAt: exp})
+}
+
 func shareLinkTTL(expiresIn string) (time.Duration, bool) {
 	switch expiresIn {
 	case "1h":
@@ -133,12 +165,12 @@ func shareLinkTTL(expiresIn string) (time.Duration, bool) {
 // download streams the file a download link points to. It is deliberately outside the
 // authenticated group: the signed token is the authorization.
 func (h *Handler) download(w http.ResponseWriter, r *http.Request) {
-	bucketID, key, ok := h.downloads.verify(chi.URLParam(r, "token"))
+	claims, ok := h.downloads.verify(chi.URLParam(r, "token"))
 	if !ok {
 		http.Error(w, "This download link is invalid or has expired. Start the download again from the dashboard.", http.StatusGone)
 		return
 	}
-	body, obj, err := h.svc.OpenObject(r.Context(), bucketID, key)
+	body, obj, err := h.svc.OpenObject(r.Context(), claims.Bucket, claims.Key)
 	if err != nil {
 		http.Error(w, "File not found.", http.StatusNotFound)
 		return
@@ -146,18 +178,26 @@ func (h *Handler) download(w http.ResponseWriter, r *http.Request) {
 	defer body.Close()
 
 	hd := w.Header()
-	hd.Set("Content-Type", "application/octet-stream")
-	if obj.ContentType != "" {
-		hd.Set("Content-Type", obj.ContentType)
+	contentType := obj.ContentType
+	if claims.Preview {
+		contentType = previewContentType(claims.Key, contentType)
 	}
-	hd.Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": path.Base(key)}))
+	hd.Set("Content-Type", "application/octet-stream")
+	if contentType != "" {
+		hd.Set("Content-Type", contentType)
+	}
+	disposition := "attachment"
+	if claims.Preview && isPreviewable(claims.Key, obj.ContentType) {
+		disposition = "inline"
+	}
+	hd.Set("Content-Disposition", mime.FormatMediaType(disposition, map[string]string{"filename": path.Base(claims.Key)}))
 	hd.Set("Content-Length", strconv.FormatInt(obj.Size, 10))
 	// The file is user content: never let the browser sniff or run it on this origin.
 	hd.Set("X-Content-Type-Options", "nosniff")
 	hd.Set("Content-Security-Policy", "sandbox")
 	hd.Set("Cache-Control", "private, no-store")
 	if _, err := io.Copy(w, body); err != nil {
-		slog.Warn("download interrupted", "bucket", bucketID, "key", key, "err", err)
+		slog.Warn("download interrupted", "bucket", claims.Bucket, "key", claims.Key, "err", err)
 	}
 }
 

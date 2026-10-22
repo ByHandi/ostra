@@ -2,13 +2,14 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { CreateShareLinkDialog } from "./create-share-link-dialog";
+import { ObjectPreviewDialog } from "./object-preview-dialog";
 
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import ButtonMenu, { type ButtonMenuItem } from "@/components/ui/button-menu";
 import Icon from "@/components/ui/icon";
 import { useInvalidateBucketContents } from "@/hooks/use-invalidate-bucket-contents";
 import { ApiError } from "@/lib/api/errors";
-import { deleteFolder, deleteObject, downloadObject } from "@/lib/api/objects";
+import { deleteFolder, deleteObject, downloadObject, previewKind } from "@/lib/api/objects";
 import { publicUrl } from "@/lib/object-path";
 
 function errorMessage(error: unknown, fallback: string): string {
@@ -20,14 +21,31 @@ interface FileActionsProps {
   objectKey: string;
   name: string;
   publicBaseUrl: string;
+  contentType?: string;
 }
 
-export function FileActions({ bucketId, objectKey, name, publicBaseUrl }: FileActionsProps) {
+export function FileActions({
+  bucketId,
+  objectKey,
+  name,
+  publicBaseUrl,
+  contentType,
+}: FileActionsProps) {
   const [confirming, setConfirming] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const preview = previewKind(objectKey, contentType);
   const invalidate = useInvalidateBucketContents(bucketId);
 
-  const items: ButtonMenuItem[] = [
+  const items: ButtonMenuItem[] = [];
+  if (preview) {
+    items.push({
+      label: "Preview",
+      icon: <Icon name="eye" className="size-4" />,
+      onClick: () => setPreviewing(true),
+    });
+  }
+  items.push(
     {
       label: "Download",
       icon: <Icon name="download" className="size-4" />,
@@ -41,7 +59,7 @@ export function FileActions({ bucketId, objectKey, name, publicBaseUrl }: FileAc
       icon: <Icon name="link" className="size-4" />,
       onClick: () => setSharing(true),
     },
-  ];
+  );
   if (publicBaseUrl) {
     items.push({
       label: "Copy public URL",
@@ -77,6 +95,17 @@ export function FileActions({ bucketId, objectKey, name, publicBaseUrl }: FileAc
   return (
     <>
       <ButtonMenu items={items} align="end" variant="ghost" classNames={{ content: "w-40" }} />
+
+      {preview && previewing && (
+        <ObjectPreviewDialog
+          bucketId={bucketId}
+          objectKey={objectKey}
+          name={name}
+          kind={preview}
+          open={previewing}
+          onOpenChange={setPreviewing}
+        />
+      )}
 
       <CreateShareLinkDialog
         bucketId={bucketId}

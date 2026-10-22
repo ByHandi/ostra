@@ -151,6 +151,19 @@ func TestAuthFlow(t *testing.T) {
 	}
 }
 
+func TestPreviewLinkValidation(t *testing.T) {
+	srv := newTestServer(t)
+	login := call(t, srv, "POST", "/api/auth/login", "", nil, `{"email":"admin@example.com","password":"secret123"}`)
+	token := accessToken(t, login)
+
+	if r := call(t, srv, "POST", "/api/buckets/bucket/objects/preview-link", "", nil, `{"key":"file.txt"}`); r.status != http.StatusUnauthorized {
+		t.Fatalf("preview link without token = %d, want 401", r.status)
+	}
+	if r := call(t, srv, "POST", "/api/buckets/bucket/objects/preview-link", token, nil, `{"key":"file.txt","extra":true}`); r.status != http.StatusBadRequest {
+		t.Fatalf("preview link with unknown field = %d, want 400", r.status)
+	}
+}
+
 func TestShareLinkValidation(t *testing.T) {
 	srv := newTestServer(t)
 	login := call(t, srv, "POST", "/api/auth/login", "", nil, `{"email":"admin@example.com","password":"secret123"}`)
