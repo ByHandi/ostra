@@ -57,9 +57,31 @@ export const deleteFolder = (bucketId: string, prefix: string) =>
 
 export type ShareLinkExpiry = "1h" | "1d" | "7d";
 
-export interface ShareLink {
+export interface ObjectLink {
   url: string;
   expiresAt: string;
+}
+
+export type ShareLink = ObjectLink;
+
+export type PreviewKind = "image" | "video" | "pdf" | "text";
+
+const TEXT_EXTENSIONS = new Set(["csv", "json", "log", "md", "txt", "xml", "yaml", "yml"]);
+const IMAGE_EXTENSIONS = new Set(["avif", "gif", "jpeg", "jpg", "png", "webp"]);
+const VIDEO_EXTENSIONS = new Set(["mp4", "webm"]);
+
+export function previewKind(key: string, contentType?: string): PreviewKind | null {
+  const mediaType = contentType?.split(";", 1)[0].toLowerCase() ?? "";
+  if (mediaType.startsWith("image/") && mediaType !== "image/svg+xml") return "image";
+  if (mediaType.startsWith("video/")) return "video";
+  if (mediaType === "application/pdf") return "pdf";
+  if (mediaType.startsWith("text/") && mediaType !== "text/html") return "text";
+
+  const extension = key.split(".").pop()?.toLowerCase() ?? "";
+  if (IMAGE_EXTENSIONS.has(extension)) return "image";
+  if (VIDEO_EXTENSIONS.has(extension)) return "video";
+  if (extension === "pdf") return "pdf";
+  return TEXT_EXTENSIONS.has(extension) ? "text" : null;
 }
 
 export async function createShareLink(
@@ -73,6 +95,17 @@ export async function createShareLink(
   );
   if (!res.data?.url || !res.data.expiresAt) {
     throw new ApiError("The server did not return a share link.", 500);
+  }
+  return res.data;
+}
+
+export async function createPreviewLink(bucketId: string, key: string): Promise<ObjectLink> {
+  const res = await api.post<ObjectLink>(
+    `/buckets/${encodeURIComponent(bucketId)}/objects/preview-link`,
+    { key },
+  );
+  if (!res.data?.url || !res.data.expiresAt) {
+    throw new ApiError("The server did not return a preview link.", 500);
   }
   return res.data;
 }

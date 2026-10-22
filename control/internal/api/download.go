@@ -22,6 +22,7 @@ type downloadClaims struct {
 	Bucket  string `json:"b"`
 	Key     string `json:"k"`
 	Expires int64  `json:"e"`
+	Preview bool   `json:"p,omitempty"`
 }
 
 // newDownloadTokens derives its own key from secret, so a download token can never be
@@ -37,30 +38,39 @@ func (t downloadTokens) issue(bucketID, key string) (string, time.Time) {
 }
 
 func (t downloadTokens) issueWithTTL(bucketID, key string, ttl time.Duration) (string, time.Time) {
+	return t.issueClaims(downloadClaims{Bucket: bucketID, Key: key}, ttl)
+}
+
+func (t downloadTokens) issuePreview(bucketID, key string) (string, time.Time) {
+	return t.issueClaims(downloadClaims{Bucket: bucketID, Key: key, Preview: true}, t.ttl)
+}
+
+func (t downloadTokens) issueClaims(claims downloadClaims, ttl time.Duration) (string, time.Time) {
 	exp := t.now().Add(ttl).Truncate(time.Second)
-	payload, _ := json.Marshal(downloadClaims{Bucket: bucketID, Key: key, Expires: exp.Unix()})
+	claims.Expires = exp.Unix()
+	payload, _ := json.Marshal(claims)
 	encoded := base64.RawURLEncoding.EncodeToString(payload)
 	return encoded + "." + t.sign(encoded), exp
 }
 
-// verify returns the bucket and key a valid, unexpired token was issued for.
-func (t downloadTokens) verify(token string) (bucketID, key string, ok bool) {
+// verify returns the claims a valid, unexpired token was issued for.
+func (t downloadTokens) verify(token string) (downloadClaims, bool) {
 	encoded, sig, found := strings.Cut(token, ".")
 	if !found || !hmac.Equal([]byte(sig), []byte(t.sign(encoded))) {
-		return "", "", false
+		return downloadClaims{}, false
 	}
 	payload, err := base64.RawURLEncoding.DecodeString(encoded)
 	if err != nil {
-		return "", "", false
+		return downloadClaims{}, false
 	}
-	var c downloadClaims
-	if err := json.Unmarshal(payload, &c); err != nil || c.Bucket == "" || c.Key == "" {
-		return "", "", false
+	var claims downloadClaims
+	if err := json.Unmarshal(payload, &claims); err != nil || claims.Bucket == "" || claims.Key == "" {
+		return downloadClaims{}, false
 	}
-	if t.now().Unix() > c.Expires {
-		return "", "", false
+	if t.now().Unix() > claims.Expires {
+		return downloadClaims{}, false
 	}
-	return c.Bucket, c.Key, true
+	return claims, true
 }
 
 func (t downloadTokens) sign(encoded string) string {
