@@ -1,0 +1,54 @@
+name: Bug Report
+description: Report a bug or unexpected behavior in Ostra
+title: "[BUG]: "
+labels: ["type:bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug!
+        If you found a security vulnerability, please report it privately according to [SECURITY.md](SECURITY.md).
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the problem is.
+      placeholder: When I attempt to ..., the following error occurs ...
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Exact steps to reproduce the behavior.
+      placeholder: |
+        1. Go to '...'
+        2. Click on '....'
+        3. See error
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen instead?
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment & Setup
+      description: Details about your environment.
+      placeholder: |
+        - Ostra version / commit:
+        - Deployment target: (Bundled Caddy / External Proxy / Coolify / Dokploy / Dev mode)
+        - OS & Architecture: (e.g. Ubuntu 24.04 x86_64, macOS arm64)
+        - Browser (if UI bug): (e.g. Chrome 130, Firefox 132, Safari)
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs or Screenshots
+      description: Paste any server output, container logs, or browser console messages.
+      render: shell

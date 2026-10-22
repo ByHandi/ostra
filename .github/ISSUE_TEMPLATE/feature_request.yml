@@ -1,0 +1,55 @@
+name: Feature Request / PRD
+description: Propose a new feature, improvement, or technical specification for Ostra
+title: "[OSTRA-XX]: "
+labels: ["type:feature"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for proposing a new feature! Use this template as a mini-PRD to specify the requirements, technical design, and acceptance criteria.
+  - type: textarea
+    id: problem-summary
+    attributes:
+      label: Problem & User Story
+      description: What problem does this solve, and why is it needed?
+      placeholder: "As an operator / developer, I want to ... so that I can ..."
+    validations:
+      required: true
+  - type: textarea
+    id: garage-backend
+    attributes:
+      label: Garage v2 API & Backend Design
+      description: What Garage v2 admin endpoints, database tables, service methods, or API routes are needed?
+      placeholder: |
+        - Garage Admin API: method and endpoints (e.g. POST /v2/UpdateBucket)
+        - Service: business logic and error handling (KindInvalid, KindNotFound, etc.)
+        - Control API: HTTP method, path (e.g. PUT /api/buckets/{id}/cors), and payload envelope
+    validations:
+      required: true
+  - type: textarea
+    id: dashboard-ui
+    attributes:
+      label: Dashboard & UI Flow
+      description: How will the user interact with this feature on the dashboard?
+      placeholder: |
+        - Page / Dialog / Card layout
+        - Form inputs and client-side validation
+        - Mobile responsiveness (ListGroup) and desktop table/panel
+        - Skeletons and empty states
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance Criteria & Test Plan
+      description: What must be tested and verified before this feature is considered done?
+      value: |
+        - [ ] Go service unit tests with `fakeGarage` covering happy path, validation, and error cases
+        - [ ] API endpoint tests (auth, payload validation)
+        - [ ] React Query cache updates/invalidations
+        - [ ] Responsive design verified (mobile width + desktop)
+        - [ ] CHANGELOG.md updated under `[Unreleased]`
+        - [ ] API table in README.md updated
+        - [ ] CI quality checks pass (gofmt, go vet, go test -race, gocyclo, gocognit, tsc, lint, prettier)
+    validations:
+      required: true
