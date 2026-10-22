@@ -28,7 +28,7 @@ function BucketTable({ buckets }: { buckets: Bucket[] }) {
               <ListRowContent
                 icon="archive"
                 title={b.name}
-                subtitle={`${formatNumber(b.objects)} objects · ${formatBytes(b.bytes)}${b.domains.length ? ` · ${b.domains[0]}` : ""}`}
+                subtitle={`${formatNumber(b.objects)}${b.quotas?.maxObjects ? `/${formatNumber(b.quotas.maxObjects)}` : ""} objects · ${formatBytes(b.bytes)}${b.quotas?.maxSize ? `/${formatBytes(b.quotas.maxSize)}` : ""}${b.domains.length ? ` · ${b.domains[0]}` : ""}`}
                 chevron
               />
             </Link>
@@ -57,8 +57,30 @@ function BucketTable({ buckets }: { buckets: Bucket[] }) {
                     {b.name}
                   </Link>
                 </TableCell>
-                <TableCell className="tabular-nums">{formatNumber(b.objects)}</TableCell>
-                <TableCell className="tabular-nums">{formatBytes(b.bytes)}</TableCell>
+                <TableCell className="tabular-nums">
+                  {b.quotas?.maxObjects ? (
+                    <span>
+                      {formatNumber(b.objects)}{" "}
+                      <span className="text-xs text-muted-foreground">
+                        / {formatNumber(b.quotas.maxObjects)}
+                      </span>
+                    </span>
+                  ) : (
+                    formatNumber(b.objects)
+                  )}
+                </TableCell>
+                <TableCell className="tabular-nums">
+                  {b.quotas?.maxSize ? (
+                    <span>
+                      {formatBytes(b.bytes)}{" "}
+                      <span className="text-xs text-muted-foreground">
+                        / {formatBytes(b.quotas.maxSize)}
+                      </span>
+                    </span>
+                  ) : (
+                    formatBytes(b.bytes)
+                  )}
+                </TableCell>
                 <TableCell>
                   {b.domains.length === 0 ? (
                     <span className="text-muted-foreground">—</span>

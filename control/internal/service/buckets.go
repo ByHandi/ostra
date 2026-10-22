@@ -13,14 +13,20 @@ import (
 	"github.com/ByHandi/ostra/control/internal/store"
 )
 
+type BucketQuotas struct {
+	MaxSize    *int64 `json:"maxSize"`
+	MaxObjects *int64 `json:"maxObjects"`
+}
+
 type Bucket struct {
-	ID            string   `json:"id"`
-	Name          string   `json:"name"`
-	Created       string   `json:"created"`
-	Objects       int64    `json:"objects"`
-	Bytes         int64    `json:"bytes"`
-	WebsiteAccess bool     `json:"websiteAccess"`
-	Domains       []string `json:"domains"`
+	ID            string        `json:"id"`
+	Name          string        `json:"name"`
+	Created       string        `json:"created"`
+	Objects       int64         `json:"objects"`
+	Bytes         int64         `json:"bytes"`
+	WebsiteAccess bool          `json:"websiteAccess"`
+	Domains       []string      `json:"domains"`
+	Quotas        *BucketQuotas `json:"quotas"`
 }
 
 type BucketKeyAccess struct {
@@ -161,11 +167,47 @@ func (s *Service) BucketDomains(ctx context.Context, id string) ([]store.Domain,
 	return s.q.ListDomainsByBucket(ctx, id)
 }
 
+// UpdateBucketQuotas updates or clears the storage and object count quotas on a bucket.
+func (s *Service) UpdateBucketQuotas(ctx context.Context, id string, maxSize, maxObjects *int64) (BucketDetail, error) {
+	if maxSize != nil && *maxSize < 0 {
+		return BucketDetail{}, invalid("maxSize", "max size cannot be negative")
+	}
+	if maxObjects != nil && *maxObjects < 0 {
+		return BucketDetail{}, invalid("maxObjects", "max objects cannot be negative")
+	}
+	if maxSize != nil && *maxSize == 0 {
+		maxSize = nil
+	}
+	if maxObjects != nil && *maxObjects == 0 {
+		maxObjects = nil
+	}
+
+	q := garage.BucketQuotas{
+		MaxSize:    maxSize,
+		MaxObjects: maxObjects,
+	}
+	err := s.garage.UpdateBucketQuotas(ctx, id, q)
+	if garage.IsNotFound(err) {
+		return BucketDetail{}, notFound("bucket not found")
+	}
+	if err != nil {
+		return BucketDetail{}, err
+	}
+	return s.GetBucket(ctx, id)
+}
+
 func toBucket(info garage.BucketInfo, isDomain map[string]bool) Bucket {
 	domains := []string{}
 	for _, a := range info.GlobalAliases {
 		if isDomain[a] {
 			domains = append(domains, a)
+		}
+	}
+	var quotas *BucketQuotas
+	if info.Quotas.MaxSize != nil || info.Quotas.MaxObjects != nil {
+		quotas = &BucketQuotas{
+			MaxSize:    info.Quotas.MaxSize,
+			MaxObjects: info.Quotas.MaxObjects,
 		}
 	}
 	return Bucket{
@@ -176,5 +218,6 @@ func toBucket(info garage.BucketInfo, isDomain map[string]bool) Bucket {
 		Bytes:         info.Bytes,
 		WebsiteAccess: info.WebsiteAccess,
 		Domains:       domains,
+		Quotas:        quotas,
 	}
 }

@@ -105,6 +105,18 @@ func (g *fakeGarage) EnableWebsite(_ context.Context, bucketID string) error {
 	return nil
 }
 
+func (g *fakeGarage) UpdateBucketQuotas(_ context.Context, bucketID string, q garage.BucketQuotas) error {
+	if g.failAll != nil {
+		return g.failAll
+	}
+	b, ok := g.buckets[bucketID]
+	if !ok {
+		return notFoundErr()
+	}
+	b.Quotas = q
+	return nil
+}
+
 func (g *fakeGarage) Health(context.Context) (garage.ClusterHealth, error) {
 	return garage.ClusterHealth{Status: "healthy"}, g.failAll
 }
@@ -218,6 +230,14 @@ func wantKind(t *testing.T, err error, kind Kind) {
 	var de *Error
 	if !errors.As(err, &de) || de.Kind != kind {
 		t.Fatalf("error = %v, want kind %d", err, kind)
+	}
+}
+
+func wantField(t *testing.T, err error, kind Kind, field string) {
+	t.Helper()
+	var de *Error
+	if !errors.As(err, &de) || de.Kind != kind || de.Field != field {
+		t.Fatalf("error = %v, want kind %d field %q", err, kind, field)
 	}
 }
 

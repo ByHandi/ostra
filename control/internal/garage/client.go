@@ -38,12 +38,18 @@ type Bucket struct {
 	GlobalAliases []string `json:"globalAliases"`
 }
 
+type BucketQuotas struct {
+	MaxSize    *int64 `json:"maxSize"`
+	MaxObjects *int64 `json:"maxObjects"`
+}
+
 type BucketInfo struct {
 	Bucket
-	WebsiteAccess bool        `json:"websiteAccess"`
-	Objects       int64       `json:"objects"`
-	Bytes         int64       `json:"bytes"`
-	Keys          []BucketKey `json:"keys"`
+	WebsiteAccess bool         `json:"websiteAccess"`
+	Objects       int64        `json:"objects"`
+	Bytes         int64        `json:"bytes"`
+	Keys          []BucketKey  `json:"keys"`
+	Quotas        BucketQuotas `json:"quotas"`
 }
 
 type Permissions struct {
@@ -166,6 +172,16 @@ func (c *Client) EnableWebsite(ctx context.Context, bucketID string) error {
 			"enabled":       true,
 			"indexDocument": "index.html",
 			"errorDocument": nil,
+		},
+	}
+	return c.do(ctx, http.MethodPost, "/v2/UpdateBucket", url.Values{"id": {bucketID}}, body, nil)
+}
+
+func (c *Client) UpdateBucketQuotas(ctx context.Context, bucketID string, q BucketQuotas) error {
+	body := map[string]any{
+		"quotas": map[string]any{
+			"maxSize":    q.MaxSize,
+			"maxObjects": q.MaxObjects,
 		},
 	}
 	return c.do(ctx, http.MethodPost, "/v2/UpdateBucket", url.Values{"id": {bucketID}}, body, nil)
