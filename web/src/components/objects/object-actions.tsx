@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { CreateShareLinkDialog } from "./create-share-link-dialog";
+
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import ButtonMenu, { type ButtonMenuItem } from "@/components/ui/button-menu";
 import Icon from "@/components/ui/icon";
@@ -22,6 +24,7 @@ interface FileActionsProps {
 
 export function FileActions({ bucketId, objectKey, name, publicBaseUrl }: FileActionsProps) {
   const [confirming, setConfirming] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const invalidate = useInvalidateBucketContents(bucketId);
 
   const items: ButtonMenuItem[] = [
@@ -32,6 +35,11 @@ export function FileActions({ bucketId, objectKey, name, publicBaseUrl }: FileAc
         downloadObject(bucketId, objectKey).catch((e) =>
           toast.error(errorMessage(e, "Couldn't start the download")),
         ),
+    },
+    {
+      label: "Create share link",
+      icon: <Icon name="link" className="size-4" />,
+      onClick: () => setSharing(true),
     },
   ];
   if (publicBaseUrl) {
@@ -69,6 +77,14 @@ export function FileActions({ bucketId, objectKey, name, publicBaseUrl }: FileAc
   return (
     <>
       <ButtonMenu items={items} align="end" variant="ghost" classNames={{ content: "w-40" }} />
+
+      <CreateShareLinkDialog
+        bucketId={bucketId}
+        objectKey={objectKey}
+        name={name}
+        open={sharing}
+        onOpenChange={setSharing}
+      />
 
       <ConfirmDialog
         open={confirming}

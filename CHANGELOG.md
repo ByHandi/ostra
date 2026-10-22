@@ -9,6 +9,10 @@ The release workflow uses the contents of that version's section as the GitHub R
 
 ## [Unreleased]
 
+### Added
+
+- Shareable object download links with a selected expiry of 1 hour, 1 day, or 7 days.
+
 ## [0.1.0] - 2026-10-22
 
 ### Added

@@ -17,6 +17,13 @@ func TestDownloadTokens(t *testing.T) {
 	if !exp.Equal(now.Add(time.Minute)) {
 		t.Fatalf("expires = %v", exp)
 	}
+	share, shareExp := tokens.issueWithTTL("bucket-1", "photos/cat.jpg", 7*24*time.Hour)
+	if !shareExp.Equal(now.Add(7 * 24 * time.Hour)) {
+		t.Fatalf("share expires = %v", shareExp)
+	}
+	if b, k, ok := tokens.verify(share); !ok || b != "bucket-1" || k != "photos/cat.jpg" {
+		t.Fatalf("verify(share) = %q %q %v", b, k, ok)
+	}
 	if b, k, ok := tokens.verify(tok); !ok || b != "bucket-1" || k != "photos/cat.jpg" {
 		t.Fatalf("verify(valid) = %q %q %v", b, k, ok)
 	}
@@ -46,6 +53,24 @@ func TestDownloadTokens(t *testing.T) {
 	now = now.Add(2 * time.Minute)
 	if _, _, ok := tokens.verify(tok); ok {
 		t.Fatal("verify accepted an expired token")
+	}
+}
+
+func TestShareLinkTTL(t *testing.T) {
+	for _, tt := range []struct {
+		expiresIn string
+		want      time.Duration
+	}{
+		{"1h", shareLinkHour},
+		{"1d", shareLinkDay},
+		{"7d", shareLinkWeek},
+	} {
+		if got, ok := shareLinkTTL(tt.expiresIn); !ok || got != tt.want {
+			t.Errorf("shareLinkTTL(%q) = %v, %v; want %v, true", tt.expiresIn, got, ok, tt.want)
+		}
+	}
+	if _, ok := shareLinkTTL("5m"); ok {
+		t.Error("shareLinkTTL accepted an invalid expiry")
 	}
 }
 

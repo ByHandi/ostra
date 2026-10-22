@@ -267,6 +267,7 @@ Responses use the same envelope as the `shadcn-vite` template and `go-service-bo
 | PUT | `/api/buckets/{id}/objects?key=` | Upload the raw request body as that file (capped by `MAX_UPLOAD_SIZE_MB`) |
 | DELETE | `/api/buckets/{id}/objects` | Delete one file (`?key=`) or a whole folder (`?prefix=`) |
 | POST | `/api/buckets/{id}/objects/download-link` | `{"key"}` → a signed `/api/downloads/{token}` link, valid 5 minutes |
+| POST | `/api/buckets/{id}/objects/share-link` | `{"key","expiresIn"}` → signed download link, where expiry is `1h`, `1d`, or `7d` |
 | GET | `/api/downloads/{token}` | Download the file (no session needed; the signed token is the authorization) |
 
 ## Repository layout

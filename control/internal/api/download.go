@@ -33,7 +33,11 @@ func newDownloadTokens(secret string, ttl time.Duration) downloadTokens {
 }
 
 func (t downloadTokens) issue(bucketID, key string) (string, time.Time) {
-	exp := t.now().Add(t.ttl).Truncate(time.Second)
+	return t.issueWithTTL(bucketID, key, t.ttl)
+}
+
+func (t downloadTokens) issueWithTTL(bucketID, key string, ttl time.Duration) (string, time.Time) {
+	exp := t.now().Add(ttl).Truncate(time.Second)
 	payload, _ := json.Marshal(downloadClaims{Bucket: bucketID, Key: key, Expires: exp.Unix()})
 	encoded := base64.RawURLEncoding.EncodeToString(payload)
 	return encoded + "." + t.sign(encoded), exp
