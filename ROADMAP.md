@@ -223,7 +223,7 @@ What the consoles of AWS S3, Cloudflare R2, MinIO, Backblaze B2, and DigitalOcea
 offer and Ostra does not yet, limited to what Garage v2 supports. In priority order; check the
 Garage API for each one before starting, since this list was put together from its documentation.
 
-- [ ] Share links: a download link for one file with a chosen lifetime (1 hour, 1 day, 7 days).
+- [x] Share links: a download link for one file with a chosen lifetime (1 hour, 1 day, 7 days).
       The control-plane already signs short-lived download links, so this mostly exposes them
 - [ ] File preview in the object browser: images, video, PDF, and text
 - [ ] Per-bucket quotas: maximum size and maximum number of objects (Garage admin API)

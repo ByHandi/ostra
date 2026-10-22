@@ -151,6 +151,22 @@ func TestAuthFlow(t *testing.T) {
 	}
 }
 
+func TestShareLinkValidation(t *testing.T) {
+	srv := newTestServer(t)
+	login := call(t, srv, "POST", "/api/auth/login", "", nil, `{"email":"admin@example.com","password":"secret123"}`)
+	token := accessToken(t, login)
+
+	if r := call(t, srv, "POST", "/api/buckets/bucket/objects/share-link", "", nil, `{"key":"file.txt","expiresIn":"1d"}`); r.status != http.StatusUnauthorized {
+		t.Fatalf("share link without token = %d, want 401", r.status)
+	}
+	if r := call(t, srv, "POST", "/api/buckets/bucket/objects/share-link", token, nil, `{"key":"file.txt","expiresIn":"5m"}`); r.status != http.StatusBadRequest || len(r.body.Error.Errors["expiresIn"]) != 1 {
+		t.Fatalf("invalid share link expiry = %d %+v", r.status, r.body.Error)
+	}
+	if r := call(t, srv, "POST", "/api/buckets/bucket/objects/share-link", token, nil, `{"key":"file.txt","expiresIn":"1d","extra":true}`); r.status != http.StatusBadRequest {
+		t.Fatalf("share link with unknown field = %d, want 400", r.status)
+	}
+}
+
 func TestHealthz(t *testing.T) {
 	healthy := true
 	h := &Handler{opts: Options{Health: func(context.Context) error {
