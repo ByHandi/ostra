@@ -73,6 +73,17 @@ npm audit --omit=dev
 docker run --rm -v "$PWD:/mnt" -w /mnt koalaman/shellcheck:v0.11.0 scripts/*.sh
 ```
 
+## Issue & branch workflow
+
+To coordinate work and avoid duplicate effort across collaborators:
+
+1. **Pick an issue:** Choose an open, unassigned issue from GitHub Issues or the Project Board.
+2. **Claim it:** Assign yourself to the issue and move its card to **In Progress** on the Project Board before starting work.
+3. **Branch naming:** Branch from `main` following the ticket convention:
+   - `feat/OSTRA-XX-short-description` for features
+   - `fix/OSTRA-XX-short-description` for bug fixes
+4. **Link in Pull Request:** In your PR description, write `Closes #<issue-number>` (e.g. `Closes #12`) so GitHub links the PR to the issue and closes it automatically upon merge.
+
 ## Conventions
 
 - **Commits** follow [Conventional Commits](https://www.conventionalcommits.org): `feat:`,

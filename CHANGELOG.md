@@ -9,9 +9,12 @@ The release workflow uses the contents of that version's section as the GitHub R
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-22
+
 ### Added
 
-- Per-bucket storage size and object count quotas, configurable from the bucket page with usage progress bars.
+- Per-bucket storage size and object count quotas, configurable from the bucket page with
+  usage progress bars.
 - Shareable object download links with a selected expiry of 1 hour, 1 day, or 7 days.
 - In-browser object previews for supported images, video, PDF, and text files.
 - A global floating upload manager that keeps uploads running across dashboard navigation and warns
