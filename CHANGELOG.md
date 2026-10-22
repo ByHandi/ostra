@@ -33,6 +33,10 @@ The release workflow uses the contents of that version's section as the GitHub R
   control-plane uses its own hidden S3 access key, created automatically on first use.
 - `MAX_UPLOAD_SIZE_MB` (default 5120) caps a single upload from the dashboard.
 
+### Fixed
+- Dashboard: a page transition the browser skips (first load and its redirect to the login page,
+  a hidden tab, a resize) no longer logs an uncaught `InvalidStateError` in the console.
+
 ### Security
 - The control-plane refuses to start if development settings (`DNS_VERIFY=off`,
   `COOKIE_SECURE=false`) are used with a domain other than `.localhost`/`.test`.
