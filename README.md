@@ -34,6 +34,10 @@ Self-hosted object storage in the spirit of Cloudflare R2: **Garage** stores the
 
 The road to the first open-source release is tracked in [ROADMAP.md](ROADMAP.md). Want to contribute? See [CONTRIBUTING.md](CONTRIBUTING.md). Security reports: [SECURITY.md](SECURITY.md).
 
+## License
+
+Ostra is licensed under the [Apache License, Version 2.0](LICENSE). [Garage](https://garagehq.deuxfleurs.fr/) is licensed separately under AGPL-3.0 and is used by Ostra as an independent service through its API; Ostra's code is not bound by Garage's license.
+
 ## Production deployment
 
 You need a server with Docker and ports 80/443 reachable from the internet.
