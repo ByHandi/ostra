@@ -10,6 +10,11 @@ export interface Permissions {
   owner: boolean;
 }
 
+export interface BucketQuotas {
+  maxSize: number | null;
+  maxObjects: number | null;
+}
+
 export interface Bucket {
   id: string;
   name: string;
@@ -19,6 +24,7 @@ export interface Bucket {
   websiteAccess: boolean;
   /** Custom domains currently attached as aliases. */
   domains: string[];
+  quotas?: BucketQuotas | null;
 }
 
 export interface BucketKeyAccess {
@@ -178,6 +184,11 @@ export const domainQuery = (id: number) =>
 // ── Mutations ────────────────────────────────────────────────────────────────
 
 export const createBucket = (input: { name: string }) => data(api.post<Bucket>("/buckets", input));
+
+export const updateBucketQuotas = (
+  id: string,
+  quotas: { maxSize: number | null; maxObjects: number | null },
+) => data(api.put<BucketDetail>(`/buckets/${encodeURIComponent(id)}/quotas`, quotas));
 
 export const deleteBucket = (id: string) => api.delete(`/buckets/${encodeURIComponent(id)}`);
 

@@ -7,6 +7,7 @@ import AppHeader from "@/components/app-header";
 import BucketAccess from "@/components/buckets/bucket-access";
 import BucketSummary from "@/components/buckets/bucket-summary";
 import { BucketTabs } from "@/components/buckets/bucket-tabs";
+import { SetQuotaDialog } from "@/components/buckets/set-quota-dialog";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { CreateDomainDialog } from "@/components/domains/create-domain-dialog";
 import DomainTable from "@/components/domains/domain-table";
@@ -66,21 +67,24 @@ function BucketPage() {
         bottomContent={<BucketTabs bucketId={bucketId} />}
         endContent={
           bucket.data && (
-            <ConfirmDialog
-              title={`Delete bucket ${bucket.data.name}?`}
-              description="Only an empty bucket with no custom domains can be deleted. This action can't be undone."
-              confirmText="Delete bucket"
-              onConfirm={remove}
-              trigger={
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  startContent={<Icon name="trash-2" className="size-4" />}
-                >
-                  Delete
-                </Button>
-              }
-            />
+            <div className="flex gap-2">
+              <SetQuotaDialog bucket={bucket.data} />
+              <ConfirmDialog
+                title={`Delete bucket ${bucket.data.name}?`}
+                description="Only an empty bucket with no custom domains can be deleted. This action can't be undone."
+                confirmText="Delete bucket"
+                onConfirm={remove}
+                trigger={
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    startContent={<Icon name="trash-2" className="size-4" />}
+                  >
+                    Delete
+                  </Button>
+                }
+              />
+            </div>
           )
         }
       />

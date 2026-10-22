@@ -60,6 +60,32 @@ func (h *Handler) getBucket(w http.ResponseWriter, r *http.Request) {
 	writeData(w, http.StatusOK, out)
 }
 
+func (h *Handler) updateBucketQuotas(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		MaxSize    *int64 `json:"maxSize"`
+		MaxObjects *int64 `json:"maxObjects"`
+	}
+	if !decode(w, r, &in) {
+		return
+	}
+	id := chi.URLParam(r, "id")
+	b, err := h.svc.UpdateBucketQuotas(r.Context(), id, in.MaxSize, in.MaxObjects)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	rows, err := h.svc.BucketDomains(r.Context(), id)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	out := bucketDetailResponse{BucketDetail: b, DomainRecords: make([]domainResponse, 0, len(rows))}
+	for _, d := range rows {
+		out.DomainRecords = append(out.DomainRecords, h.toDomain(d))
+	}
+	writeData(w, http.StatusOK, out)
+}
+
 func (h *Handler) deleteBucket(w http.ResponseWriter, r *http.Request) {
 	err := h.svc.DeleteBucket(r.Context(), chi.URLParam(r, "id"))
 	respond(w, r, http.StatusOK, nil, err)

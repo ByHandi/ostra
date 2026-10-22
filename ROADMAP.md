@@ -228,7 +228,7 @@ Garage API for each one before starting, since this list was put together from i
 - [x] Share links: a download link for one file with a chosen lifetime (1 hour, 1 day, 7 days).
       The control-plane already signs short-lived download links, so this mostly exposes them
 - [x] File preview in the object browser: images, video, PDF, and text
-- [ ] Per-bucket quotas: maximum size and maximum number of objects (Garage admin API)
+- [x] Per-bucket quotas: maximum size and maximum number of objects (Garage admin API)
 - [ ] CORS editor per bucket (`PutBucketCors`), needed for browser uploads straight to S3
 - [ ] Lifecycle rules per bucket: expire objects after N days, abort incomplete multipart uploads
       (Garage supports only these two, no storage-class transitions)

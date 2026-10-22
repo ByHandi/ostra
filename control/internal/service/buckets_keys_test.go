@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/ByHandi/ostra/control/internal/garage"
@@ -99,4 +100,69 @@ func TestKeys(t *testing.T) {
 		t.Fatal(err)
 	}
 	wantKind(t, svc.DeleteKey(ctx, k.ID), KindNotFound)
+}
+
+func TestBucketQuotas(t *testing.T) {
+	ctx := context.Background()
+	g := newFakeGarage("assets")
+	svc := newTestService(t, g, &fakeDNS{}, false)
+
+	// Validation: negative limits rejected with field name.
+	neg := int64(-1)
+	pos := int64(100)
+	_, err := svc.UpdateBucketQuotas(ctx, "id-assets", &neg, &pos)
+	wantField(t, err, KindInvalid, "maxSize")
+
+	_, err = svc.UpdateBucketQuotas(ctx, "id-assets", &pos, &neg)
+	wantField(t, err, KindInvalid, "maxObjects")
+
+	// Not found.
+	_, err = svc.UpdateBucketQuotas(ctx, "id-missing", &pos, &pos)
+	wantKind(t, err, KindNotFound)
+
+	// Happy path: set quotas.
+	maxSize := int64(1024 * 1024 * 50)
+	maxObjs := int64(200)
+	bd, err := svc.UpdateBucketQuotas(ctx, "id-assets", &maxSize, &maxObjs)
+	if err != nil {
+		t.Fatalf("UpdateBucketQuotas() failed: %v", err)
+	}
+	if bd.Quotas == nil || bd.Quotas.MaxSize == nil || *bd.Quotas.MaxSize != maxSize ||
+		bd.Quotas.MaxObjects == nil || *bd.Quotas.MaxObjects != maxObjs {
+		t.Fatalf("UpdateBucketQuotas() returned %+v", bd.Quotas)
+	}
+
+	// Verify GetBucket and ListBuckets reflect the quotas.
+	get, err := svc.GetBucket(ctx, "id-assets")
+	if err != nil {
+		t.Fatalf("GetBucket() failed: %v", err)
+	}
+	if get.Quotas == nil || *get.Quotas.MaxSize != maxSize || *get.Quotas.MaxObjects != maxObjs {
+		t.Fatalf("GetBucket() quotas = %+v", get.Quotas)
+	}
+
+	list, err := svc.ListBuckets(ctx)
+	if err != nil || len(list) != 1 {
+		t.Fatalf("ListBuckets() = %+v, %v", list, err)
+	}
+	if list[0].Quotas == nil || *list[0].Quotas.MaxSize != maxSize {
+		t.Fatalf("ListBuckets()[0].Quotas = %+v", list[0].Quotas)
+	}
+
+	// Clearing quotas with 0 or nil.
+	zero := int64(0)
+	bd, err = svc.UpdateBucketQuotas(ctx, "id-assets", &zero, nil)
+	if err != nil {
+		t.Fatalf("UpdateBucketQuotas(clear) failed: %v", err)
+	}
+	if bd.Quotas != nil {
+		t.Fatalf("expected nil quotas after clear, got %+v", bd.Quotas)
+	}
+
+	// Garage down returns error.
+	g.failAll = errors.New("garage down")
+	_, err = svc.UpdateBucketQuotas(ctx, "id-assets", &maxSize, &maxObjs)
+	if err == nil {
+		t.Fatal("expected error when garage is down, got nil")
+	}
 }

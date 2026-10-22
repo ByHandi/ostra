@@ -1,13 +1,79 @@
+import { SetQuotaDialog } from "@/components/buckets/set-quota-dialog";
 import { CopyButton } from "@/components/copy-button";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import Icon from "@/components/ui/icon";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { BucketDetail } from "@/lib/api/storage";
 import { formatBytes, formatDate, formatNumber } from "@/lib/format";
+import { cn } from "@/lib/utils";
+
+function QuotaBar({
+  label,
+  used,
+  max,
+  formattedUsed,
+  formattedMax,
+}: {
+  label: string;
+  used: number;
+  max: number;
+  formattedUsed: string;
+  formattedMax: string;
+}) {
+  const percent = max > 0 ? Math.min(100, Math.round((used / max) * 100)) : 0;
+  const isDanger = percent >= 90;
+  const isWarn = percent >= 75 && !isDanger;
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-muted-foreground">{label}</span>
+        <span className="font-medium tabular-nums">
+          {formattedUsed} / {formattedMax} ({percent}%)
+        </span>
+      </div>
+      <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
+        <div
+          className={cn(
+            "h-full rounded-full transition-all duration-300",
+            isDanger ? "bg-destructive" : isWarn ? "bg-amber-500" : "bg-primary",
+          )}
+          style={{ width: `${percent}%` }}
+        />
+      </div>
+    </div>
+  );
+}
 
 function BucketSummary({ bucket }: { bucket: BucketDetail }) {
   const items = [
-    { label: "Objects", value: formatNumber(bucket.objects) },
-    { label: "Size", value: formatBytes(bucket.bytes) },
+    {
+      label: "Objects",
+      value: bucket.quotas?.maxObjects ? (
+        <div className="flex items-baseline gap-1">
+          <span>{formatNumber(bucket.objects)}</span>
+          <span className="text-xs text-muted-foreground">
+            / {formatNumber(bucket.quotas.maxObjects)}
+          </span>
+        </div>
+      ) : (
+        formatNumber(bucket.objects)
+      ),
+    },
+    {
+      label: "Size",
+      value: bucket.quotas?.maxSize ? (
+        <div className="flex items-baseline gap-1">
+          <span>{formatBytes(bucket.bytes)}</span>
+          <span className="text-xs text-muted-foreground">
+            / {formatBytes(bucket.quotas.maxSize)}
+          </span>
+        </div>
+      ) : (
+        formatBytes(bucket.bytes)
+      ),
+    },
     { label: "Created", value: formatDate(bucket.created) },
     {
       label: "Website access",
@@ -19,6 +85,8 @@ function BucketSummary({ bucket }: { bucket: BucketDetail }) {
     },
   ];
 
+  const hasQuotas = Boolean(bucket.quotas?.maxSize || bucket.quotas?.maxObjects);
+
   return (
     <div className="flex flex-col gap-4 panel p-4">
       <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -29,12 +97,52 @@ function BucketSummary({ bucket }: { bucket: BucketDetail }) {
           </div>
         ))}
       </dl>
-      <div className="space-y-1">
-        <p className="text-xs text-muted-foreground">Bucket ID</p>
-        <div className="flex items-center gap-1">
-          <code className="truncate font-mono text-xs">{bucket.id}</code>
-          <CopyButton value={bucket.id} label="Copy bucket ID" />
+
+      {hasQuotas && (
+        <div className="grid gap-4 border-t border-border/60 pt-3 sm:grid-cols-2">
+          {bucket.quotas?.maxSize && (
+            <QuotaBar
+              label="Storage quota"
+              used={bucket.bytes}
+              max={bucket.quotas.maxSize}
+              formattedUsed={formatBytes(bucket.bytes)}
+              formattedMax={formatBytes(bucket.quotas.maxSize)}
+            />
+          )}
+          {bucket.quotas?.maxObjects && (
+            <QuotaBar
+              label="Object count quota"
+              used={bucket.objects}
+              max={bucket.quotas.maxObjects}
+              formattedUsed={formatNumber(bucket.objects)}
+              formattedMax={formatNumber(bucket.quotas.maxObjects)}
+            />
+          )}
         </div>
+      )}
+
+      <div className="flex flex-col gap-3 border-t border-border/60 pt-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-1">
+          <p className="text-xs text-muted-foreground">Bucket ID</p>
+          <div className="flex items-center gap-1">
+            <code className="truncate font-mono text-xs">{bucket.id}</code>
+            <CopyButton value={bucket.id} label="Copy bucket ID" />
+          </div>
+        </div>
+
+        <SetQuotaDialog
+          bucket={bucket}
+          trigger={
+            <Button
+              variant="outline"
+              size="xs"
+              startContent={<Icon name="scale" className="size-3.5" />}
+              className="self-start sm:self-auto"
+            >
+              {hasQuotas ? "Edit quotas" : "Set quotas"}
+            </Button>
+          }
+        />
       </div>
     </div>
   );
