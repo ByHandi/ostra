@@ -11,11 +11,10 @@ import { BucketTabs } from "@/components/buckets/bucket-tabs";
 import { EmptyState } from "@/components/empty-state";
 import Breadcrumbs from "@/components/objects/breadcrumbs";
 import ObjectTable from "@/components/objects/object-table";
-import { DropZone, UploadButton, UploadQueue } from "@/components/objects/upload";
+import { DropZone, UploadButton } from "@/components/objects/upload";
 import { QueryError } from "@/components/query-error";
 import { Button } from "@/components/ui/button";
-import { useInvalidateBucketContents } from "@/hooks/use-invalidate-bucket-contents";
-import { useUploads } from "@/hooks/use-uploads";
+import { useUploadManager } from "@/hooks/use-upload-manager";
 import { type ObjectPage, folderQuery } from "@/lib/api/objects";
 import { bucketQuery } from "@/lib/api/storage";
 import { pageMeta } from "@/lib/page-meta";
@@ -55,10 +54,9 @@ function FilesPage() {
 
   const bucket = useQuery(bucketQuery(bucketId));
   const folder = useInfiniteQuery(folderQuery(bucketId, prefix));
-  const invalidate = useInvalidateBucketContents(bucketId);
-  const { uploads, start, cancel, clearFinished } = useUploads(bucketId, invalidate);
+  const { start } = useUploadManager();
 
-  const upload = (files: FileList) => start(files, prefix);
+  const upload = (files: FileList) => start(bucketId, files, prefix);
 
   return (
     <>
@@ -85,8 +83,6 @@ function FilesPage() {
           )}
           <UploadButton onFiles={upload} />
         </div>
-
-        <UploadQueue uploads={uploads} onCancel={cancel} onClear={clearFinished} />
 
         <DropZone onFiles={upload} className="md:flex md:min-h-0 md:flex-col">
           <FolderContents

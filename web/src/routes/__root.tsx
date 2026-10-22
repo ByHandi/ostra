@@ -1,6 +1,7 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { HeadContent, Link, Outlet, createRootRouteWithContext } from "@tanstack/react-router";
 
+import { UploadManagerProvider } from "@/components/objects/upload-manager";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { pageMeta } from "@/lib/page-meta";
@@ -35,9 +36,11 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 function RootLayout() {
   return (
     <TooltipProvider>
-      <HeadContent />
-      <Outlet />
-      <Toaster />
+      <UploadManagerProvider>
+        <HeadContent />
+        <Outlet />
+        <Toaster />
+      </UploadManagerProvider>
     </TooltipProvider>
   );
 }
