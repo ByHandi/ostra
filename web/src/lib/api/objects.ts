@@ -55,6 +55,28 @@ export const deleteObject = (bucketId: string, key: string) =>
 export const deleteFolder = (bucketId: string, prefix: string) =>
   api.delete<{ deleted: number }>(objectsPath(bucketId, { prefix }));
 
+export type ShareLinkExpiry = "1h" | "1d" | "7d";
+
+export interface ShareLink {
+  url: string;
+  expiresAt: string;
+}
+
+export async function createShareLink(
+  bucketId: string,
+  key: string,
+  expiresIn: ShareLinkExpiry,
+): Promise<ShareLink> {
+  const res = await api.post<ShareLink>(
+    `/buckets/${encodeURIComponent(bucketId)}/objects/share-link`,
+    { key, expiresIn },
+  );
+  if (!res.data?.url || !res.data.expiresAt) {
+    throw new ApiError("The server did not return a share link.", 500);
+  }
+  return res.data;
+}
+
 /**
  * Starts a browser download. The API first issues a short-lived signed link (a plain
  * navigation cannot send the Authorization header), then the browser follows it.

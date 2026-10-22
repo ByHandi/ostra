@@ -16,7 +16,12 @@ import (
 
 // downloadLinkTTL is how long a download link stays valid; long enough to start the
 // download, short enough that a leaked link is useless soon after.
-const downloadLinkTTL = 5 * time.Minute
+const (
+	downloadLinkTTL = 5 * time.Minute
+	shareLinkHour   = time.Hour
+	shareLinkDay    = 24 * time.Hour
+	shareLinkWeek   = 7 * 24 * time.Hour
+)
 
 func (h *Handler) listObjects(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
@@ -77,16 +82,52 @@ func (h *Handler) createDownloadLink(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &in) {
 		return
 	}
+	h.createObjectLink(w, r, in.Key, downloadLinkTTL)
+}
+
+// createShareLink returns a link that can be shared with anyone until its selected expiry.
+func (h *Handler) createShareLink(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		Key       string `json:"key"`
+		ExpiresIn string `json:"expiresIn"`
+	}
+	if !decode(w, r, &in) {
+		return
+	}
+	ttl, ok := shareLinkTTL(in.ExpiresIn)
+	if !ok {
+		writeFail(w, http.StatusBadRequest, "validation", "expiresIn must be one of 1h, 1d, or 7d", map[string][]string{
+			"expiresIn": {"choose 1 hour, 1 day, or 7 days"},
+		})
+		return
+	}
+	h.createObjectLink(w, r, in.Key, ttl)
+}
+
+func (h *Handler) createObjectLink(w http.ResponseWriter, r *http.Request, key string, ttl time.Duration) {
 	bucketID := chi.URLParam(r, "id")
-	body, _, err := h.svc.OpenObject(r.Context(), bucketID, in.Key)
+	body, _, err := h.svc.OpenObject(r.Context(), bucketID, key)
 	if err != nil {
 		writeError(w, r, err)
 		return
 	}
 	body.Close()
 
-	token, exp := h.downloads.issue(bucketID, in.Key)
+	token, exp := h.downloads.issueWithTTL(bucketID, key, ttl)
 	writeData(w, http.StatusOK, downloadLink{URL: "/api/downloads/" + token, ExpiresAt: exp})
+}
+
+func shareLinkTTL(expiresIn string) (time.Duration, bool) {
+	switch expiresIn {
+	case "1h":
+		return shareLinkHour, true
+	case "1d":
+		return shareLinkDay, true
+	case "7d":
+		return shareLinkWeek, true
+	default:
+		return 0, false
+	}
 }
 
 // download streams the file a download link points to. It is deliberately outside the
