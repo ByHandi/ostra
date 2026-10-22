@@ -2,37 +2,25 @@
 # End-to-end smoke test of the core flows against the running local dev stack, through the same
 # front door a user hits (Caddy on 443): API auth, bucket, access key + permissions, S3 upload
 # with that key, custom domain + <bucket>.web serving, object browser, and the refusals that
-# protect data. Everything it creates is named e2e-<timestamp> and removed at the end.
+# protect data. Everything it creates is named e2e-<time>-<pid> and removed at the end.
 #
 # Usage (from anywhere inside the repo):
 #   .claude/skills/e2e-local-stack/scripts/smoke.sh
 #   KEEP=1 .../smoke.sh    # leave the created bucket/key/domain for manual inspection
 #
 # Refuses to run unless .env is a development .env (scripts/gen-env.sh --dev).
-# Logs in exactly once: login is rate limited (5 attempts per IP, then 1 every 12 s).
+# Logs in exactly once (login is rate limited) and leaves the token cached for api.sh.
 set -euo pipefail
-cd "$(git rev-parse --show-toplevel)"
+# shellcheck source=SCRIPTDIR/lib.sh
+. "$(dirname "$0")/lib.sh"
 
-env_value() { sed -n "s/^$1=//p" .env | head -1; }
-
-[[ -f .env ]] || { echo "No .env. Run: scripts/gen-env.sh --dev" >&2; exit 2; }
-if [[ "$(env_value COMPOSE_FILE)" != *docker-compose.dev.yml* ]]; then
-  echo "Refusing to run: .env is not a development .env (COMPOSE_FILE lacks docker-compose.dev.yml)." >&2
-  exit 2
-fi
-
-BASE="$(env_value BASE_DOMAIN)"
-CONSOLE="console.$BASE"
-EMAIL="$(env_value DEV_ADMIN_EMAIL)"
-PASSWORD="$(env_value DEV_ADMIN_PASSWORD)"
-RUN="e2e-$(date +%s)"
+RUN="e2e-$(date +%s)-$$"
 BUCKET="$RUN"
 DOMAIN="$RUN.$BASE"
 WEB_HOST="$BUCKET.web.$BASE"
 
 TMP="$(mktemp -d)"
 OUT="$TMP/body"
-JAR="$TMP/cookies"
 TOKEN=""
 STATUS=""
 BUCKET_ID=""
@@ -51,11 +39,10 @@ step() { printf '\n== %s\n' "$1"; }
 
 # api METHOD PATH [JSON] → $STATUS, body in $OUT
 api() {
-  local args=(-sk --resolve "$CONSOLE:443:127.0.0.1" -o "$OUT" -w '%{http_code}' -X "$1"
-    -b "$JAR" -c "$JAR")
-  [[ -n "$TOKEN" ]] && args+=(-H "Authorization: Bearer $TOKEN")
-  [[ -n "${3-}" ]] && args+=(-H "Content-Type: application/json" --data "$3")
-  STATUS="$(curl "${args[@]}" "https://$CONSOLE/api$2")"
+  local args=(-o "$OUT" -w '%{http_code}' -X "$1")
+  if [[ -n "$TOKEN" ]]; then args+=(-H "Authorization: Bearer $TOKEN"); fi
+  if [[ -n "${3-}" ]]; then args+=(-H "Content-Type: application/json" --data "$3"); fi
+  STATUS="$(console_curl "${args[@]}" "https://$CONSOLE/api$2")"
 }
 # check LABEL FAILURE COMMAND... → pass if COMMAND succeeds, otherwise fail and stop
 check() {
@@ -84,23 +71,31 @@ cleanup() {
   elif [[ -n "$TOKEN" ]]; then
     echo
     echo "== cleanup"
-    [[ -n "$DOMAIN_ID" ]] && api DELETE "/domains/$DOMAIN_ID" && echo "  domain $DOMAIN: $STATUS"
+    if [[ -n "$DOMAIN_ID" ]]; then
+      api DELETE "/domains/$DOMAIN_ID"
+      echo "  domain $DOMAIN: $STATUS"
+    elif [[ -n "$BUCKET_ID" ]]; then
+      echo "  domain $DOMAIN: already deleted by the test"
+    fi
     if [[ -n "$BUCKET_ID" ]]; then
-      api GET "/buckets/$BUCKET_ID/objects?prefix=" || true
+      api GET "/buckets/$BUCKET_ID/objects?prefix="
       if [[ "$STATUS" == 200 ]]; then
         local k
-        for k in $(jq -r '.data.objects[].key' "$OUT"); do
-          api DELETE "/buckets/$BUCKET_ID/objects?key=$k" || true
-        done
-        for k in $(jq -r '.data.folders[]' "$OUT" 2>/dev/null); do
-          api DELETE "/buckets/$BUCKET_ID/objects?prefix=$k" || true
-        done
+        # URL-encoded, one per line, so keys with spaces or '&' are deleted too.
+        while IFS= read -r k; do
+          api DELETE "/buckets/$BUCKET_ID/objects?key=$k"
+        done < <(jq -r '.data.objects[].key | @uri' "$OUT")
+        while IFS= read -r k; do
+          api DELETE "/buckets/$BUCKET_ID/objects?prefix=$k"
+        done < <(jq -r '.data.folders[]? | @uri' "$OUT")
       fi
-      api DELETE "/buckets/$BUCKET_ID" || true
+      api DELETE "/buckets/$BUCKET_ID"
       echo "  bucket $BUCKET: $STATUS"
     fi
-    [[ -n "$KEY_ID" ]] && api DELETE "/keys/$KEY_ID" && echo "  key $KEY_ID: $STATUS"
-    TOKEN="" api POST /auth/logout || true
+    if [[ -n "$KEY_ID" ]]; then
+      api DELETE "/keys/$KEY_ID"
+      echo "  key $KEY_ID: $STATUS"
+    fi
   fi
   rm -rf "$TMP"
   if [[ $code -eq 0 ]]; then
@@ -118,13 +113,31 @@ for svc in garage control caddy; do
   state="$(docker compose ps --format '{{.Service}} {{.Health}}' 2>/dev/null | awk -v s="$svc" '$1==s {print $2}')"
   check "$svc healthy" "$svc is '${state:-not running}' (docker compose up -d --build)" [ "$state" = healthy ]
 done
+# The control image embeds both control/ and web/. Testing an image older than the code tests
+# the wrong thing, so say so loudly (a warning, not a failure: it may be intentional).
+image_ts="$(docker image inspect --format '{{.Created}}' "$(docker compose images -q control)" 2>/dev/null)"
+# RFC 3339 with nanoseconds and an offset (e.g. +07:00); python handles it on macOS and Linux.
+image_epoch="$(python3 -I -c '
+import re, sys, datetime
+ts = re.sub(r"\.\d+", "", sys.argv[1]).replace("Z", "+00:00")
+print(int(datetime.datetime.fromisoformat(ts).timestamp()))' "$image_ts" 2>/dev/null || echo 0)"
+code_epoch="$(git log -1 --format=%ct -- control web)"
+if [[ -n "$(git status --porcelain -- control web)" ]]; then
+  printf '  warn  uncommitted changes in control/ or web/: the running image may not include them\n'
+elif ((image_epoch < code_epoch)); then
+  printf '  warn  control image (built %s) is older than the last commit to control/ or web/;\n' "${image_ts%%.*}"
+  printf '        rebuild with: docker compose up -d --build control\n'
+else
+  pass "control image is newer than the last change to control/ and web/"
+fi
 
 step "auth"
 api GET /buckets
 expect 401 "API without a token is refused"
-api POST /auth/login "$(jq -nc --arg e "$EMAIL" --arg p "$PASSWORD" '{email:$e,password:$p}')"
-expect 200 "login as $EMAIL"
-TOKEN="$(field .data.access_token)"
+login
+STATUS="$LOGIN_STATUS"
+expect 200 "login as the dev admin"
+TOKEN="$(cached_token)"
 [[ -n "$TOKEN" && "$TOKEN" != null ]] || fail "login returned no access_token"
 api GET /me
 expect 200 "GET /me"

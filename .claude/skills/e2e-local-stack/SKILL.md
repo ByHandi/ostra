@@ -1,6 +1,6 @@
 ---
 name: e2e-local-stack
-description: Prove a change works on the real local Ostra stack (Garage + control-plane + Caddy in Docker Compose, dev mode) instead of only in unit tests — bring the stack up or rebuild just what changed, run the bundled smoke test (auth, bucket, access key + permissions, S3 upload with that key, custom domain and <bucket>.web serving, object browser, delete refusals; it cleans up after itself), add feature-specific checks through Caddy with curl/aws-cli, click through the dashboard in a browser (desktop, phone width, dark mode), read the container logs, and report what was and wasn't verified. Use whenever the user asks to test end to end, check something on the local stack or in Docker, verify a feature before a PR, confirm Caddy/TLS/custom domains/S3 still work after a change or dependency bump, or says "tes e2e", "cek di stack lokal", "coba jalanin", "udah jalan belum", "tes di docker", "smoke test" — and after finishing an add-feature change when the stack is available.
+description: Prove a change works on the real local Ostra stack (Garage + control-plane + Caddy in Docker Compose, dev mode) instead of only in unit tests — check the running image isn't older than the code and rebuild just what changed, run the bundled smoke test (auth, bucket, access key + permissions, S3 upload with that key, custom domain and <bucket>.web serving, object browser API, delete refusals; it cleans up after itself), make feature-specific API calls through the bundled api.sh (no password handling, one cached login), check the dashboard in a browser (desktop, phone width, dark mode), read the container logs, and report what was and wasn't verified. Use whenever the user asks to test end to end, check something on the local stack or in Docker, verify a feature before a PR, confirm Caddy/TLS/custom domains/S3 still work after a change or dependency bump, or says "tes e2e", "cek di stack lokal", "coba jalanin", "udah jalan belum", "tes di docker", "smoke test".
 ---
 
 # End-to-end check on the local stack (Ostra)
@@ -10,163 +10,191 @@ on-demand TLS, the `/caddy/ask` gate, Garage's real permission model, the embedd
 or compose wiring — which is where several past bugs lived. This skill checks the real thing
 the way a user reaches it: through Caddy on 443.
 
+Bundled scripts (in `.claude/skills/e2e-local-stack/scripts/`, run from anywhere in the repo):
+
+| Script | What it does |
+|---|---|
+| `smoke.sh` | ~35 checks of the core flows; creates `e2e-<time>-<pid>` resources and deletes them |
+| `api.sh METHOD PATH [JSON\|@file]` | one API call as the dev admin; prints the body, `HTTP <code>` on stderr |
+| `lib.sh` | shared: dev-`.env` guard, login, token cache (sourced by the two above) |
+
 ## Step 0 — Safety
 
 - **Only against a dev `.env`.** `.env` must contain
   `COMPOSE_FILE=docker-compose.yml:docker-compose.dev.yml` (written by
   `scripts/gen-env.sh --dev`). If it doesn't, stop and ask: this machine may be pointed at a
-  real deployment. `scripts/init-dev.sh` and the smoke script both refuse to run otherwise.
+  real deployment. The scripts refuse to run otherwise.
 - **Never wipe the user's dev data without asking.** `docker compose down -v`,
   `scripts/restore.sh`, and deleting volumes destroy the dev database, Garage data, and Caddy's
   local CA (the browser then distrusts the new one). `down` without `-v` is fine.
 - **Leave the user's own fixtures alone** — the `assets` bucket, `app-key`, and
-  `cdn.brandku.localhost` from `init-dev.sh`. Create your own resources named `e2e-<something>`
-  and delete them afterwards.
-- **Log in sparingly.** Login is rate limited per IP (5 attempts, then 1 every 12 seconds), and
-  that limiter also locks out the user's browser session. Log in once per script and reuse the
-  token.
-- Credentials are in `.env` (`DEV_ADMIN_EMAIL`, `DEV_ADMIN_PASSWORD`, `S3_*`). Read them from
-  there in commands; don't echo them into the chat.
+  `cdn.brandku.localhost` from `init-dev.sh`. Create your own resources named `e2e-...` and
+  delete them afterwards. Nothing in this skill needs those fixtures. If they're missing,
+  mention it; `scripts/init-dev.sh` recreates them (safe to re-run), but run it only if the
+  user wants that.
+- **Don't handle the admin password.** The scripts read `.env` themselves and never print the
+  credentials; use them instead of reading `.env` values into commands or the chat. For the
+  dashboard in a browser, ask the user to sign in (Step 4).
+- **Login is rate limited** per IP: 5 attempts, then 1 every 12 seconds — shared with the
+  user's browser and any other agent. The scripts cache the access token in
+  `.git/ostra-e2e-token` (mode 600, 15-minute lifetime) and only log in again when it has
+  expired, so a whole session normally costs one login.
 
-## Step 1 — Get the stack into the state of the code
-
-Check what's running: `docker compose ps` (all three services should be `healthy`).
-
-| What changed | What to run |
-|---|---|
-| Nothing running, `.env` exists | `docker compose up -d --build`, then `scripts/init-dev.sh` (safe to re-run) |
-| No `.env` at all | `scripts/gen-env.sh --dev` first, then the row above |
-| `control/` or `web/` (both are in the control image) | `docker compose up -d --build control` (Node build + Go build; takes a minute or two) |
-| `caddy/Caddyfile.dev` (bind-mounted) | `docker compose restart caddy` |
-| `garage/garage.toml.tmpl` | `docker compose up -d --force-recreate garage-config garage` |
-| `docker-compose*.yml`, env vars | `docker compose up -d` (recreates what changed); `docker compose config --quiet` first |
-| Only `scripts/*.sh` | nothing to rebuild; run the script |
-
-Then wait until `docker compose ps` shows `healthy` for garage, control, and caddy. If one
-isn't, read `docker compose logs --tail 100 <service>` before doing anything else; a
-control-plane that refuses to start usually says why (missing env, dev settings on a
-non-`.localhost` domain, migration error).
-
-Ports 80, 443 and 8080 must be free. If `up` fails on a port, report what holds it
-(`lsof -iTCP:443 -sTCP:LISTEN`) instead of killing anything.
-
-## Step 2 — Run the smoke test
+## Step 1 — Is the running stack the code you're testing?
 
 ```bash
-.claude/skills/e2e-local-stack/scripts/smoke.sh          # from anywhere in the repo
-KEEP=1 .claude/skills/e2e-local-stack/scripts/smoke.sh   # keep what it created, to inspect by hand
+docker compose ps        # garage, control, caddy should all be "healthy"
 ```
 
-It takes about half a minute and prints one line per check (about 34 of them), ending in
-`PASS: N checks` or `FAILED ...` with the failing response body. It covers:
+The smoke test's first block also warns when the control image is older than the last commit
+to `control/` or `web/`, or when those directories have uncommitted changes. Testing a stale
+image tests the wrong code: either rebuild, or say plainly in the report that the image is
+older than the code.
 
-- stack health; 401 without a token; login; `/me`
+| Situation | What to run |
+|---|---|
+| Nothing running, `.env` exists | `docker compose up -d --build`, then `scripts/init-dev.sh` |
+| No `.env` at all | `scripts/gen-env.sh --dev` first, then the row above |
+| `control/` or `web/` changed (both are in the control image) | `docker compose up -d --build control` (Node + Go build, a minute or two) |
+| `caddy/Caddyfile.dev` changed (bind-mounted) | `docker compose restart caddy` |
+| `garage/garage.toml.tmpl` changed | `docker compose up -d --force-recreate garage-config garage` |
+| `docker-compose*.yml` or env vars changed | `docker compose config --quiet`, then `docker compose up -d` |
+| Only `scripts/*.sh` changed | nothing to rebuild; run the script |
+
+Rebuilding replaces what the user is running. If they started the stack themselves, say
+you're rebuilding (or ask if they're in the middle of something). If a service isn't
+`healthy` afterwards, read `docker compose logs --tail 100 <service>` before anything else.
+Ports 80, 443 and 8080 must be free; if `up` fails on a port, report what holds it
+(`lsof -iTCP:443 -sTCP:LISTEN`) rather than killing anything.
+
+## Step 2 — Smoke test
+
+```bash
+.claude/skills/e2e-local-stack/scripts/smoke.sh          # PASS: N checks, exit 0
+KEEP=1 .claude/skills/e2e-local-stack/scripts/smoke.sh   # keep what it created, to inspect
+```
+
+About 3 seconds warm; ~30 seconds the first time, while the aws-cli image is pulled. It
+covers:
+
+- stack health and image staleness; 401 without a token; login; `/me`
 - bucket create, field error on an invalid name, 409 on a duplicate
-- access key create; the secret appears once and never again on `GET`; **a new key gets
-  AccessDenied before it's granted anything**; grant read+write
+- access key: the secret appears on create and never on `GET`; **a new key gets AccessDenied
+  before it's granted anything**; grant read+write
 - `aws s3 cp` / `ls` through the S3 API with that new key
-- custom domain registration → `active` (DNS verification is off in dev); reserved domain
-  rejected; the file is served at `https://<domain>/` and `https://<bucket>.web.localhost/`
-- object browser API: upload, list, signed download link (works without a session, refuses a
-  tampered token), delete folder
+- custom domain → `active` (DNS verification is off in dev); reserved domain rejected; the
+  file is served at `https://<domain>/` and `https://<bucket>.web.localhost/`
+- object browser **API** (not the UI): upload, list, signed download link that works without
+  a session and refuses a tampered token, folder delete
 - refusals: a bucket with a domain or with objects can't be deleted
 
-Everything is named `e2e-<unix time>` and deleted in a cleanup trap, also when a check fails.
-If a run is killed hard, leftovers can be found with
+Cleanup runs in a trap, also when a check fails. Leftovers after a hard kill:
 `docker compose exec -T garage /garage bucket list | grep e2e-` (and `key list`).
 
-A failure here on code you didn't touch means the stack or a dependency is broken — report it
-as such rather than "fixing" the test.
+A failure on code you didn't touch means the stack or a dependency is broken. Report it as
+that; don't change the test to make it pass.
 
-**Extend it when a feature becomes core.** If the change adds a flow that every future change
-could break (a new resource, a permission rule), add a step to `smoke.sh` in the same style:
-a `step` header, `api`/`expect`/`check` helpers, resources named `$RUN`, and their deletion in
-`cleanup`. Run `docker run --rm -v "$PWD:/mnt" -w /mnt koalaman/shellcheck:v0.11.0
-.claude/skills/e2e-local-stack/scripts/smoke.sh` afterwards (the same shellcheck version as CI).
+**Extend it when a feature becomes core.** If the change adds a flow that future changes could
+break (a new resource, a permission rule), add a step to `smoke.sh` in the same style (`step`,
+`api`/`expect`/`check`, names from `$RUN`, deletion in `cleanup`), then run shellcheck as CI
+does:
+
+```bash
+docker run --rm -v "$PWD:/mnt" -w /mnt koalaman/shellcheck:v0.11.0 -x \
+  .claude/skills/e2e-local-stack/scripts/*.sh
+```
 
 ## Step 3 — Check the change itself
 
-The smoke test is a regression net; the change still needs its own checks. Use the same
-approach as the script — through Caddy, with `--resolve` so nothing depends on the system
-resolver:
+The smoke test is a regression net; the change still needs its own checks. Use `api.sh` for
+API calls; it reuses the smoke test's cached token:
 
 ```bash
-CONSOLE=console.localhost
-api() { curl -sk --resolve "$CONSOLE:443:127.0.0.1" -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" "$@"; }
-# login once, then reuse $TOKEN
+S=.claude/skills/e2e-local-stack/scripts
+$S/api.sh POST /buckets '{"name":"e2e-quota"}'
+$S/api.sh GET '/buckets/<id>/objects?prefix='        # quote paths with '?' (zsh)
+$S/api.sh PUT '/buckets/<id>/objects?key=a.txt' @sample/hello.txt
+$S/api.sh DELETE /buckets/<id>
 ```
 
 Check the happy path, then each error case the change introduces (status code *and*
-`error.errors.<field>` for form errors), then that existing data still looks right. Useful
-probes for specific areas:
+`error.errors.<field>` for form errors), then that existing data still looks right. Delete what
+you created. Probes for specific areas:
 
-- **Caddy `ask` / TLS**: an unregistered host must not get a certificate —
-  `curl -sk https://not-registered.localhost/` fails the TLS handshake (curl exit 35). A newly
-  activated domain must get one on first request. Port 9000 (`/caddy/ask`) is internal and must
-  not answer from the host.
-- **Client IP / trusted proxies**: send `X-Forwarded-For` from the host and confirm the login
-  rate limit still applies to the real client (the header from an untrusted hop is ignored).
-  This deliberately burns failed logins: use a wrong password, and wait at least 12 seconds
-  (or `docker compose restart control`, which resets the in-memory limiter) before logging in
-  for real.
-- **Garage-backed behavior**: confirm with the S3 API or the Garage CLI, not only the
-  control-plane's own response, e.g. `docker compose exec -T garage /garage bucket info <name>`.
-- **Uploads**: the limit is `MAX_UPLOAD_SIZE_MB`; a body over it must be refused, not
-  truncated.
-- **Migrations**: `docker compose up -d --build control` on the *existing* dev database is the
-  real upgrade test — check the logs for the goose version and that old rows still render.
-- **Backup/restore, upgrade/rollback**: these stop the stack and `restore.sh` replaces all
-  volumes. Ask before running them; when approved, take a backup first
-  (`scripts/backup.sh`), then follow the README sections "Backup and restore" and "Upgrading".
-- **External-proxy compose** (`docker-compose.external-proxy.yml`): can't run beside the dev
-  stack (it has no Caddy and expects a proxy); validate with
-  `docker compose -f docker-compose.external-proxy.yml config --quiet` and say that a real
-  deployment test was not done.
+| Area | Probe | Expect |
+|---|---|---|
+| Caddy `ask` / TLS | `curl -sk 'https://not-registered.localhost/'` | curl exit 35 (no certificate) |
+| | first request to a newly activated domain | a certificate, then the content |
+| Internal port | `curl -s -m 3 'http://127.0.0.1:9000/caddy/ask?domain=x'` | curl exit 7 (not reachable from the host) |
+| Client IP / proxies | wrong-password logins with a spoofed `X-Forwarded-For` | still rate limited (the header from an untrusted hop is ignored) |
+| Garage-backed behavior | `docker compose exec -T garage /garage bucket info <name>` | Garage agrees with the API's answer |
+| Uploads | a body over `MAX_UPLOAD_SIZE_MB` | refused, not truncated |
+| Migrations | `docker compose up -d --build control` on the existing dev DB | goose line in the logs, old rows still render |
+
+The proxy probe burns failed logins on purpose; afterwards wait at least 12 seconds or
+`docker compose restart control` (the limiter is in memory) before logging in for real.
+
+Ask first, these stop the stack or replace data: **backup/restore and upgrade/rollback**. When
+approved, take a backup (`scripts/backup.sh`), then follow the README sections "Backup and
+restore" and "Upgrading". **External-proxy compose** can't run beside the dev stack (no Caddy,
+expects a proxy): validate with `docker compose -f docker-compose.external-proxy.yml config
+--quiet` and say that a real deployment test wasn't done.
 
 ## Step 4 — The dashboard, in a browser
 
-Open **https://console.localhost** (served by the control image, so it reflects the last
-`--build`) or, for UI work with hot reload, run `npm run dev` in `web/` and use
-http://localhost:5173 (the `web` entry in `.claude/launch.json`; it proxies `/api` to
-127.0.0.1:8080). `https://console.localhost` uses Caddy's local CA; if the browser rejects
-it, http://127.0.0.1:8080 reaches the same control-plane without Caddy.
+URL: in an agent-driven browser use **http://127.0.0.1:8080**. It's the same control-plane and
+embedded dashboard without Caddy, so there's no certificate problem, and TLS is already covered
+by curl. For UI work with hot reload, `npm run dev` in `web/` serves http://localhost:5173
+(the `web` entry in `.claude/launch.json`; it proxies `/api` to 127.0.0.1:8080). The user's own
+browser can use https://console.localhost.
 
-Log in with the dev admin from `.env`, then for each screen the change touches:
+Signing in: don't type the password yourself. Open the login page and ask the user to sign in
+in that browser (email `DEV_ADMIN_EMAIL`, password `DEV_ADMIN_PASSWORD` in their `.env`), then
+continue; the session lasts 30 days in that browser profile. If the user isn't around, check
+what doesn't need a session (login page layout, theme, console) and list everything behind
+login as not checked.
 
-- the happy path, end to end, as a user would do it (create → see it listed → open details);
-- loading (skeleton), empty state, and an error state (e.g. a 409 from a duplicate shown under
-  the right input);
+For each screen the change touches:
+
+- the happy path end to end, as a user would do it (create → see it listed → open details);
+- loading (skeleton), empty state, and an error state (e.g. a 409 shown under the right input);
 - phone width (~375 px: list layout, mobile tab bar, collapsing header) and desktop (table);
 - dark mode;
-- the browser console: no errors or failed requests.
+- the browser console: no uncaught errors or failed requests (a 401 on `/api/auth/refresh-token`
+  while signed out is expected).
 
-Take a screenshot of the key screens as proof when the tool allows it. Delete anything you
-created through the UI (or name it `e2e-...` so it's recognizable).
+Take screenshots of the key screens as proof. Delete what you created through the UI, or name
+it `e2e-...`.
 
 ## Step 5 — Logs
 
+Real problems only (Garage logs every 4xx at INFO level, including the ones the smoke test
+causes on purpose, so don't grep Garage for "error"):
+
 ```bash
-docker compose logs --since 15m control caddy garage | grep -iE 'error|panic|warn' | tail -50
+docker compose logs --since 15m --no-log-prefix control | grep -E ' (WARN|ERROR) |panic'
+docker compose logs --since 15m --no-log-prefix caddy   | grep -E '"level":"(warn|error)"'
+docker compose logs --since 15m --no-log-prefix garage  | sed 's/\x1b\[[0-9;]*m//g' | grep -E ' (WARN|ERROR) '
 ```
 
-A `request failed` line from the control-plane means a 500 was returned somewhere — find out
-which request, even if the UI looked fine. Caddy `ask: denied` lines for your own `e2e-*` hosts
-are expected after cleanup.
+A control-plane `request failed` line means a 500 was returned somewhere; find which request,
+even if the UI looked fine. `ask: denied` for your own `e2e-*` hosts after cleanup is expected.
 
 ## Step 6 — Report
 
 Leave the stack as you found it: if you started it, ask whether to keep it running; don't stop
 a stack the user already had running.
 
-Then report, briefly:
-
 | Area | How it was checked | Result |
 |---|---|---|
-| Smoke test | `smoke.sh` | PASS 34 checks |
-| <the feature> | curl / aws-cli / browser | ... |
+| Image vs code | smoke.sh stack block | current / stale (rebuilt or not) |
+| Smoke test | `smoke.sh` | PASS 35 checks |
+| Object browser API | `smoke.sh` | ... |
+| Object browser UI | browser | ... |
+| <the feature> | api.sh / curl / aws-cli / browser | ... |
 | Phone width, dark mode | browser | ... |
-| Logs | `docker compose logs` | no errors |
+| Logs | filtered `docker compose logs` | ... |
 
-Followed by **what was not checked and why** (e.g. no real DNS, no Let's Encrypt, no external
-proxy, browser not available). An honest gap is more useful than an implied full pass.
+Then list **what was not checked and why**: screens behind login if nobody signed in, a stale
+image you didn't rebuild, missing fixtures, no real DNS / Let's Encrypt / external proxy.
+Reporting a gap honestly is more useful than implying everything passed.
