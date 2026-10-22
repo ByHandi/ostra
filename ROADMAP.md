@@ -6,6 +6,7 @@ Phases 1 and 2 are prerequisites before the repo is made public.
 ## Done
 
 ### Foundation: storage and routing
+
 - [x] Single-node Garage v2 via Docker Compose (S3 API, web endpoint, admin API)
 - [x] Caddy as the front door: S3 API, dashboard, and a catch-all for custom domains
 - [x] On-demand TLS: certificates are only issued for domains the control-plane approves
@@ -16,6 +17,7 @@ Phases 1 and 2 are prerequisites before the repo is made public.
       `scripts/init-dev.sh` (dev setup, safe to re-run)
 
 ### Control-plane (Go)
+
 - [x] SQLite (modernc, no CGO) with embedded goose migrations and sqlc queries
 - [x] Custom domain lifecycle: register → DNS verification (CNAME/A + TXT) → attach alias → active
 - [x] Worker: checks pending domains every 30 seconds, reconciles active domain aliases every 5 minutes
@@ -27,6 +29,7 @@ Phases 1 and 2 are prerequisites before the repo is made public.
       including per-field errors
 
 ### Auth and security
+
 - [x] Admin login with argon2id passwords; no sign-up page
 - [x] 15-minute JWT access token + 30-day refresh token in an httpOnly, SameSite=Strict cookie,
       rotated on every use (only its hash is stored)
@@ -38,6 +41,7 @@ Phases 1 and 2 are prerequisites before the repo is made public.
 - [x] `scratch` image, non-root user; Garage admin and debug ports only bound to `127.0.0.1`
 
 ### Dashboard (React)
+
 - [x] Based on the `shadcn-vite` template; boneyard removed
 - [x] Pages: login, dashboard, buckets (+ details), custom domains (+ details with DNS records),
       access keys (+ per-bucket permission editor), settings (profile, change password, theme)
@@ -48,6 +52,7 @@ Phases 1 and 2 are prerequisites before the repo is made public.
 - [x] Multi-stage Dockerfile: build the dashboard (Node), then the Go binary
 
 ### Testing
+
 - [x] Go unit tests: auth (sessions, rotation, expiry, rate limiting), service (domains, buckets, keys,
       reconcile), DNS checker, Garage client, API router, UI handler
 - [x] Tested end-to-end on the local stack: login, create bucket/domain/key, set permissions, upload with
@@ -65,6 +70,7 @@ Phases 1 and 2 are prerequisites before the repo is made public.
 ## Phase 1: Safe to open up (required)
 
 ### 1.1 Safe `.env` defaults
+
 Currently `.env.example` contains `COOKIE_SECURE=false` and `DNS_VERIFY=off`, so a deployment
 that follows `gen-env.sh` gets development settings straight away.
 
@@ -77,12 +83,14 @@ that follows `gen-env.sh` gets development settings straight away.
 **Done when:** a production deployment that only follows the README never runs with dev settings.
 
 ### 1.2 License
+
 - [x] Add Apache License 2.0 in `LICENSE`
 - [x] License section in the README, including a note that Garage is licensed under AGPL-3.0 and
       is used as a separate service through its API (the Ostra code is not bound by the AGPL)
 - [x] Check that the dependency licenses (Go and npm) are compatible with Apache-2.0
 
 ### 1.3 Production config without editing files
+
 Currently `garage/garage.toml` hardcodes `.localhost` and compose defaults to dev mode.
 
 - [x] `garage/garage.toml.tmpl` + a `garage-config` service (busybox) that fills in `BASE_DOMAIN`;
@@ -96,6 +104,7 @@ Currently `garage/garage.toml` hardcodes `.localhost` and compose defaults to de
 **Done when:** a production deployment only needs a filled-in `.env` and a single compose command.
 
 ### 1.4 Trusted proxies for the client IP
+
 Login rate limiting uses `X-Forwarded-For`, assuming requests always go through the bundled Caddy.
 Behind another proxy this header can be spoofed, so the rate limit can be bypassed.
 
@@ -105,6 +114,7 @@ Behind another proxy this header can be spoofed, so the rate limit can be bypass
 - [x] Tests for spoofed headers from untrusted IPs, plus tested directly through Caddy
 
 ### 1.5 Dependency vulnerabilities
+
 - [x] `control/go.mod`: `go 1.26.9` (4 `net/http` CVEs in 1.26.5)
 - [x] `web/package.json`: `shadcn` (CLI) moved to `devDependencies`, then `npm audit fix`
       (the high-severity findings in `@modelcontextprotocol/sdk` and `brace-expansion` are gone)
@@ -126,7 +136,7 @@ Behind another proxy this header can be spoofed, so the rate limit can be bypass
 - [x] Production compose uses the image from GHCR (`CONTROL_IMAGE` to pin a version); dev still builds locally
 - [x] Dependabot for Go modules, npm, Docker images (Dockerfile + compose), and GitHub Actions
 - [x] `CHANGELOG.md`, `control version`, `/api/version`, and the version on the Settings page
-- [ ] First release `v0.1.0` (after the license is decided), then make sure the GHCR package is Public
+- [x] First release `v0.1.0` (after the license is decided), then make sure the GHCR package is Public
 
 ---
 
