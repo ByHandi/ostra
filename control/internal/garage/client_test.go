@@ -20,7 +20,21 @@ func TestClient(t *testing.T) {
 				w.Write([]byte(`{"code":"NoSuchBucket","message":"Bucket not found: x"}`))
 				return
 			}
-			w.Write([]byte(`{"id":"abc","globalAliases":["assets"],"websiteAccess":true,"objects":2}`))
+			w.Write([]byte(`{"id":"abc","globalAliases":["assets"],"websiteAccess":true,"objects":2,"quotas":{"maxSize":1000,"maxObjects":10}}`))
+		case "/v2/UpdateBucket":
+			var body struct {
+				Quotas BucketQuotas `json:"quotas"`
+			}
+			json.NewDecoder(r.Body).Decode(&body)
+			var size, count string
+			if body.Quotas.MaxSize != nil {
+				size = string(rune('0' + *body.Quotas.MaxSize))
+			}
+			if body.Quotas.MaxObjects != nil {
+				count = string(rune('0' + *body.Quotas.MaxObjects))
+			}
+			gotBody = r.URL.Query().Get("id") + "|" + size + "|" + count
+			w.Write([]byte(`{}`))
 		case "/v2/AddBucketAlias":
 			var body map[string]string
 			json.NewDecoder(r.Body).Decode(&body)
@@ -39,8 +53,15 @@ func TestClient(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if b.ID != "abc" || !b.WebsiteAccess || !b.HasAlias("assets") || gotAuth != "Bearer secret" {
+	if b.ID != "abc" || !b.WebsiteAccess || !b.HasAlias("assets") || gotAuth != "Bearer secret" ||
+		b.Quotas.MaxSize == nil || *b.Quotas.MaxSize != 1000 || b.Quotas.MaxObjects == nil || *b.Quotas.MaxObjects != 10 {
 		t.Fatalf("GetBucketByAlias() = %+v, auth %q", b, gotAuth)
+	}
+
+	maxSize := int64(5)
+	maxObjs := int64(3)
+	if err := c.UpdateBucketQuotas(ctx, "abc", BucketQuotas{MaxSize: &maxSize, MaxObjects: &maxObjs}); err != nil || gotBody != "abc|5|3" {
+		t.Fatalf("UpdateBucketQuotas() err=%v body=%q", err, gotBody)
 	}
 
 	_, err = c.GetBucketByAlias(ctx, "nope")

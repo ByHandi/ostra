@@ -21,6 +21,7 @@ type Garage interface {
 	AddAlias(ctx context.Context, bucketID, alias string) error
 	RemoveAlias(ctx context.Context, bucketID, alias string) error
 	EnableWebsite(ctx context.Context, bucketID string) error
+	UpdateBucketQuotas(ctx context.Context, bucketID string, q garage.BucketQuotas) error
 
 	ListKeys(ctx context.Context) ([]garage.Key, error)
 	GetKey(ctx context.Context, id string) (garage.KeyInfo, error)

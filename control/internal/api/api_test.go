@@ -180,6 +180,22 @@ func TestShareLinkValidation(t *testing.T) {
 	}
 }
 
+func TestBucketQuotasValidation(t *testing.T) {
+	srv := newTestServer(t)
+	login := call(t, srv, "POST", "/api/auth/login", "", nil, `{"email":"admin@example.com","password":"secret123"}`)
+	token := accessToken(t, login)
+
+	if r := call(t, srv, "PUT", "/api/buckets/bucket/quotas", "", nil, `{"maxSize":1000}`); r.status != http.StatusUnauthorized {
+		t.Fatalf("quotas without token = %d, want 401", r.status)
+	}
+	if r := call(t, srv, "PUT", "/api/buckets/bucket/quotas", token, nil, `{"maxSize":1000,"extra":true}`); r.status != http.StatusBadRequest {
+		t.Fatalf("quotas with unknown field = %d, want 400", r.status)
+	}
+	if r := call(t, srv, "PUT", "/api/buckets/bucket/quotas", token, nil, `{"maxSize":"invalid"}`); r.status != http.StatusBadRequest {
+		t.Fatalf("quotas with invalid type = %d, want 400", r.status)
+	}
+}
+
 func TestHealthz(t *testing.T) {
 	healthy := true
 	h := &Handler{opts: Options{Health: func(context.Context) error {

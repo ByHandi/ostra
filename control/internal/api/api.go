@@ -96,6 +96,7 @@ func (h *Handler) Public() http.Handler {
 			r.Get("/buckets", h.listBuckets)
 			r.Post("/buckets", h.createBucket)
 			r.Get("/buckets/{id}", h.getBucket)
+			r.Put("/buckets/{id}/quotas", h.updateBucketQuotas)
 			r.Delete("/buckets/{id}", h.deleteBucket)
 			r.Get("/buckets/{id}/objects", h.listObjects)
 			r.Put("/buckets/{id}/objects", h.uploadObject)
