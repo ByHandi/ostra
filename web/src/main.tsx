@@ -11,6 +11,9 @@ import { RouteError } from "@/components/route-error";
 import { RoutePending } from "@/components/route-pending";
 import { ThemeProvider } from "@/components/theme-provider.tsx";
 import { queryClient } from "@/lib/query-client";
+import { ignoreSkippedViewTransitions } from "@/lib/view-transition";
+
+ignoreSkippedViewTransitions();
 
 const router = createRouter({
   routeTree,
