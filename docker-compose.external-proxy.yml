@@ -15,7 +15,7 @@ services:
   # garage/garage.toml.tmpl) because platforms such as Coolify run compose from a directory the
   # Docker host cannot see, so a bind-mounted template silently becomes an empty directory.
   garage-config:
-    image: busybox:1.37.0
+    image: busybox:1.38.0
     # One-shot job. Explicit, because Coolify gives services without a policy
     # `unless-stopped`, and a restarting job never satisfies `service_completed_successfully`.
     restart: "no"

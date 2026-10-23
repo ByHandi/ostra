@@ -27,7 +27,7 @@ services:
 
   # Tool: docker compose run --rm awscli s3 ls
   awscli:
-    image: amazon/aws-cli:2.37.10
+    image: amazon/aws-cli:2.38.2
     profiles: ["tools"]
     environment:
       AWS_ENDPOINT_URL: http://garage:3900
