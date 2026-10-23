@@ -20,7 +20,10 @@ import { Route as appDomainsDomainIdRouteImport } from "./routes/(app)/domains/$
 import { Route as appKeysIndexRouteImport } from "./routes/(app)/keys/index";
 import { Route as appKeysKeyIdRouteImport } from "./routes/(app)/keys/$keyId";
 import { Route as appBucketsBucketIdIndexRouteImport } from "./routes/(app)/buckets/$bucketId/index";
+import { Route as appBucketsBucketIdAccessRouteImport } from "./routes/(app)/buckets/$bucketId/access";
+import { Route as appBucketsBucketIdDomainsRouteImport } from "./routes/(app)/buckets/$bucketId/domains";
 import { Route as appBucketsBucketIdFilesRouteImport } from "./routes/(app)/buckets/$bucketId/files";
+import { Route as appBucketsBucketIdSettingsRouteImport } from "./routes/(app)/buckets/$bucketId/settings";
 
 const appRouteRoute = appRouteRouteImport.update({
   id: "/(app)",
@@ -75,11 +78,29 @@ const appBucketsBucketIdIndexRoute = appBucketsBucketIdIndexRouteImport.update({
   path: "/buckets/$bucketId/",
   getParentRoute: () => appRouteRoute,
 } as any);
+const appBucketsBucketIdAccessRoute =
+  appBucketsBucketIdAccessRouteImport.update({
+    id: "/buckets/$bucketId/access",
+    path: "/buckets/$bucketId/access",
+    getParentRoute: () => appRouteRoute,
+  } as any);
+const appBucketsBucketIdDomainsRoute =
+  appBucketsBucketIdDomainsRouteImport.update({
+    id: "/buckets/$bucketId/domains",
+    path: "/buckets/$bucketId/domains",
+    getParentRoute: () => appRouteRoute,
+  } as any);
 const appBucketsBucketIdFilesRoute = appBucketsBucketIdFilesRouteImport.update({
   id: "/buckets/$bucketId/files",
   path: "/buckets/$bucketId/files",
   getParentRoute: () => appRouteRoute,
 } as any);
+const appBucketsBucketIdSettingsRoute =
+  appBucketsBucketIdSettingsRouteImport.update({
+    id: "/buckets/$bucketId/settings",
+    path: "/buckets/$bucketId/settings",
+    getParentRoute: () => appRouteRoute,
+  } as any);
 
 export interface FileRoutesByFullPath {
   "/settings": typeof appSettingsRoute;
@@ -90,7 +111,10 @@ export interface FileRoutesByFullPath {
   "/buckets/": typeof appBucketsIndexRoute;
   "/domains/": typeof appDomainsIndexRoute;
   "/keys/": typeof appKeysIndexRoute;
+  "/buckets/$bucketId/access": typeof appBucketsBucketIdAccessRoute;
+  "/buckets/$bucketId/domains": typeof appBucketsBucketIdDomainsRoute;
   "/buckets/$bucketId/files": typeof appBucketsBucketIdFilesRoute;
+  "/buckets/$bucketId/settings": typeof appBucketsBucketIdSettingsRoute;
   "/buckets/$bucketId/": typeof appBucketsBucketIdIndexRoute;
 }
 export interface FileRoutesByTo {
@@ -102,7 +126,10 @@ export interface FileRoutesByTo {
   "/buckets": typeof appBucketsIndexRoute;
   "/domains": typeof appDomainsIndexRoute;
   "/keys": typeof appKeysIndexRoute;
+  "/buckets/$bucketId/access": typeof appBucketsBucketIdAccessRoute;
+  "/buckets/$bucketId/domains": typeof appBucketsBucketIdDomainsRoute;
   "/buckets/$bucketId/files": typeof appBucketsBucketIdFilesRoute;
+  "/buckets/$bucketId/settings": typeof appBucketsBucketIdSettingsRoute;
   "/buckets/$bucketId": typeof appBucketsBucketIdIndexRoute;
 }
 export interface FileRoutesById {
@@ -117,7 +144,10 @@ export interface FileRoutesById {
   "/(app)/buckets/": typeof appBucketsIndexRoute;
   "/(app)/domains/": typeof appDomainsIndexRoute;
   "/(app)/keys/": typeof appKeysIndexRoute;
+  "/(app)/buckets/$bucketId/access": typeof appBucketsBucketIdAccessRoute;
+  "/(app)/buckets/$bucketId/domains": typeof appBucketsBucketIdDomainsRoute;
   "/(app)/buckets/$bucketId/files": typeof appBucketsBucketIdFilesRoute;
+  "/(app)/buckets/$bucketId/settings": typeof appBucketsBucketIdSettingsRoute;
   "/(app)/buckets/$bucketId/": typeof appBucketsBucketIdIndexRoute;
 }
 export interface FileRouteTypes {
@@ -131,7 +161,10 @@ export interface FileRouteTypes {
     | "/buckets/"
     | "/domains/"
     | "/keys/"
+    | "/buckets/$bucketId/access"
+    | "/buckets/$bucketId/domains"
     | "/buckets/$bucketId/files"
+    | "/buckets/$bucketId/settings"
     | "/buckets/$bucketId/";
   fileRoutesByTo: FileRoutesByTo;
   to:
@@ -143,7 +176,10 @@ export interface FileRouteTypes {
     | "/buckets"
     | "/domains"
     | "/keys"
+    | "/buckets/$bucketId/access"
+    | "/buckets/$bucketId/domains"
     | "/buckets/$bucketId/files"
+    | "/buckets/$bucketId/settings"
     | "/buckets/$bucketId";
   id:
     | "__root__"
@@ -157,7 +193,10 @@ export interface FileRouteTypes {
     | "/(app)/buckets/"
     | "/(app)/domains/"
     | "/(app)/keys/"
+    | "/(app)/buckets/$bucketId/access"
+    | "/(app)/buckets/$bucketId/domains"
     | "/(app)/buckets/$bucketId/files"
+    | "/(app)/buckets/$bucketId/settings"
     | "/(app)/buckets/$bucketId/";
   fileRoutesById: FileRoutesById;
 }
@@ -245,11 +284,32 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof appBucketsBucketIdIndexRouteImport;
       parentRoute: typeof appRouteRoute;
     };
+    "/(app)/buckets/$bucketId/access": {
+      id: "/(app)/buckets/$bucketId/access";
+      path: "/buckets/$bucketId/access";
+      fullPath: "/buckets/$bucketId/access";
+      preLoaderRoute: typeof appBucketsBucketIdAccessRouteImport;
+      parentRoute: typeof appRouteRoute;
+    };
+    "/(app)/buckets/$bucketId/domains": {
+      id: "/(app)/buckets/$bucketId/domains";
+      path: "/buckets/$bucketId/domains";
+      fullPath: "/buckets/$bucketId/domains";
+      preLoaderRoute: typeof appBucketsBucketIdDomainsRouteImport;
+      parentRoute: typeof appRouteRoute;
+    };
     "/(app)/buckets/$bucketId/files": {
       id: "/(app)/buckets/$bucketId/files";
       path: "/buckets/$bucketId/files";
       fullPath: "/buckets/$bucketId/files";
       preLoaderRoute: typeof appBucketsBucketIdFilesRouteImport;
+      parentRoute: typeof appRouteRoute;
+    };
+    "/(app)/buckets/$bucketId/settings": {
+      id: "/(app)/buckets/$bucketId/settings";
+      path: "/buckets/$bucketId/settings";
+      fullPath: "/buckets/$bucketId/settings";
+      preLoaderRoute: typeof appBucketsBucketIdSettingsRouteImport;
       parentRoute: typeof appRouteRoute;
     };
   }
@@ -263,7 +323,10 @@ interface appRouteRouteChildren {
   appBucketsIndexRoute: typeof appBucketsIndexRoute;
   appDomainsIndexRoute: typeof appDomainsIndexRoute;
   appKeysIndexRoute: typeof appKeysIndexRoute;
+  appBucketsBucketIdAccessRoute: typeof appBucketsBucketIdAccessRoute;
+  appBucketsBucketIdDomainsRoute: typeof appBucketsBucketIdDomainsRoute;
   appBucketsBucketIdFilesRoute: typeof appBucketsBucketIdFilesRoute;
+  appBucketsBucketIdSettingsRoute: typeof appBucketsBucketIdSettingsRoute;
   appBucketsBucketIdIndexRoute: typeof appBucketsBucketIdIndexRoute;
 }
 
@@ -275,7 +338,10 @@ const appRouteRouteChildren: appRouteRouteChildren = {
   appBucketsIndexRoute: appBucketsIndexRoute,
   appDomainsIndexRoute: appDomainsIndexRoute,
   appKeysIndexRoute: appKeysIndexRoute,
+  appBucketsBucketIdAccessRoute: appBucketsBucketIdAccessRoute,
+  appBucketsBucketIdDomainsRoute: appBucketsBucketIdDomainsRoute,
   appBucketsBucketIdFilesRoute: appBucketsBucketIdFilesRoute,
+  appBucketsBucketIdSettingsRoute: appBucketsBucketIdSettingsRoute,
   appBucketsBucketIdIndexRoute: appBucketsBucketIdIndexRoute,
 };
 
