@@ -124,7 +124,7 @@ function BucketQuickLinks({
             </span>
           </div>
           <p className="text-xs text-muted-foreground">
-            CORS configuration, storage quotas, and bucket deletion.
+            CORS configuration, lifecycle rules, storage quotas, and bucket deletion.
           </p>
         </div>
         <div className="mt-4 flex items-center text-xs font-medium text-primary">

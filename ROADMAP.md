@@ -230,7 +230,7 @@ Garage API for each one before starting, since this list was put together from i
 - [x] File preview in the object browser: images, video, PDF, and text
 - [x] Per-bucket quotas: maximum size and maximum number of objects (Garage admin API)
 - [x] CORS editor per bucket (`PutBucketCors`), needed for browser uploads straight to S3
-- [ ] Lifecycle rules per bucket: expire objects after N days, abort incomplete multipart uploads
+- [x] Lifecycle rules per bucket: expire objects after N days, abort incomplete multipart uploads
       (Garage supports only these two, no storage-class transitions)
 - [x] Connection snippets on the access key page: aws-cli, rclone, and the JS/Python SDKs with the
       endpoint, region, and key filled in

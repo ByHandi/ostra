@@ -22,6 +22,9 @@ type ObjectStore interface {
 	GetCORS(ctx context.Context, bucket string) (objects.CORSConfiguration, error)
 	SetCORS(ctx context.Context, bucket string, cfg objects.CORSConfiguration) error
 	DeleteCORS(ctx context.Context, bucket string) error
+	GetLifecycle(ctx context.Context, bucket string) (objects.LifecycleConfiguration, error)
+	SetLifecycle(ctx context.Context, bucket string, cfg objects.LifecycleConfiguration) error
+	DeleteLifecycle(ctx context.Context, bucket string) error
 }
 
 const (

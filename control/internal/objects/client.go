@@ -14,6 +14,7 @@ import (
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/cors"
 	"github.com/minio/minio-go/v7/pkg/credentials"
+	"github.com/minio/minio-go/v7/pkg/lifecycle"
 )
 
 // partSize bounds memory per upload: minio-go buffers one part at a time.
@@ -52,6 +53,12 @@ type CORSRule struct {
 // CORSConfiguration is the full CORS setup on a bucket.
 type CORSConfiguration struct {
 	Rules []CORSRule `json:"rules"`
+}
+
+// LifecycleConfiguration describes automated expiration and multipart abort rules for a bucket.
+type LifecycleConfiguration struct {
+	ExpirationDays                     *int `json:"expirationDays"`
+	AbortIncompleteMultipartUploadDays *int `json:"abortIncompleteMultipartUploadDays"`
 }
 
 type Client struct {
@@ -224,6 +231,80 @@ func (c *Client) SetCORS(ctx context.Context, bucket string, cfg CORSConfigurati
 // DeleteCORS removes CORS configuration from a bucket.
 func (c *Client) DeleteCORS(ctx context.Context, bucket string) error {
 	return mapErr(c.client.SetBucketCors(ctx, bucket, nil))
+}
+
+// GetLifecycle retrieves the lifecycle configuration for a bucket.
+func (c *Client) GetLifecycle(ctx context.Context, bucket string) (LifecycleConfiguration, error) {
+	lc, err := c.client.GetBucketLifecycle(ctx, bucket)
+	if err != nil {
+		if isLifecycleNotFound(err) {
+			return LifecycleConfiguration{}, nil
+		}
+		return LifecycleConfiguration{}, mapErr(err)
+	}
+	if lc == nil || len(lc.Rules) == 0 {
+		return LifecycleConfiguration{}, nil
+	}
+	return extractLifecycleRules(lc.Rules), nil
+}
+
+func isLifecycleNotFound(err error) bool {
+	resp := minio.ToErrorResponse(err)
+	return resp.Code == "NoSuchLifecycleConfiguration" || (resp.StatusCode == http.StatusNotFound && !strings.Contains(resp.Code, "Bucket"))
+}
+
+func extractLifecycleRules(rules []lifecycle.Rule) LifecycleConfiguration {
+	var out LifecycleConfiguration
+	for _, r := range rules {
+		if r.Status != "Enabled" {
+			continue
+		}
+		if !r.Expiration.IsDaysNull() && int(r.Expiration.Days) > 0 {
+			days := int(r.Expiration.Days)
+			out.ExpirationDays = &days
+		}
+		if !r.AbortIncompleteMultipartUpload.IsDaysNull() && int(r.AbortIncompleteMultipartUpload.DaysAfterInitiation) > 0 {
+			days := int(r.AbortIncompleteMultipartUpload.DaysAfterInitiation)
+			out.AbortIncompleteMultipartUploadDays = &days
+		}
+	}
+	return out
+}
+
+// SetLifecycle applies lifecycle configuration to a bucket.
+// If both expiration and abort days are unset/zero, the lifecycle configuration is removed.
+func (c *Client) SetLifecycle(ctx context.Context, bucket string, cfg LifecycleConfiguration) error {
+	hasExp := cfg.ExpirationDays != nil && *cfg.ExpirationDays > 0
+	hasAbort := cfg.AbortIncompleteMultipartUploadDays != nil && *cfg.AbortIncompleteMultipartUploadDays > 0
+	if !hasExp && !hasAbort {
+		return c.DeleteLifecycle(ctx, bucket)
+	}
+
+	rule := lifecycle.Rule{
+		ID:         "ostra-lifecycle",
+		Status:     "Enabled",
+		RuleFilter: lifecycle.Filter{},
+	}
+	if hasExp {
+		rule.Expiration = lifecycle.Expiration{
+			Days: lifecycle.ExpirationDays(*cfg.ExpirationDays),
+		}
+	}
+	if hasAbort {
+		rule.AbortIncompleteMultipartUpload = lifecycle.AbortIncompleteMultipartUpload{
+			DaysAfterInitiation: lifecycle.ExpirationDays(*cfg.AbortIncompleteMultipartUploadDays),
+		}
+	}
+
+	lc := &lifecycle.Configuration{
+		Rules: []lifecycle.Rule{rule},
+	}
+	return mapErr(c.client.SetBucketLifecycle(ctx, bucket, lc))
+}
+
+// DeleteLifecycle removes the lifecycle configuration from a bucket.
+func (c *Client) DeleteLifecycle(ctx context.Context, bucket string) error {
+	return mapErr(c.client.SetBucketLifecycle(ctx, bucket, &lifecycle.Configuration{}))
 }
 
 // IsAccessDenied reports whether S3 rejected the request for lack of permissions.

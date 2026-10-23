@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 import AppHeader from "@/components/app-header";
 import { BucketCors } from "@/components/buckets/bucket-cors";
+import { BucketLifecycle } from "@/components/buckets/bucket-lifecycle";
 import { BucketTabs } from "@/components/buckets/bucket-tabs";
 import { ConfigureWebsiteDialog } from "@/components/buckets/configure-website-dialog";
 import { SetQuotaDialog } from "@/components/buckets/set-quota-dialog";
@@ -28,7 +29,7 @@ export const Route = createFileRoute("/(app)/buckets/$bucketId/settings")({
   head: ({ loaderData }) =>
     pageMeta(
       loaderData ? `Settings · ${loaderData}` : "Settings",
-      "Configure CORS rules, storage quotas, and bucket settings.",
+      "Configure CORS rules, lifecycle rules, storage quotas, and bucket settings.",
     ),
   component: BucketSettingsPage,
 });
@@ -66,6 +67,7 @@ function BucketSettingsPage() {
         {bucket.isPending ? (
           <>
             <Section.Skeleton rows={2} />
+            <BucketLifecycle.Skeleton />
             <Section.Skeleton rows={2} />
             <Section.Skeleton rows={1} />
           </>
@@ -74,6 +76,7 @@ function BucketSettingsPage() {
         ) : (
           <>
             <BucketCors bucketId={bucketId} />
+            <BucketLifecycle bucketId={bucketId} bucketName={bucket.data.name} />
             <StorageQuotasSection bucket={bucket.data} />
             <WebsiteSection bucket={bucket.data} />
             <DangerZoneSection bucket={bucket.data} onRemove={remove} />

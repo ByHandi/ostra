@@ -33,6 +33,11 @@ export interface CorsConfiguration {
   rules: CorsRule[];
 }
 
+export interface LifecycleConfiguration {
+  expirationDays: number | null;
+  abortIncompleteMultipartUploadDays: number | null;
+}
+
 export interface Bucket {
   id: string;
   name: string;
@@ -142,6 +147,7 @@ export const storageKeys = {
   domains: ["domains"] as const,
   domain: (id: number) => ["domains", id] as const,
   bucketCors: (id: string) => ["buckets", id, "cors"] as const,
+  bucketLifecycle: (id: string) => ["buckets", id, "lifecycle"] as const,
 };
 
 async function data<T>(promise: Promise<{ data?: T }>): Promise<T> {
@@ -186,6 +192,13 @@ export const bucketCorsQuery = (id: string) =>
   queryOptions({
     queryKey: storageKeys.bucketCors(id),
     queryFn: () => data(api.get<CorsConfiguration>(`/buckets/${encodeURIComponent(id)}/cors`)),
+  });
+
+export const bucketLifecycleQuery = (id: string) =>
+  queryOptions({
+    queryKey: storageKeys.bucketLifecycle(id),
+    queryFn: () =>
+      data(api.get<LifecycleConfiguration>(`/buckets/${encodeURIComponent(id)}/lifecycle`)),
   });
 
 export const keysQuery = () =>
@@ -243,6 +256,12 @@ export const updateBucketCors = (id: string, cors: CorsConfiguration) =>
 
 export const deleteBucketCors = (id: string) =>
   data(api.delete<CorsConfiguration>(`/buckets/${encodeURIComponent(id)}/cors`));
+
+export const updateBucketLifecycle = (id: string, lifecycle: LifecycleConfiguration) =>
+  data(api.put<LifecycleConfiguration>(`/buckets/${encodeURIComponent(id)}/lifecycle`, lifecycle));
+
+export const deleteBucketLifecycle = (id: string) =>
+  data(api.delete<LifecycleConfiguration>(`/buckets/${encodeURIComponent(id)}/lifecycle`));
 
 export const deleteBucket = (id: string) => api.delete(`/buckets/${encodeURIComponent(id)}`);
 

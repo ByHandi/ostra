@@ -247,6 +247,31 @@ func TestBucketWebsiteValidation(t *testing.T) {
 	}
 }
 
+func TestBucketLifecycleValidation(t *testing.T) {
+	srv := newTestServer(t)
+	login := call(t, srv, "POST", "/api/auth/login", "", nil, `{"email":"admin@example.com","password":"secret123"}`)
+	token := accessToken(t, login)
+
+	if r := call(t, srv, "GET", "/api/buckets/bucket/lifecycle", "", nil, ""); r.status != http.StatusUnauthorized {
+		t.Fatalf("get lifecycle without token = %d, want 401", r.status)
+	}
+	if r := call(t, srv, "PUT", "/api/buckets/bucket/lifecycle", "", nil, `{"expirationDays":30}`); r.status != http.StatusUnauthorized {
+		t.Fatalf("put lifecycle without token = %d, want 401", r.status)
+	}
+	if r := call(t, srv, "DELETE", "/api/buckets/bucket/lifecycle", "", nil, ""); r.status != http.StatusUnauthorized {
+		t.Fatalf("delete lifecycle without token = %d, want 401", r.status)
+	}
+	if r := call(t, srv, "PUT", "/api/buckets/bucket/lifecycle", token, nil, `{"expirationDays":30,"extra":true}`); r.status != http.StatusBadRequest {
+		t.Fatalf("put lifecycle with unknown field = %d, want 400", r.status)
+	}
+	if r := call(t, srv, "PUT", "/api/buckets/bucket/lifecycle", token, nil, `{"expirationDays":-5}`); r.status != http.StatusBadRequest || len(r.body.Error.Errors["expirationDays"]) != 1 {
+		t.Fatalf("put lifecycle with negative expirationDays = %d %+v", r.status, r.body.Error)
+	}
+	if r := call(t, srv, "PUT", "/api/buckets/bucket/lifecycle", token, nil, `{"abortIncompleteMultipartUploadDays":-1}`); r.status != http.StatusBadRequest || len(r.body.Error.Errors["abortIncompleteMultipartUploadDays"]) != 1 {
+		t.Fatalf("put lifecycle with negative abortDays = %d %+v", r.status, r.body.Error)
+	}
+}
+
 func TestHealthz(t *testing.T) {
 	healthy := true
 	h := &Handler{opts: Options{Health: func(context.Context) error {
