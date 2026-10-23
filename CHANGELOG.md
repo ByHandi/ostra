@@ -14,6 +14,7 @@ The release workflow uses the contents of that version's section as the GitHub R
 - Per-bucket CORS configuration editor on the bucket page to allow cross-origin browser uploads and S3 requests.
 - Connection snippets modal on the Access Keys and key detail pages with ready-to-copy configurations and code for AWS CLI, rclone, Node.js (AWS SDK v3), Python (boto3), and environment variables.
 - Configurable `S3_PUBLIC_URL` environment variable and `GET /api/config` endpoint to provide the authoritative S3 endpoint and region for dashboard connection snippets when using custom domains or external proxies (e.g. `cdn.example.com`).
+- Custom static website configuration per bucket with editable index and error documents (e.g. for SPAs), accessible from the bucket settings tab.
 
 ## [0.2.0] - 2026-10-22
 

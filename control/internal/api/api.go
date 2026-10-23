@@ -113,6 +113,7 @@ func (h *Handler) Public() http.Handler {
 			r.Post("/buckets", h.createBucket)
 			r.Get("/buckets/{id}", h.getBucket)
 			r.Put("/buckets/{id}/quotas", h.updateBucketQuotas)
+			r.Put("/buckets/{id}/website", h.updateBucketWebsite)
 			r.Get("/buckets/{id}/cors", h.getBucketCORS)
 			r.Put("/buckets/{id}/cors", h.setBucketCORS)
 			r.Delete("/buckets/{id}/cors", h.deleteBucketCORS)

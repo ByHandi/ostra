@@ -46,43 +46,57 @@ function QuotaBar({
   );
 }
 
+function ObjectsValue({ bucket }: { bucket: BucketDetail }) {
+  if (!bucket.quotas?.maxObjects) {
+    return formatNumber(bucket.objects);
+  }
+  return (
+    <div className="flex items-baseline gap-1">
+      <span>{formatNumber(bucket.objects)}</span>
+      <span className="text-xs text-muted-foreground">
+        / {formatNumber(bucket.quotas.maxObjects)}
+      </span>
+    </div>
+  );
+}
+
+function SizeValue({ bucket }: { bucket: BucketDetail }) {
+  if (!bucket.quotas?.maxSize) {
+    return formatBytes(bucket.bytes);
+  }
+  return (
+    <div className="flex items-baseline gap-1">
+      <span>{formatBytes(bucket.bytes)}</span>
+      <span className="text-xs text-muted-foreground">/ {formatBytes(bucket.quotas.maxSize)}</span>
+    </div>
+  );
+}
+
+function WebsiteAccessValue({ bucket }: { bucket: BucketDetail }) {
+  if (!bucket.websiteAccess) {
+    return <Badge variant="secondary">Private</Badge>;
+  }
+
+  const indexDoc = bucket.websiteConfig?.indexDocument || "index.html";
+  const errorDoc = bucket.websiteConfig?.errorDocument;
+
+  return (
+    <div className="flex flex-col items-start gap-1">
+      <Badge variant="success">Public (read-only)</Badge>
+      <span className="font-mono text-[11px] text-muted-foreground">
+        {indexDoc}
+        {errorDoc ? ` · ${errorDoc}` : ""}
+      </span>
+    </div>
+  );
+}
+
 function BucketSummary({ bucket }: { bucket: BucketDetail }) {
   const items = [
-    {
-      label: "Objects",
-      value: bucket.quotas?.maxObjects ? (
-        <div className="flex items-baseline gap-1">
-          <span>{formatNumber(bucket.objects)}</span>
-          <span className="text-xs text-muted-foreground">
-            / {formatNumber(bucket.quotas.maxObjects)}
-          </span>
-        </div>
-      ) : (
-        formatNumber(bucket.objects)
-      ),
-    },
-    {
-      label: "Size",
-      value: bucket.quotas?.maxSize ? (
-        <div className="flex items-baseline gap-1">
-          <span>{formatBytes(bucket.bytes)}</span>
-          <span className="text-xs text-muted-foreground">
-            / {formatBytes(bucket.quotas.maxSize)}
-          </span>
-        </div>
-      ) : (
-        formatBytes(bucket.bytes)
-      ),
-    },
+    { label: "Objects", value: <ObjectsValue bucket={bucket} /> },
+    { label: "Size", value: <SizeValue bucket={bucket} /> },
     { label: "Created", value: formatDate(bucket.created) },
-    {
-      label: "Website access",
-      value: bucket.websiteAccess ? (
-        <Badge variant="success">Public (read-only)</Badge>
-      ) : (
-        <Badge variant="secondary">Private</Badge>
-      ),
-    },
+    { label: "Website access", value: <WebsiteAccessValue bucket={bucket} /> },
   ];
 
   const hasQuotas = Boolean(bucket.quotas?.maxSize || bucket.quotas?.maxObjects);

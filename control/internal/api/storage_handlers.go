@@ -87,6 +87,45 @@ func (h *Handler) updateBucketQuotas(w http.ResponseWriter, r *http.Request) {
 	writeData(w, http.StatusOK, out)
 }
 
+func (h *Handler) updateBucketWebsite(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		Enabled       *bool   `json:"enabled"`
+		IndexDocument *string `json:"indexDocument"`
+		ErrorDocument *string `json:"errorDocument"`
+	}
+	if !decode(w, r, &in) {
+		return
+	}
+	id := chi.URLParam(r, "id")
+	enabled := true
+	if in.Enabled != nil {
+		enabled = *in.Enabled
+	}
+	var indexDoc, errorDoc string
+	if in.IndexDocument != nil {
+		indexDoc = *in.IndexDocument
+	}
+	if in.ErrorDocument != nil {
+		errorDoc = *in.ErrorDocument
+	}
+
+	b, err := h.svc.UpdateBucketWebsite(r.Context(), id, enabled, indexDoc, errorDoc)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	rows, err := h.svc.BucketDomains(r.Context(), id)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	out := bucketDetailResponse{BucketDetail: b, DomainRecords: make([]domainResponse, 0, len(rows))}
+	for _, d := range rows {
+		out.DomainRecords = append(out.DomainRecords, h.toDomain(d))
+	}
+	writeData(w, http.StatusOK, out)
+}
+
 func (h *Handler) getBucketCORS(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	cfg, err := h.svc.GetBucketCORS(r.Context(), id)

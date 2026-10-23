@@ -232,9 +232,9 @@ Garage API for each one before starting, since this list was put together from i
 - [x] CORS editor per bucket (`PutBucketCors`), needed for browser uploads straight to S3
 - [ ] Lifecycle rules per bucket: expire objects after N days, abort incomplete multipart uploads
       (Garage supports only these two, no storage-class transitions)
-- [ ] Connection snippets on the access key page: aws-cli, rclone, and the JS/Python SDKs with the
+- [x] Connection snippets on the access key page: aws-cli, rclone, and the JS/Python SDKs with the
       endpoint, region, and key filled in
-- [ ] Website settings per bucket: index document and error page (today the website is only
+- [x] Website settings per bucket: index document and error page (today the website is only
       switched on with the defaults)
 - [ ] Object metadata: view and edit `Content-Type`, `Cache-Control`, `Content-Disposition`
       (through a copy onto itself)
