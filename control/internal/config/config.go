@@ -51,6 +51,9 @@ type Config struct {
 	// used by the object browser.
 	S3Endpoint string
 	S3Region   string
+	// S3PublicURL is the public-facing S3 URL for clients (e.g. https://s3.example.com).
+	// Used by the dashboard to generate copy-paste connection snippets.
+	S3PublicURL string
 	// MaxUploadBytes caps one object browser upload.
 	MaxUploadBytes int64
 
@@ -87,6 +90,7 @@ func Load() (Config, error) {
 		AdminName:        env("ADMIN_NAME", "Admin"),
 		AdminPassword:    os.Getenv("ADMIN_PASSWORD"),
 	}
+	cfg.S3PublicURL = resolveS3PublicURL(os.Getenv("S3_PUBLIC_URL"), cfg.EdgeHostname, cfg.WebRootDomain, cfg.CookieSecure)
 
 	maxUploadMB, err := strconv.ParseInt(env("MAX_UPLOAD_SIZE_MB", "5120"), 10, 64)
 	if err != nil || maxUploadMB <= 0 {
@@ -193,6 +197,32 @@ func IsDevDomain(domain string) bool {
 		}
 	}
 	return false
+}
+
+func resolveS3PublicURL(raw, edgeHostname, webRootDomain string, cookieSecure bool) string {
+	raw = strings.TrimRight(strings.TrimSpace(raw), "/")
+	if raw != "" {
+		if !strings.HasPrefix(raw, "http://") && !strings.HasPrefix(raw, "https://") {
+			raw = "https://" + raw
+		}
+		return raw
+	}
+
+	if !cookieSecure || IsDevDomain(edgeHostname) || edgeHostname == "" {
+		return "http://s3.localhost"
+	}
+
+	if strings.HasPrefix(webRootDomain, ".web.") {
+		base := strings.TrimPrefix(webRootDomain, ".web.")
+		return "https://s3." + base
+	}
+
+	if strings.HasPrefix(edgeHostname, "edge.") {
+		base := strings.TrimPrefix(edgeHostname, "edge.")
+		return "https://s3." + base
+	}
+
+	return "http://s3.localhost"
 }
 
 // ParsePrefixes parses a comma-separated list of CIDRs or single IP addresses.

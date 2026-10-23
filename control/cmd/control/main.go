@@ -138,6 +138,8 @@ func serve() error {
 		Version:        api.Version{Version: version, Commit: commit},
 		DownloadSecret: cfg.JWTSecret,
 		MaxUploadBytes: cfg.MaxUploadBytes,
+		S3PublicURL:    cfg.S3PublicURL,
+		S3Region:       cfg.S3Region,
 		UI:             ui.Handler(),
 	})
 	servers := []*http.Server{

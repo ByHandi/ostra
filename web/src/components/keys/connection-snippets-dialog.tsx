@@ -1,3 +1,5 @@
+import { useQuery } from "@tanstack/react-query";
+
 import { useState } from "react";
 
 import { CopyButton } from "@/components/copy-button";
@@ -21,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { serverConfigQuery } from "@/lib/api/storage";
 import { S3_REGION, getS3Endpoint } from "@/lib/s3-endpoint";
 
 export interface AvailableKey {
@@ -98,8 +101,13 @@ export function ConnectionSnippetsDialog({
   const open = isControlled ? openProp : internalOpen;
   const setOpen = isControlled ? (onOpenChangeProp ?? (() => {})) : setInternalOpen;
 
-  const defaultEndpoint = getS3Endpoint();
-  const [endpoint, setEndpoint] = useState(defaultEndpoint);
+  const serverConfig = useQuery(serverConfigQuery());
+  const detectedEndpoint = getS3Endpoint();
+  const configuredEndpoint = serverConfig.data?.s3Endpoint || detectedEndpoint;
+  const region = serverConfig.data?.s3Region || S3_REGION;
+
+  const [customEndpoint, setCustomEndpoint] = useState<string | null>(null);
+  const endpoint = customEndpoint ?? configuredEndpoint;
 
   const [selectedKeyId, setSelectedKeyId] = useState<string>(() =>
     getInitialKeyId(keyId, availableKeys),
@@ -114,7 +122,7 @@ export function ConnectionSnippetsDialog({
     customSecret,
   );
 
-  const tabProps = { endpoint, effectiveKeyId, effectiveSecret };
+  const tabProps = { endpoint, region, effectiveKeyId, effectiveSecret };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -143,11 +151,7 @@ export function ConnectionSnippetsDialog({
             onSelectKeyId={setSelectedKeyId}
           />
 
-          <EndpointStrip
-            endpoint={endpoint}
-            defaultEndpoint={defaultEndpoint}
-            onEndpointChange={setEndpoint}
-          />
+          <EndpointStrip endpoint={endpoint} region={region} onEndpointChange={setCustomEndpoint} />
 
           <SecretNotice
             secretAccessKey={secretAccessKey}
@@ -247,11 +251,11 @@ function KeyHeader({ keyId, keyName, availableKeys, activeKeyId, onSelectKeyId }
 
 interface EndpointStripProps {
   endpoint: string;
-  defaultEndpoint: string;
-  onEndpointChange: (endpoint: string) => void;
+  region: string;
+  onEndpointChange: (endpoint: string | null) => void;
 }
 
-function EndpointStrip({ endpoint, defaultEndpoint, onEndpointChange }: EndpointStripProps) {
+function EndpointStrip({ endpoint, region, onEndpointChange }: EndpointStripProps) {
   const [isEditing, setIsEditing] = useState(false);
 
   return (
@@ -264,7 +268,7 @@ function EndpointStrip({ endpoint, defaultEndpoint, onEndpointChange }: Endpoint
             onClick={() => setIsEditing((prev) => !prev)}
             className="text-[11px] text-primary hover:underline"
           >
-            {isEditing ? "Done" : "Change"}
+            {isEditing ? "Done" : "Override"}
           </button>
         </div>
         {isEditing ? (
@@ -280,7 +284,7 @@ function EndpointStrip({ endpoint, defaultEndpoint, onEndpointChange }: Endpoint
               size="xs"
               variant="ghost"
               onClick={() => {
-                onEndpointChange(defaultEndpoint);
+                onEndpointChange(null);
                 setIsEditing(false);
               }}
             >
@@ -297,8 +301,8 @@ function EndpointStrip({ endpoint, defaultEndpoint, onEndpointChange }: Endpoint
       <div className="space-y-1">
         <span className="block font-medium text-muted-foreground">Cluster Region</span>
         <div className="flex items-center gap-1 font-mono font-medium">
-          <span>{S3_REGION}</span>
-          <CopyButton value={S3_REGION} label="Copy region" toastMessage="Region copied" />
+          <span>{region}</span>
+          <CopyButton value={region} label="Copy region" toastMessage="Region copied" />
         </div>
       </div>
     </div>
@@ -355,11 +359,12 @@ function SecretNotice({ secretAccessKey, customSecret, onCustomSecretChange }: S
 
 interface TabProps {
   endpoint: string;
+  region: string;
   effectiveKeyId: string;
   effectiveSecret: string;
 }
 
-function AwsCliTab({ endpoint, effectiveKeyId, effectiveSecret }: TabProps) {
+function AwsCliTab({ endpoint, region, effectiveKeyId, effectiveSecret }: TabProps) {
   return (
     <TabsContent value="aws-cli" className="space-y-4 pt-2">
       <SnippetBlock
@@ -368,7 +373,7 @@ function AwsCliTab({ endpoint, effectiveKeyId, effectiveSecret }: TabProps) {
         language="bash"
         code={`aws configure set aws_access_key_id ${effectiveKeyId}
 aws configure set aws_secret_access_key ${effectiveSecret}
-aws configure set default.region ${S3_REGION}
+aws configure set default.region ${region}
 aws configure set default.s3.endpoint_url ${endpoint}`}
       />
 
@@ -392,7 +397,7 @@ aws_secret_access_key = ${effectiveSecret}`}
           title="~/.aws/config"
           language="ini"
           code={`[default]
-region = ${S3_REGION}
+region = ${region}
 endpoint_url = ${endpoint}
 s3 =
     addressing_style = path`}
@@ -402,7 +407,7 @@ s3 =
   );
 }
 
-function RcloneTab({ endpoint, effectiveKeyId, effectiveSecret }: TabProps) {
+function RcloneTab({ endpoint, region, effectiveKeyId, effectiveSecret }: TabProps) {
   return (
     <TabsContent value="rclone" className="space-y-4 pt-2">
       <SnippetBlock
@@ -415,7 +420,7 @@ provider = Other
 access_key_id = ${effectiveKeyId}
 secret_access_key = ${effectiveSecret}
 endpoint = ${endpoint}
-region = ${S3_REGION}
+region = ${region}
 force_path_style = true
 acl = private`}
       />
@@ -430,7 +435,7 @@ acl = private`}
   );
 }
 
-function NodeTab({ endpoint, effectiveKeyId, effectiveSecret }: TabProps) {
+function NodeTab({ endpoint, region, effectiveKeyId, effectiveSecret }: TabProps) {
   return (
     <TabsContent value="node" className="space-y-4 pt-2">
       <SnippetBlock
@@ -447,7 +452,7 @@ function NodeTab({ endpoint, effectiveKeyId, effectiveSecret }: TabProps) {
 
 const s3 = new S3Client({
   endpoint: "${endpoint}",
-  region: "${S3_REGION}",
+  region: "${region}",
   credentials: {
     accessKeyId: "${effectiveKeyId}",
     secretAccessKey: "${effectiveSecret}",
@@ -463,7 +468,7 @@ console.log("Buckets:", Buckets?.map((b) => b.Name));`}
   );
 }
 
-function PythonTab({ endpoint, effectiveKeyId, effectiveSecret }: TabProps) {
+function PythonTab({ endpoint, region, effectiveKeyId, effectiveSecret }: TabProps) {
   return (
     <TabsContent value="python" className="space-y-4 pt-2">
       <SnippetBlock title="Install boto3" language="bash" code="pip install boto3" />
@@ -478,7 +483,7 @@ from botocore.client import Config
 s3 = boto3.client(
     "s3",
     endpoint_url="${endpoint}",
-    region_name="${S3_REGION}",
+    region_name="${region}",
     aws_access_key_id="${effectiveKeyId}",
     aws_secret_access_key="${effectiveSecret}",
     config=Config(s3={"addressing_style": "path"}),
@@ -492,7 +497,7 @@ print("Buckets:", [b["Name"] for b in response.get("Buckets", [])])`}
   );
 }
 
-function EnvTab({ endpoint, effectiveKeyId, effectiveSecret }: TabProps) {
+function EnvTab({ endpoint, region, effectiveKeyId, effectiveSecret }: TabProps) {
   return (
     <TabsContent value="env" className="space-y-4 pt-2">
       <SnippetBlock
@@ -502,7 +507,7 @@ function EnvTab({ endpoint, effectiveKeyId, effectiveSecret }: TabProps) {
         code={`AWS_ACCESS_KEY_ID=${effectiveKeyId}
 AWS_SECRET_ACCESS_KEY=${effectiveSecret}
 AWS_ENDPOINT_URL_S3=${endpoint}
-AWS_DEFAULT_REGION=${S3_REGION}`}
+AWS_DEFAULT_REGION=${region}`}
       />
 
       <SnippetBlock
@@ -512,7 +517,7 @@ AWS_DEFAULT_REGION=${S3_REGION}`}
         code={`export AWS_ACCESS_KEY_ID="${effectiveKeyId}"
 export AWS_SECRET_ACCESS_KEY="${effectiveSecret}"
 export AWS_ENDPOINT_URL_S3="${endpoint}"
-export AWS_DEFAULT_REGION="${S3_REGION}"`}
+export AWS_DEFAULT_REGION="${region}"`}
       />
     </TabsContent>
   );
