@@ -99,3 +99,62 @@ func contains(prefixes []netip.Prefix, ip string) bool {
 	}
 	return false
 }
+
+func TestResolveS3PublicURL(t *testing.T) {
+	tests := []struct {
+		name          string
+		raw           string
+		edgeHostname  string
+		webRootDomain string
+		cookieSecure  bool
+		want          string
+	}{
+		{
+			name: "explicit full URL",
+			raw:  "https://cdn.byhandi.my.id",
+			want: "https://cdn.byhandi.my.id",
+		},
+		{
+			name: "explicit URL with trailing slash",
+			raw:  "https://cdn.byhandi.my.id/",
+			want: "https://cdn.byhandi.my.id",
+		},
+		{
+			name: "explicit host without scheme",
+			raw:  "cdn.byhandi.my.id",
+			want: "https://cdn.byhandi.my.id",
+		},
+		{
+			name:         "dev domain fallback",
+			raw:          "",
+			edgeHostname: "edge.localhost",
+			cookieSecure: false,
+			want:         "http://s3.localhost",
+		},
+		{
+			name:          "prod fallback from webRootDomain",
+			raw:           "",
+			edgeHostname:  "edge.example.com",
+			webRootDomain: ".web.example.com",
+			cookieSecure:  true,
+			want:          "https://s3.example.com",
+		},
+		{
+			name:          "prod fallback from edgeHostname",
+			raw:           "",
+			edgeHostname:  "edge.storage.net",
+			webRootDomain: "",
+			cookieSecure:  true,
+			want:          "https://s3.storage.net",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := resolveS3PublicURL(tt.raw, tt.edgeHostname, tt.webRootDomain, tt.cookieSecure)
+			if got != tt.want {
+				t.Errorf("resolveS3PublicURL() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}

@@ -118,10 +118,16 @@ export interface VersionInfo {
   commit: string;
 }
 
+export interface ServerConfig {
+  s3Endpoint: string;
+  s3Region: string;
+}
+
 // ── Query keys ───────────────────────────────────────────────────────────────
 
 export const storageKeys = {
   version: ["version"] as const,
+  config: ["config"] as const,
   overview: ["overview"] as const,
   buckets: ["buckets"] as const,
   bucket: (id: string) => ["buckets", id] as const,
@@ -142,6 +148,13 @@ export const versionQuery = () =>
   queryOptions({
     queryKey: storageKeys.version,
     queryFn: () => data(api.get<VersionInfo>("/version")),
+    staleTime: Infinity,
+  });
+
+export const serverConfigQuery = () =>
+  queryOptions({
+    queryKey: storageKeys.config,
+    queryFn: () => data(api.get<ServerConfig>("/config")),
     staleTime: Infinity,
   });
 

@@ -44,6 +44,8 @@ func newTestServer(t *testing.T) *httptest.Server {
 	srv := httptest.NewServer(NewHandler(svc, authSvc, Options{
 		CookieSecure: false,
 		Version:      Version{Version: "v1.2.3", Commit: "abc123"},
+		S3PublicURL:  "https://s3.example.com",
+		S3Region:     "garage",
 		UI:           ui,
 	}).Public())
 	t.Cleanup(srv.Close)
@@ -129,6 +131,14 @@ func TestAuthFlow(t *testing.T) {
 	}
 	if r := call(t, srv, "GET", "/api/version", "", nil, ""); r.status != 401 {
 		t.Fatalf("GET /api/version without token = %d, want 401", r.status)
+	}
+
+	cfgRes := call(t, srv, "GET", "/api/config", token, nil, "")
+	if data, _ := cfgRes.body.Data.(map[string]any); cfgRes.status != 200 || data["s3Endpoint"] != "https://s3.example.com" || data["s3Region"] != "garage" {
+		t.Fatalf("GET /api/config = %d %+v", cfgRes.status, cfgRes.body)
+	}
+	if r := call(t, srv, "GET", "/api/config", "", nil, ""); r.status != 401 {
+		t.Fatalf("GET /api/config without token = %d, want 401", r.status)
 	}
 
 	// Refresh rotates the cookie; the old cookie is no longer valid.
