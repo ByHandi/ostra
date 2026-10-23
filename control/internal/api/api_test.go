@@ -44,6 +44,8 @@ func newTestServer(t *testing.T) *httptest.Server {
 	srv := httptest.NewServer(NewHandler(svc, authSvc, Options{
 		CookieSecure: false,
 		Version:      Version{Version: "v1.2.3", Commit: "abc123"},
+		S3PublicURL:  "https://s3.example.com",
+		S3Region:     "garage",
 		UI:           ui,
 	}).Public())
 	t.Cleanup(srv.Close)
@@ -131,6 +133,14 @@ func TestAuthFlow(t *testing.T) {
 		t.Fatalf("GET /api/version without token = %d, want 401", r.status)
 	}
 
+	cfgRes := call(t, srv, "GET", "/api/config", token, nil, "")
+	if data, _ := cfgRes.body.Data.(map[string]any); cfgRes.status != 200 || data["s3Endpoint"] != "https://s3.example.com" || data["s3Region"] != "garage" {
+		t.Fatalf("GET /api/config = %d %+v", cfgRes.status, cfgRes.body)
+	}
+	if r := call(t, srv, "GET", "/api/config", "", nil, ""); r.status != 401 {
+		t.Fatalf("GET /api/config without token = %d, want 401", r.status)
+	}
+
 	// Refresh rotates the cookie; the old cookie is no longer valid.
 	r = call(t, srv, "POST", "/api/auth/refresh-token", "", cookie, "")
 	if r.status != 200 || r.cookie == nil || r.cookie.Value == cookie.Value {
@@ -215,6 +225,50 @@ func TestBucketCORSValidation(t *testing.T) {
 	}
 	if r := call(t, srv, "PUT", "/api/buckets/bucket/cors", token, nil, `{"rules":[{"allowedOrigins":["*"],"allowedMethods":["INVALID"]}]}`); r.status != http.StatusBadRequest || len(r.body.Error.Errors["rules"]) != 1 {
 		t.Fatalf("put cors with invalid method = %d %+v", r.status, r.body.Error)
+	}
+}
+
+func TestBucketWebsiteValidation(t *testing.T) {
+	srv := newTestServer(t)
+	login := call(t, srv, "POST", "/api/auth/login", "", nil, `{"email":"admin@example.com","password":"secret123"}`)
+	token := accessToken(t, login)
+
+	if r := call(t, srv, "PUT", "/api/buckets/bucket/website", "", nil, `{"enabled":true}`); r.status != http.StatusUnauthorized {
+		t.Fatalf("put website without token = %d, want 401", r.status)
+	}
+	if r := call(t, srv, "PUT", "/api/buckets/bucket/website", token, nil, `{"enabled":true,"extra":true}`); r.status != http.StatusBadRequest {
+		t.Fatalf("put website with unknown field = %d, want 400", r.status)
+	}
+	if r := call(t, srv, "PUT", "/api/buckets/bucket/website", token, nil, `{"enabled":true,"indexDocument":"sub/index.html"}`); r.status != http.StatusBadRequest || len(r.body.Error.Errors["indexDocument"]) != 1 {
+		t.Fatalf("put website with slash in indexDocument = %d %+v", r.status, r.body.Error)
+	}
+	if r := call(t, srv, "PUT", "/api/buckets/bucket/website", token, nil, `{"enabled":true,"errorDocument":"../404.html"}`); r.status != http.StatusBadRequest || len(r.body.Error.Errors["errorDocument"]) != 1 {
+		t.Fatalf("put website with path traversal in errorDocument = %d %+v", r.status, r.body.Error)
+	}
+}
+
+func TestBucketLifecycleValidation(t *testing.T) {
+	srv := newTestServer(t)
+	login := call(t, srv, "POST", "/api/auth/login", "", nil, `{"email":"admin@example.com","password":"secret123"}`)
+	token := accessToken(t, login)
+
+	if r := call(t, srv, "GET", "/api/buckets/bucket/lifecycle", "", nil, ""); r.status != http.StatusUnauthorized {
+		t.Fatalf("get lifecycle without token = %d, want 401", r.status)
+	}
+	if r := call(t, srv, "PUT", "/api/buckets/bucket/lifecycle", "", nil, `{"expirationDays":30}`); r.status != http.StatusUnauthorized {
+		t.Fatalf("put lifecycle without token = %d, want 401", r.status)
+	}
+	if r := call(t, srv, "DELETE", "/api/buckets/bucket/lifecycle", "", nil, ""); r.status != http.StatusUnauthorized {
+		t.Fatalf("delete lifecycle without token = %d, want 401", r.status)
+	}
+	if r := call(t, srv, "PUT", "/api/buckets/bucket/lifecycle", token, nil, `{"expirationDays":30,"extra":true}`); r.status != http.StatusBadRequest {
+		t.Fatalf("put lifecycle with unknown field = %d, want 400", r.status)
+	}
+	if r := call(t, srv, "PUT", "/api/buckets/bucket/lifecycle", token, nil, `{"expirationDays":-5}`); r.status != http.StatusBadRequest || len(r.body.Error.Errors["expirationDays"]) != 1 {
+		t.Fatalf("put lifecycle with negative expirationDays = %d %+v", r.status, r.body.Error)
+	}
+	if r := call(t, srv, "PUT", "/api/buckets/bucket/lifecycle", token, nil, `{"abortIncompleteMultipartUploadDays":-1}`); r.status != http.StatusBadRequest || len(r.body.Error.Errors["abortIncompleteMultipartUploadDays"]) != 1 {
+		t.Fatalf("put lifecycle with negative abortDays = %d %+v", r.status, r.body.Error)
 	}
 }
 

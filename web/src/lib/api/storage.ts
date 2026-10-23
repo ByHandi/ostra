@@ -15,6 +15,11 @@ export interface BucketQuotas {
   maxObjects: number | null;
 }
 
+export interface BucketWebsiteConfig {
+  indexDocument: string;
+  errorDocument: string | null;
+}
+
 export interface CorsRule {
   id?: string;
   allowedOrigins: string[];
@@ -28,6 +33,11 @@ export interface CorsConfiguration {
   rules: CorsRule[];
 }
 
+export interface LifecycleConfiguration {
+  expirationDays: number | null;
+  abortIncompleteMultipartUploadDays: number | null;
+}
+
 export interface Bucket {
   id: string;
   name: string;
@@ -35,6 +45,7 @@ export interface Bucket {
   objects: number;
   bytes: number;
   websiteAccess: boolean;
+  websiteConfig?: BucketWebsiteConfig | null;
   /** Custom domains currently attached as aliases. */
   domains: string[];
   quotas?: BucketQuotas | null;
@@ -118,10 +129,16 @@ export interface VersionInfo {
   commit: string;
 }
 
+export interface ServerConfig {
+  s3Endpoint: string;
+  s3Region: string;
+}
+
 // ── Query keys ───────────────────────────────────────────────────────────────
 
 export const storageKeys = {
   version: ["version"] as const,
+  config: ["config"] as const,
   overview: ["overview"] as const,
   buckets: ["buckets"] as const,
   bucket: (id: string) => ["buckets", id] as const,
@@ -130,6 +147,7 @@ export const storageKeys = {
   domains: ["domains"] as const,
   domain: (id: number) => ["domains", id] as const,
   bucketCors: (id: string) => ["buckets", id, "cors"] as const,
+  bucketLifecycle: (id: string) => ["buckets", id, "lifecycle"] as const,
 };
 
 async function data<T>(promise: Promise<{ data?: T }>): Promise<T> {
@@ -142,6 +160,13 @@ export const versionQuery = () =>
   queryOptions({
     queryKey: storageKeys.version,
     queryFn: () => data(api.get<VersionInfo>("/version")),
+    staleTime: Infinity,
+  });
+
+export const serverConfigQuery = () =>
+  queryOptions({
+    queryKey: storageKeys.config,
+    queryFn: () => data(api.get<ServerConfig>("/config")),
     staleTime: Infinity,
   });
 
@@ -167,6 +192,13 @@ export const bucketCorsQuery = (id: string) =>
   queryOptions({
     queryKey: storageKeys.bucketCors(id),
     queryFn: () => data(api.get<CorsConfiguration>(`/buckets/${encodeURIComponent(id)}/cors`)),
+  });
+
+export const bucketLifecycleQuery = (id: string) =>
+  queryOptions({
+    queryKey: storageKeys.bucketLifecycle(id),
+    queryFn: () =>
+      data(api.get<LifecycleConfiguration>(`/buckets/${encodeURIComponent(id)}/lifecycle`)),
   });
 
 export const keysQuery = () =>
@@ -210,11 +242,26 @@ export const updateBucketQuotas = (
   quotas: { maxSize: number | null; maxObjects: number | null },
 ) => data(api.put<BucketDetail>(`/buckets/${encodeURIComponent(id)}/quotas`, quotas));
 
+export interface UpdateWebsiteParams {
+  enabled?: boolean;
+  indexDocument?: string;
+  errorDocument?: string | null;
+}
+
+export const updateBucketWebsite = (id: string, params: UpdateWebsiteParams) =>
+  data(api.put<BucketDetail>(`/buckets/${encodeURIComponent(id)}/website`, params));
+
 export const updateBucketCors = (id: string, cors: CorsConfiguration) =>
   data(api.put<CorsConfiguration>(`/buckets/${encodeURIComponent(id)}/cors`, cors));
 
 export const deleteBucketCors = (id: string) =>
   data(api.delete<CorsConfiguration>(`/buckets/${encodeURIComponent(id)}/cors`));
+
+export const updateBucketLifecycle = (id: string, lifecycle: LifecycleConfiguration) =>
+  data(api.put<LifecycleConfiguration>(`/buckets/${encodeURIComponent(id)}/lifecycle`, lifecycle));
+
+export const deleteBucketLifecycle = (id: string) =>
+  data(api.delete<LifecycleConfiguration>(`/buckets/${encodeURIComponent(id)}/lifecycle`));
 
 export const deleteBucket = (id: string) => api.delete(`/buckets/${encodeURIComponent(id)}`);
 

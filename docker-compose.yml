@@ -62,6 +62,7 @@ services:
       DB_PATH: /data/control.db
       GARAGE_ADMIN_URL: http://garage:3903
       S3_ENDPOINT: garage:3900
+      S3_PUBLIC_URL: ${S3_PUBLIC_URL:-}
       MAX_UPLOAD_SIZE_MB: ${MAX_UPLOAD_SIZE_MB:-5120}
       GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN:?run scripts/gen-env.sh first}
       CONTROL_JWT_SECRET: ${CONTROL_JWT_SECRET:?run scripts/gen-env.sh first}

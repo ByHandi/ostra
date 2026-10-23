@@ -34,8 +34,18 @@ type Options struct {
 	DownloadSecret string
 	// MaxUploadBytes caps one object browser upload; 0 means no limit.
 	MaxUploadBytes int64
+	// S3PublicURL is the public-facing S3 URL for clients (e.g. https://s3.example.com).
+	S3PublicURL string
+	// S3Region is the cluster region name for the S3 API (default "garage").
+	S3Region string
 	// UI serves the dashboard for all paths outside /api.
 	UI http.Handler
+}
+
+// ClientConfig holds the server settings returned to the frontend.
+type ClientConfig struct {
+	S3Endpoint string `json:"s3Endpoint"`
+	S3Region   string `json:"s3Region"`
 }
 
 // Version is the build info shown in the dashboard.
@@ -88,6 +98,12 @@ func (h *Handler) Public() http.Handler {
 			r.Get("/version", func(w http.ResponseWriter, r *http.Request) {
 				writeData(w, http.StatusOK, h.opts.Version)
 			})
+			r.Get("/config", func(w http.ResponseWriter, r *http.Request) {
+				writeData(w, http.StatusOK, ClientConfig{
+					S3Endpoint: h.opts.S3PublicURL,
+					S3Region:   h.opts.S3Region,
+				})
+			})
 			r.Get("/me", h.me)
 			r.Post("/me/password", h.changePassword)
 
@@ -97,9 +113,13 @@ func (h *Handler) Public() http.Handler {
 			r.Post("/buckets", h.createBucket)
 			r.Get("/buckets/{id}", h.getBucket)
 			r.Put("/buckets/{id}/quotas", h.updateBucketQuotas)
+			r.Put("/buckets/{id}/website", h.updateBucketWebsite)
 			r.Get("/buckets/{id}/cors", h.getBucketCORS)
 			r.Put("/buckets/{id}/cors", h.setBucketCORS)
 			r.Delete("/buckets/{id}/cors", h.deleteBucketCORS)
+			r.Get("/buckets/{id}/lifecycle", h.getBucketLifecycle)
+			r.Put("/buckets/{id}/lifecycle", h.setBucketLifecycle)
+			r.Delete("/buckets/{id}/lifecycle", h.deleteBucketLifecycle)
 			r.Delete("/buckets/{id}", h.deleteBucket)
 			r.Get("/buckets/{id}/objects", h.listObjects)
 			r.Put("/buckets/{id}/objects", h.uploadObject)

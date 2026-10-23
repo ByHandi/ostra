@@ -107,6 +107,7 @@ services:
       DB_PATH: /data/control.db
       GARAGE_ADMIN_URL: http://garage:3903
       S3_ENDPOINT: garage:3900
+      S3_PUBLIC_URL: ${S3_PUBLIC_URL:-}
       # The object browser uploads a file in one request, so it must fit the proxy's body limit.
       # Behind Cloudflare (100 MB on Free/Pro plans) set MAX_UPLOAD_SIZE_MB=95.
       MAX_UPLOAD_SIZE_MB: ${MAX_UPLOAD_SIZE_MB:-5120}

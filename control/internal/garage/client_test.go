@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -20,20 +21,37 @@ func TestClient(t *testing.T) {
 				w.Write([]byte(`{"code":"NoSuchBucket","message":"Bucket not found: x"}`))
 				return
 			}
-			w.Write([]byte(`{"id":"abc","globalAliases":["assets"],"websiteAccess":true,"objects":2,"quotas":{"maxSize":1000,"maxObjects":10}}`))
+			w.Write([]byte(`{"id":"abc","globalAliases":["assets"],"websiteAccess":true,"websiteConfig":{"indexDocument":"index.html","errorDocument":"404.html"},"objects":2,"quotas":{"maxSize":1000,"maxObjects":10}}`))
 		case "/v2/UpdateBucket":
 			var body struct {
-				Quotas BucketQuotas `json:"quotas"`
+				Quotas        BucketQuotas `json:"quotas"`
+				WebsiteAccess *struct {
+					Enabled       bool    `json:"enabled"`
+					IndexDocument *string `json:"indexDocument"`
+					ErrorDocument *string `json:"errorDocument"`
+				} `json:"websiteAccess"`
 			}
 			json.NewDecoder(r.Body).Decode(&body)
-			var size, count string
-			if body.Quotas.MaxSize != nil {
-				size = string(rune('0' + *body.Quotas.MaxSize))
+			if body.WebsiteAccess != nil {
+				idx := ""
+				if body.WebsiteAccess.IndexDocument != nil {
+					idx = *body.WebsiteAccess.IndexDocument
+				}
+				errDoc := ""
+				if body.WebsiteAccess.ErrorDocument != nil {
+					errDoc = *body.WebsiteAccess.ErrorDocument
+				}
+				gotBody = fmt.Sprintf("%s|web:%v|%s|%s", r.URL.Query().Get("id"), body.WebsiteAccess.Enabled, idx, errDoc)
+			} else {
+				var size, count string
+				if body.Quotas.MaxSize != nil {
+					size = string(rune('0' + *body.Quotas.MaxSize))
+				}
+				if body.Quotas.MaxObjects != nil {
+					count = string(rune('0' + *body.Quotas.MaxObjects))
+				}
+				gotBody = r.URL.Query().Get("id") + "|" + size + "|" + count
 			}
-			if body.Quotas.MaxObjects != nil {
-				count = string(rune('0' + *body.Quotas.MaxObjects))
-			}
-			gotBody = r.URL.Query().Get("id") + "|" + size + "|" + count
 			w.Write([]byte(`{}`))
 		case "/v2/AddBucketAlias":
 			var body map[string]string
@@ -53,7 +71,8 @@ func TestClient(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if b.ID != "abc" || !b.WebsiteAccess || !b.HasAlias("assets") || gotAuth != "Bearer secret" ||
+	if b.ID != "abc" || !b.WebsiteAccess || b.WebsiteConfig == nil || b.WebsiteConfig.IndexDocument != "index.html" ||
+		b.WebsiteConfig.ErrorDocument == nil || *b.WebsiteConfig.ErrorDocument != "404.html" || !b.HasAlias("assets") || gotAuth != "Bearer secret" ||
 		b.Quotas.MaxSize == nil || *b.Quotas.MaxSize != 1000 || b.Quotas.MaxObjects == nil || *b.Quotas.MaxObjects != 10 {
 		t.Fatalf("GetBucketByAlias() = %+v, auth %q", b, gotAuth)
 	}
@@ -62,6 +81,13 @@ func TestClient(t *testing.T) {
 	maxObjs := int64(3)
 	if err := c.UpdateBucketQuotas(ctx, "abc", BucketQuotas{MaxSize: &maxSize, MaxObjects: &maxObjs}); err != nil || gotBody != "abc|5|3" {
 		t.Fatalf("UpdateBucketQuotas() err=%v body=%q", err, gotBody)
+	}
+
+	if err := c.UpdateWebsite(ctx, "abc", UpdateWebsiteConfig{Enabled: true, IndexDocument: "index.html", ErrorDocument: "404.html"}); err != nil || gotBody != "abc|web:true|index.html|404.html" {
+		t.Fatalf("UpdateWebsite() err=%v body=%q", err, gotBody)
+	}
+	if err := c.UpdateWebsite(ctx, "abc", UpdateWebsiteConfig{Enabled: false}); err != nil || gotBody != "abc|web:false||" {
+		t.Fatalf("UpdateWebsite(disabled) err=%v body=%q", err, gotBody)
 	}
 
 	_, err = c.GetBucketByAlias(ctx, "nope")
