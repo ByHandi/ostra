@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/minio/minio-go/v7"
+	"github.com/minio/minio-go/v7/pkg/cors"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 )
 
@@ -36,6 +37,21 @@ type Page struct {
 	Folders    []string `json:"folders"`
 	Objects    []Object `json:"objects"`
 	NextCursor string   `json:"nextCursor,omitempty"`
+}
+
+// CORSRule describes one CORS rule in a bucket's CORS configuration.
+type CORSRule struct {
+	ID             string   `json:"id,omitempty"`
+	AllowedOrigins []string `json:"allowedOrigins"`
+	AllowedMethods []string `json:"allowedMethods"`
+	AllowedHeaders []string `json:"allowedHeaders,omitempty"`
+	ExposeHeaders  []string `json:"exposeHeaders,omitempty"`
+	MaxAgeSeconds  int      `json:"maxAgeSeconds,omitempty"`
+}
+
+// CORSConfiguration is the full CORS setup on a bucket.
+type CORSConfiguration struct {
+	Rules []CORSRule `json:"rules"`
 }
 
 type Client struct {
@@ -150,6 +166,64 @@ func (c *Client) DeletePrefix(ctx context.Context, bucket, prefix string) (int, 
 		return deleted, mapErr(listErr)
 	}
 	return deleted, mapErr(removeErr)
+}
+
+// GetCORS retrieves the bucket's CORS configuration.
+func (c *Client) GetCORS(ctx context.Context, bucket string) (CORSConfiguration, error) {
+	cfg, err := c.client.GetBucketCors(ctx, bucket)
+	if err != nil {
+		return CORSConfiguration{Rules: []CORSRule{}}, mapErr(err)
+	}
+	if cfg == nil || len(cfg.CORSRules) == 0 {
+		return CORSConfiguration{Rules: []CORSRule{}}, nil
+	}
+
+	rules := make([]CORSRule, len(cfg.CORSRules))
+	for i, r := range cfg.CORSRules {
+		origins := r.AllowedOrigin
+		if origins == nil {
+			origins = []string{}
+		}
+		methods := r.AllowedMethod
+		if methods == nil {
+			methods = []string{}
+		}
+		rules[i] = CORSRule{
+			ID:             r.ID,
+			AllowedOrigins: origins,
+			AllowedMethods: methods,
+			AllowedHeaders: r.AllowedHeader,
+			ExposeHeaders:  r.ExposeHeader,
+			MaxAgeSeconds:  r.MaxAgeSeconds,
+		}
+	}
+	return CORSConfiguration{Rules: rules}, nil
+}
+
+// SetCORS applies CORS rules to a bucket. If cfg.Rules is empty, existing CORS is removed.
+func (c *Client) SetCORS(ctx context.Context, bucket string, cfg CORSConfiguration) error {
+	if len(cfg.Rules) == 0 {
+		return mapErr(c.client.SetBucketCors(ctx, bucket, nil))
+	}
+
+	rules := make([]cors.Rule, len(cfg.Rules))
+	for i, r := range cfg.Rules {
+		rules[i] = cors.Rule{
+			ID:            r.ID,
+			AllowedOrigin: r.AllowedOrigins,
+			AllowedMethod: r.AllowedMethods,
+			AllowedHeader: r.AllowedHeaders,
+			ExposeHeader:  r.ExposeHeaders,
+			MaxAgeSeconds: r.MaxAgeSeconds,
+		}
+	}
+	corsCfg := cors.NewConfig(rules)
+	return mapErr(c.client.SetBucketCors(ctx, bucket, corsCfg))
+}
+
+// DeleteCORS removes CORS configuration from a bucket.
+func (c *Client) DeleteCORS(ctx context.Context, bucket string) error {
+	return mapErr(c.client.SetBucketCors(ctx, bucket, nil))
 }
 
 // IsAccessDenied reports whether S3 rejected the request for lack of permissions.

@@ -8,6 +8,7 @@ import (
 
 	"github.com/ByHandi/ostra/control/internal/dnscheck"
 	"github.com/ByHandi/ostra/control/internal/garage"
+	"github.com/ByHandi/ostra/control/internal/objects"
 	"github.com/ByHandi/ostra/control/internal/service"
 	"github.com/ByHandi/ostra/control/internal/store"
 )
@@ -84,6 +85,30 @@ func (h *Handler) updateBucketQuotas(w http.ResponseWriter, r *http.Request) {
 		out.DomainRecords = append(out.DomainRecords, h.toDomain(d))
 	}
 	writeData(w, http.StatusOK, out)
+}
+
+func (h *Handler) getBucketCORS(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	cfg, err := h.svc.GetBucketCORS(r.Context(), id)
+	respond(w, r, http.StatusOK, cfg, err)
+}
+
+func (h *Handler) setBucketCORS(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		Rules []objects.CORSRule `json:"rules"`
+	}
+	if !decode(w, r, &in) {
+		return
+	}
+	id := chi.URLParam(r, "id")
+	cfg, err := h.svc.SetBucketCORS(r.Context(), id, objects.CORSConfiguration{Rules: in.Rules})
+	respond(w, r, http.StatusOK, cfg, err)
+}
+
+func (h *Handler) deleteBucketCORS(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	err := h.svc.DeleteBucketCORS(r.Context(), id)
+	respond(w, r, http.StatusOK, objects.CORSConfiguration{Rules: []objects.CORSRule{}}, err)
 }
 
 func (h *Handler) deleteBucket(w http.ResponseWriter, r *http.Request) {

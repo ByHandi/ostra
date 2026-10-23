@@ -15,6 +15,19 @@ export interface BucketQuotas {
   maxObjects: number | null;
 }
 
+export interface CorsRule {
+  id?: string;
+  allowedOrigins: string[];
+  allowedMethods: string[];
+  allowedHeaders?: string[];
+  exposeHeaders?: string[];
+  maxAgeSeconds?: number;
+}
+
+export interface CorsConfiguration {
+  rules: CorsRule[];
+}
+
 export interface Bucket {
   id: string;
   name: string;
@@ -116,6 +129,7 @@ export const storageKeys = {
   key: (id: string) => ["keys", id] as const,
   domains: ["domains"] as const,
   domain: (id: number) => ["domains", id] as const,
+  bucketCors: (id: string) => ["buckets", id, "cors"] as const,
 };
 
 async function data<T>(promise: Promise<{ data?: T }>): Promise<T> {
@@ -147,6 +161,12 @@ export const bucketQuery = (id: string) =>
   queryOptions({
     queryKey: storageKeys.bucket(id),
     queryFn: () => data(api.get<BucketDetail>(`/buckets/${encodeURIComponent(id)}`)),
+  });
+
+export const bucketCorsQuery = (id: string) =>
+  queryOptions({
+    queryKey: storageKeys.bucketCors(id),
+    queryFn: () => data(api.get<CorsConfiguration>(`/buckets/${encodeURIComponent(id)}/cors`)),
   });
 
 export const keysQuery = () =>
@@ -189,6 +209,12 @@ export const updateBucketQuotas = (
   id: string,
   quotas: { maxSize: number | null; maxObjects: number | null },
 ) => data(api.put<BucketDetail>(`/buckets/${encodeURIComponent(id)}/quotas`, quotas));
+
+export const updateBucketCors = (id: string, cors: CorsConfiguration) =>
+  data(api.put<CorsConfiguration>(`/buckets/${encodeURIComponent(id)}/cors`, cors));
+
+export const deleteBucketCors = (id: string) =>
+  data(api.delete<CorsConfiguration>(`/buckets/${encodeURIComponent(id)}/cors`));
 
 export const deleteBucket = (id: string) => api.delete(`/buckets/${encodeURIComponent(id)}`);
 

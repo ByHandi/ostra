@@ -125,7 +125,7 @@ func (s *Service) grantSystemKey(ctx context.Context, bucketID string, force boo
 		return nil
 	}
 
-	perms := garage.Permissions{Read: true, Write: true}
+	perms := garage.Permissions{Read: true, Write: true, Owner: true}
 	if err := s.garage.AllowBucketKey(ctx, bucketID, id, perms); err != nil {
 		return err
 	}

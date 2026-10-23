@@ -20,6 +20,7 @@ import (
 // fakeStore is an in-memory S3: bucket name → key → object.
 type fakeStore struct {
 	data       map[string]map[string]fakeObject
+	cors       map[string]objects.CORSConfiguration
 	denyNext   int // the next N calls answer AccessDenied
 	createdFor string
 }
@@ -29,7 +30,12 @@ type fakeObject struct {
 	contentType string
 }
 
-func newFakeStore() *fakeStore { return &fakeStore{data: map[string]map[string]fakeObject{}} }
+func newFakeStore() *fakeStore {
+	return &fakeStore{
+		data: map[string]map[string]fakeObject{},
+		cors: map[string]objects.CORSConfiguration{},
+	}
+}
 
 func (f *fakeStore) deny() error {
 	if f.denyNext > 0 {
@@ -110,6 +116,37 @@ func (f *fakeStore) DeletePrefix(_ context.Context, bucket, prefix string) (int,
 		}
 	}
 	return n, nil
+}
+
+func (f *fakeStore) GetCORS(_ context.Context, bucket string) (objects.CORSConfiguration, error) {
+	if err := f.deny(); err != nil {
+		return objects.CORSConfiguration{}, err
+	}
+	cfg, ok := f.cors[bucket]
+	if !ok || len(cfg.Rules) == 0 {
+		return objects.CORSConfiguration{Rules: []objects.CORSRule{}}, nil
+	}
+	return cfg, nil
+}
+
+func (f *fakeStore) SetCORS(_ context.Context, bucket string, cfg objects.CORSConfiguration) error {
+	if err := f.deny(); err != nil {
+		return err
+	}
+	if len(cfg.Rules) == 0 {
+		delete(f.cors, bucket)
+		return nil
+	}
+	f.cors[bucket] = cfg
+	return nil
+}
+
+func (f *fakeStore) DeleteCORS(_ context.Context, bucket string) error {
+	if err := f.deny(); err != nil {
+		return err
+	}
+	delete(f.cors, bucket)
+	return nil
 }
 
 // newObjectService returns a service with the object browser enabled, plus its DB so a

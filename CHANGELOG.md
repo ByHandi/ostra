@@ -9,6 +9,10 @@ The release workflow uses the contents of that version's section as the GitHub R
 
 ## [Unreleased]
 
+### Added
+
+- Per-bucket CORS configuration editor on the bucket page to allow cross-origin browser uploads and S3 requests.
+
 ## [0.2.0] - 2026-10-22
 
 ### Added
