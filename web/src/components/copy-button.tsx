@@ -8,9 +8,10 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 interface CopyButtonProps {
   value: string;
   label?: string;
+  toastMessage?: string;
 }
 
-export function CopyButton({ value, label = "Copy" }: CopyButtonProps) {
+export function CopyButton({ value, label = "Copy", toastMessage }: CopyButtonProps) {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -23,6 +24,9 @@ export function CopyButton({ value, label = "Copy" }: CopyButtonProps) {
     try {
       await navigator.clipboard.writeText(value);
       setCopied(true);
+      if (toastMessage) {
+        toast.success(toastMessage);
+      }
     } catch {
       toast.error("Couldn't copy to clipboard");
     }

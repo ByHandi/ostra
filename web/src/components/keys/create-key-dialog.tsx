@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 
 import { CopyButton } from "@/components/copy-button";
 import InputText from "@/components/form/input-text";
+import { ConnectionSnippetsDialog } from "@/components/keys/connection-snippets-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -84,6 +85,29 @@ export function CreateKeyDialog() {
               <SecretRow label="Access key ID" value={created.id} />
               <SecretRow label="Secret access key" value={created.secretAccessKey} />
             </dl>
+
+            <div className="flex items-center justify-between rounded-lg border bg-muted/40 p-3">
+              <div className="space-y-0.5">
+                <p className="text-xs font-medium">Ready-to-use snippets</p>
+                <p className="text-xs text-muted-foreground">
+                  View snippets pre-filled with this key and secret.
+                </p>
+              </div>
+              <ConnectionSnippetsDialog
+                keyId={created.id}
+                keyName={created.name}
+                secretAccessKey={created.secretAccessKey}
+                trigger={
+                  <Button
+                    variant="outline"
+                    size="xs"
+                    startContent={<Icon name="code" className="size-3.5" />}
+                  >
+                    View snippets
+                  </Button>
+                }
+              />
+            </div>
 
             <p className="text-sm text-muted-foreground">
               A new key has no access to any bucket yet. Set its permissions on the key's detail

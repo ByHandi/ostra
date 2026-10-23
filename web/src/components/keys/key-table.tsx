@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 
+import { KeyActions } from "@/components/keys/key-actions";
 import { ListGroup, ListRowContent } from "@/components/list-group";
 import { TableSkeleton } from "@/components/table-skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -15,16 +16,21 @@ import {
 import type { AccessKey } from "@/lib/api/storage";
 import { formatDate } from "@/lib/format";
 import { listRowClass } from "@/lib/list-row";
+import { cn } from "@/lib/utils";
 
-const COLUMNS = ["Name", "Access key ID", "Created"];
+const COLUMNS = ["Name", "Access key ID", "Created", ""];
 
 function KeyTable({ keys }: { keys: AccessKey[] }) {
   return (
     <>
       <ListGroup>
         {keys.map((k) => (
-          <li key={k.id}>
-            <Link to="/keys/$keyId" params={{ keyId: k.id }} className={listRowClass}>
+          <li key={k.id} className="flex items-center">
+            <Link
+              to="/keys/$keyId"
+              params={{ keyId: k.id }}
+              className={cn(listRowClass, "min-w-0 flex-1")}
+            >
               <ListRowContent
                 icon="key-round"
                 title={k.name || "Unnamed"}
@@ -33,6 +39,9 @@ function KeyTable({ keys }: { keys: AccessKey[] }) {
                 chevron
               />
             </Link>
+            <span className="pr-2">
+              <KeyActions keyId={k.id} keyName={k.name} />
+            </span>
           </li>
         ))}
       </ListGroup>
@@ -41,7 +50,9 @@ function KeyTable({ keys }: { keys: AccessKey[] }) {
           <TableHeader>
             <TableRow>
               {COLUMNS.map((c) => (
-                <TableHead key={c}>{c}</TableHead>
+                <TableHead key={c} className={c === "" ? "w-12 text-right" : undefined}>
+                  {c}
+                </TableHead>
               ))}
             </TableRow>
           </TableHeader>
@@ -65,6 +76,9 @@ function KeyTable({ keys }: { keys: AccessKey[] }) {
                 </TableCell>
                 <TableCell className="font-mono text-xs">{k.id}</TableCell>
                 <TableCell className="text-muted-foreground">{formatDate(k.created)}</TableCell>
+                <TableCell className="text-right">
+                  <KeyActions keyId={k.id} keyName={k.name} />
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
