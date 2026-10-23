@@ -151,7 +151,7 @@ Behind another proxy this header can be spoofed, so the rate limit can be bypass
 - [x] `SECURITY.md`: reporting through GitHub private vulnerability reporting
 - [x] Docs are English-only (`README.md`); the Indonesian `README.id.md` has been removed
 - [x] `CONTRIBUTING.md`: dev setup, the same checks as CI, and code conventions
-- [ ] Enable **Private vulnerability reporting** in the GitHub repo's Settings → Security
+- [x] Enable **Private vulnerability reporting** in the GitHub repo's Settings → Security
       (required by the flow in `SECURITY.md`)
 
 ---
@@ -229,7 +229,7 @@ Garage API for each one before starting, since this list was put together from i
       The control-plane already signs short-lived download links, so this mostly exposes them
 - [x] File preview in the object browser: images, video, PDF, and text
 - [x] Per-bucket quotas: maximum size and maximum number of objects (Garage admin API)
-- [ ] CORS editor per bucket (`PutBucketCors`), needed for browser uploads straight to S3
+- [x] CORS editor per bucket (`PutBucketCors`), needed for browser uploads straight to S3
 - [ ] Lifecycle rules per bucket: expire objects after N days, abort incomplete multipart uploads
       (Garage supports only these two, no storage-class transitions)
 - [ ] Connection snippets on the access key page: aws-cli, rclone, and the JS/Python SDKs with the

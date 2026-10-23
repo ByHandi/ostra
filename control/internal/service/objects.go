@@ -19,6 +19,9 @@ type ObjectStore interface {
 	Put(ctx context.Context, bucket, key string, r io.Reader, size int64, contentType string) (objects.Object, error)
 	Delete(ctx context.Context, bucket, key string) error
 	DeletePrefix(ctx context.Context, bucket, prefix string) (int, error)
+	GetCORS(ctx context.Context, bucket string) (objects.CORSConfiguration, error)
+	SetCORS(ctx context.Context, bucket string, cfg objects.CORSConfiguration) error
+	DeleteCORS(ctx context.Context, bucket string) error
 }
 
 const (

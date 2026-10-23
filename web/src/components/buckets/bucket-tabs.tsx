@@ -11,7 +11,10 @@ const TAB =
  */
 export function BucketTabs({ bucketId }: { bucketId: string }) {
   return (
-    <nav className="mt-2 -mb-4 flex gap-4 border-b" aria-label="Bucket sections">
+    <nav
+      className="mt-2 -mb-4 flex [scrollbar-width:none] gap-4 overflow-x-auto border-b [&::-webkit-scrollbar]:hidden"
+      aria-label="Bucket sections"
+    >
       <Link
         to="/buckets/$bucketId"
         params={{ bucketId }}
@@ -31,6 +34,36 @@ export function BucketTabs({ bucketId }: { bucketId: string }) {
       >
         <Icon name="folder-open" className="size-4" />
         Files
+      </Link>
+      <Link
+        to="/buckets/$bucketId/domains"
+        params={{ bucketId }}
+        replace
+        activeOptions={{ includeSearch: false }}
+        className={TAB}
+      >
+        <Icon name="globe" className="size-4" />
+        Domains
+      </Link>
+      <Link
+        to="/buckets/$bucketId/access"
+        params={{ bucketId }}
+        replace
+        activeOptions={{ includeSearch: false }}
+        className={TAB}
+      >
+        <Icon name="key-round" className="size-4" />
+        Access
+      </Link>
+      <Link
+        to="/buckets/$bucketId/settings"
+        params={{ bucketId }}
+        replace
+        activeOptions={{ includeSearch: false }}
+        className={TAB}
+      >
+        <Icon name="settings" className="size-4" />
+        Settings
       </Link>
     </nav>
   );

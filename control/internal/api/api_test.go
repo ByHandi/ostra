@@ -196,6 +196,28 @@ func TestBucketQuotasValidation(t *testing.T) {
 	}
 }
 
+func TestBucketCORSValidation(t *testing.T) {
+	srv := newTestServer(t)
+	login := call(t, srv, "POST", "/api/auth/login", "", nil, `{"email":"admin@example.com","password":"secret123"}`)
+	token := accessToken(t, login)
+
+	if r := call(t, srv, "GET", "/api/buckets/bucket/cors", "", nil, ""); r.status != http.StatusUnauthorized {
+		t.Fatalf("get cors without token = %d, want 401", r.status)
+	}
+	if r := call(t, srv, "PUT", "/api/buckets/bucket/cors", "", nil, `{"rules":[]}`); r.status != http.StatusUnauthorized {
+		t.Fatalf("put cors without token = %d, want 401", r.status)
+	}
+	if r := call(t, srv, "DELETE", "/api/buckets/bucket/cors", "", nil, ""); r.status != http.StatusUnauthorized {
+		t.Fatalf("delete cors without token = %d, want 401", r.status)
+	}
+	if r := call(t, srv, "PUT", "/api/buckets/bucket/cors", token, nil, `{"rules":[],"extra":true}`); r.status != http.StatusBadRequest {
+		t.Fatalf("put cors with unknown field = %d, want 400", r.status)
+	}
+	if r := call(t, srv, "PUT", "/api/buckets/bucket/cors", token, nil, `{"rules":[{"allowedOrigins":["*"],"allowedMethods":["INVALID"]}]}`); r.status != http.StatusBadRequest || len(r.body.Error.Errors["rules"]) != 1 {
+		t.Fatalf("put cors with invalid method = %d %+v", r.status, r.body.Error)
+	}
+}
+
 func TestHealthz(t *testing.T) {
 	healthy := true
 	h := &Handler{opts: Options{Health: func(context.Context) error {
