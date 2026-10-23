@@ -150,6 +150,34 @@ func (h *Handler) deleteBucketCORS(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, http.StatusOK, objects.CORSConfiguration{Rules: []objects.CORSRule{}}, err)
 }
 
+func (h *Handler) getBucketLifecycle(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	cfg, err := h.svc.GetBucketLifecycle(r.Context(), id)
+	respond(w, r, http.StatusOK, cfg, err)
+}
+
+func (h *Handler) setBucketLifecycle(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		ExpirationDays                     *int `json:"expirationDays"`
+		AbortIncompleteMultipartUploadDays *int `json:"abortIncompleteMultipartUploadDays"`
+	}
+	if !decode(w, r, &in) {
+		return
+	}
+	id := chi.URLParam(r, "id")
+	cfg, err := h.svc.SetBucketLifecycle(r.Context(), id, objects.LifecycleConfiguration{
+		ExpirationDays:                     in.ExpirationDays,
+		AbortIncompleteMultipartUploadDays: in.AbortIncompleteMultipartUploadDays,
+	})
+	respond(w, r, http.StatusOK, cfg, err)
+}
+
+func (h *Handler) deleteBucketLifecycle(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	err := h.svc.DeleteBucketLifecycle(r.Context(), id)
+	respond(w, r, http.StatusOK, objects.LifecycleConfiguration{}, err)
+}
+
 func (h *Handler) deleteBucket(w http.ResponseWriter, r *http.Request) {
 	err := h.svc.DeleteBucket(r.Context(), chi.URLParam(r, "id"))
 	respond(w, r, http.StatusOK, nil, err)

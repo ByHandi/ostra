@@ -21,6 +21,7 @@ import (
 type fakeStore struct {
 	data       map[string]map[string]fakeObject
 	cors       map[string]objects.CORSConfiguration
+	lifecycle  map[string]objects.LifecycleConfiguration
 	denyNext   int // the next N calls answer AccessDenied
 	createdFor string
 }
@@ -32,8 +33,9 @@ type fakeObject struct {
 
 func newFakeStore() *fakeStore {
 	return &fakeStore{
-		data: map[string]map[string]fakeObject{},
-		cors: map[string]objects.CORSConfiguration{},
+		data:      map[string]map[string]fakeObject{},
+		cors:      map[string]objects.CORSConfiguration{},
+		lifecycle: map[string]objects.LifecycleConfiguration{},
 	}
 }
 
@@ -146,6 +148,35 @@ func (f *fakeStore) DeleteCORS(_ context.Context, bucket string) error {
 		return err
 	}
 	delete(f.cors, bucket)
+	return nil
+}
+
+func (f *fakeStore) GetLifecycle(_ context.Context, bucket string) (objects.LifecycleConfiguration, error) {
+	if err := f.deny(); err != nil {
+		return objects.LifecycleConfiguration{}, err
+	}
+	return f.lifecycle[bucket], nil
+}
+
+func (f *fakeStore) SetLifecycle(_ context.Context, bucket string, cfg objects.LifecycleConfiguration) error {
+	if err := f.deny(); err != nil {
+		return err
+	}
+	hasExp := cfg.ExpirationDays != nil && *cfg.ExpirationDays > 0
+	hasAbort := cfg.AbortIncompleteMultipartUploadDays != nil && *cfg.AbortIncompleteMultipartUploadDays > 0
+	if !hasExp && !hasAbort {
+		delete(f.lifecycle, bucket)
+		return nil
+	}
+	f.lifecycle[bucket] = cfg
+	return nil
+}
+
+func (f *fakeStore) DeleteLifecycle(_ context.Context, bucket string) error {
+	if err := f.deny(); err != nil {
+		return err
+	}
+	delete(f.lifecycle, bucket)
 	return nil
 }
 

@@ -260,6 +260,7 @@ Responses use the same envelope as the `shadcn-vite` template and `go-service-bo
 | PUT | `/api/buckets/{id}/quotas` | `{"maxSize","maxObjects"}` (bytes / count, null to clear), sets quotas |
 | PUT | `/api/buckets/{id}/website` | `{"enabled","indexDocument","errorDocument"}` static website hosting |
 | GET/PUT/DELETE | `/api/buckets/{id}/cors` | Get, set, or clear bucket CORS rules (`{"rules":[...]}`) |
+| GET/PUT/DELETE | `/api/buckets/{id}/lifecycle` | Get, set, or clear lifecycle rules (`{"expirationDays","abortIncompleteMultipartUploadDays"}`) |
 | GET/POST | `/api/keys` | List / create (`{"name"}`; the secret is only returned here) |
 | GET/DELETE | `/api/keys/{id}` | Per-bucket permissions / delete |
 | PUT | `/api/keys/{id}/buckets/{bucketId}` | `{"read","write","owner"}`, sets permissions exactly |
