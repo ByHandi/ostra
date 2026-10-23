@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import AppHeader from "@/components/app-header";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { CopyButton } from "@/components/copy-button";
+import { ConnectionSnippetsDialog } from "@/components/keys/connection-snippets-dialog";
 import KeyPermissions from "@/components/keys/key-permissions";
 import { QueryError } from "@/components/query-error";
 import Section from "@/components/section";
@@ -63,21 +64,24 @@ function KeyPage() {
         description="This key's permissions on each bucket."
         endContent={
           k && (
-            <ConfirmDialog
-              title={`Delete access key ${k.name || k.id}?`}
-              description="Apps still using this key lose access immediately. This action can't be undone."
-              confirmText="Delete key"
-              onConfirm={remove}
-              trigger={
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  startContent={<Icon name="trash-2" className="size-4" />}
-                >
-                  Delete
-                </Button>
-              }
-            />
+            <div className="flex items-center gap-2">
+              <ConnectionSnippetsDialog keyId={k.id} keyName={k.name} />
+              <ConfirmDialog
+                title={`Delete access key ${k.name || k.id}?`}
+                description="Apps still using this key lose access immediately. This action can't be undone."
+                confirmText="Delete key"
+                onConfirm={remove}
+                trigger={
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    startContent={<Icon name="trash-2" className="size-4" />}
+                  >
+                    Delete
+                  </Button>
+                }
+              />
+            </div>
           )
         }
       />
@@ -87,7 +91,7 @@ function KeyPage() {
           <QueryError error={key.error} onRetry={() => key.refetch()} backTo="/keys" />
         ) : (
           <>
-            {k ? <KeyInfo id={k.id} created={k.created} /> : <KeyInfoSkeleton />}
+            {k ? <KeyInfo id={k.id} name={k.name} created={k.created} /> : <KeyInfoSkeleton />}
 
             <Section
               title="Bucket permissions"
@@ -108,7 +112,7 @@ function KeyPage() {
   );
 }
 
-function KeyInfo({ id, created }: { id: string; created: string }) {
+function KeyInfo({ id, name, created }: { id: string; name?: string; created: string }) {
   return (
     <div className="grid gap-4 panel p-4 sm:grid-cols-[1fr_auto]">
       <div className="min-w-0 space-y-1">
@@ -121,9 +125,24 @@ function KeyInfo({ id, created }: { id: string; created: string }) {
           The secret key is shown only when the key is created.
         </p>
       </div>
-      <div className="space-y-1">
-        <p className="text-xs text-muted-foreground">Created</p>
-        <p className="text-sm">{formatDate(created)}</p>
+      <div className="flex flex-col gap-2 sm:items-end">
+        <div className="space-y-1 sm:text-right">
+          <p className="text-xs text-muted-foreground">Created</p>
+          <p className="text-sm">{formatDate(created)}</p>
+        </div>
+        <ConnectionSnippetsDialog
+          keyId={id}
+          keyName={name}
+          trigger={
+            <Button
+              variant="outline"
+              size="sm"
+              startContent={<Icon name="code" className="size-4" />}
+            >
+              Connection snippets
+            </Button>
+          }
+        />
       </div>
     </div>
   );

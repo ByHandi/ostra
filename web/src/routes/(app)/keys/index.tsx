@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import AppHeader from "@/components/app-header";
 import { EmptyState } from "@/components/empty-state";
+import { ConnectionSnippetsDialog } from "@/components/keys/connection-snippets-dialog";
 import { CreateKeyDialog } from "@/components/keys/create-key-dialog";
 import KeyTable from "@/components/keys/key-table";
 import { QueryError } from "@/components/query-error";
@@ -26,7 +27,12 @@ function Keys() {
       <AppHeader
         title="Access Keys"
         description="S3 API credentials for apps and tools. Permissions are set per bucket."
-        endContent={<CreateKeyDialog />}
+        endContent={
+          <div className="flex items-center gap-2">
+            <ConnectionSnippetsDialog availableKeys={keys.data ?? []} />
+            <CreateKeyDialog />
+          </div>
+        }
       />
 
       {/* Desktop: a flex column, so the table shrinks to the viewport and scrolls inside. */}

@@ -12,6 +12,7 @@ The release workflow uses the contents of that version's section as the GitHub R
 ### Added
 
 - Per-bucket CORS configuration editor on the bucket page to allow cross-origin browser uploads and S3 requests.
+- Connection snippets modal on the Access Keys and key detail pages with ready-to-copy configurations and code for AWS CLI, rclone, Node.js (AWS SDK v3), Python (boto3), and environment variables.
 
 ## [0.2.0] - 2026-10-22
 
