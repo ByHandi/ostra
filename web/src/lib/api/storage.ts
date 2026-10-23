@@ -15,6 +15,11 @@ export interface BucketQuotas {
   maxObjects: number | null;
 }
 
+export interface BucketWebsiteConfig {
+  indexDocument: string;
+  errorDocument: string | null;
+}
+
 export interface CorsRule {
   id?: string;
   allowedOrigins: string[];
@@ -35,6 +40,7 @@ export interface Bucket {
   objects: number;
   bytes: number;
   websiteAccess: boolean;
+  websiteConfig?: BucketWebsiteConfig | null;
   /** Custom domains currently attached as aliases. */
   domains: string[];
   quotas?: BucketQuotas | null;
@@ -222,6 +228,15 @@ export const updateBucketQuotas = (
   id: string,
   quotas: { maxSize: number | null; maxObjects: number | null },
 ) => data(api.put<BucketDetail>(`/buckets/${encodeURIComponent(id)}/quotas`, quotas));
+
+export interface UpdateWebsiteParams {
+  enabled?: boolean;
+  indexDocument?: string;
+  errorDocument?: string | null;
+}
+
+export const updateBucketWebsite = (id: string, params: UpdateWebsiteParams) =>
+  data(api.put<BucketDetail>(`/buckets/${encodeURIComponent(id)}/website`, params));
 
 export const updateBucketCors = (id: string, cors: CorsConfiguration) =>
   data(api.put<CorsConfiguration>(`/buckets/${encodeURIComponent(id)}/cors`, cors));

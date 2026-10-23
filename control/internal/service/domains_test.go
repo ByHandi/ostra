@@ -97,11 +97,39 @@ func (g *fakeGarage) RemoveAlias(_ context.Context, bucketID, alias string) erro
 	return nil
 }
 
-func (g *fakeGarage) EnableWebsite(_ context.Context, bucketID string) error {
+func (g *fakeGarage) EnableWebsite(ctx context.Context, bucketID string) error {
+	return g.UpdateWebsite(ctx, bucketID, garage.UpdateWebsiteConfig{
+		Enabled:       true,
+		IndexDocument: "index.html",
+	})
+}
+
+func (g *fakeGarage) UpdateWebsite(_ context.Context, bucketID string, cfg garage.UpdateWebsiteConfig) error {
 	if g.failAll != nil {
 		return g.failAll
 	}
-	g.buckets[bucketID].WebsiteAccess = true
+	b, ok := g.buckets[bucketID]
+	if !ok {
+		return notFoundErr()
+	}
+	b.WebsiteAccess = cfg.Enabled
+	if cfg.Enabled {
+		idx := cfg.IndexDocument
+		if idx == "" {
+			idx = "index.html"
+		}
+		var errDoc *string
+		if cfg.ErrorDocument != "" {
+			ed := cfg.ErrorDocument
+			errDoc = &ed
+		}
+		b.WebsiteConfig = &garage.WebsiteConfig{
+			IndexDocument: idx,
+			ErrorDocument: errDoc,
+		}
+	} else {
+		b.WebsiteConfig = nil
+	}
 	return nil
 }
 

@@ -228,6 +228,25 @@ func TestBucketCORSValidation(t *testing.T) {
 	}
 }
 
+func TestBucketWebsiteValidation(t *testing.T) {
+	srv := newTestServer(t)
+	login := call(t, srv, "POST", "/api/auth/login", "", nil, `{"email":"admin@example.com","password":"secret123"}`)
+	token := accessToken(t, login)
+
+	if r := call(t, srv, "PUT", "/api/buckets/bucket/website", "", nil, `{"enabled":true}`); r.status != http.StatusUnauthorized {
+		t.Fatalf("put website without token = %d, want 401", r.status)
+	}
+	if r := call(t, srv, "PUT", "/api/buckets/bucket/website", token, nil, `{"enabled":true,"extra":true}`); r.status != http.StatusBadRequest {
+		t.Fatalf("put website with unknown field = %d, want 400", r.status)
+	}
+	if r := call(t, srv, "PUT", "/api/buckets/bucket/website", token, nil, `{"enabled":true,"indexDocument":"sub/index.html"}`); r.status != http.StatusBadRequest || len(r.body.Error.Errors["indexDocument"]) != 1 {
+		t.Fatalf("put website with slash in indexDocument = %d %+v", r.status, r.body.Error)
+	}
+	if r := call(t, srv, "PUT", "/api/buckets/bucket/website", token, nil, `{"enabled":true,"errorDocument":"../404.html"}`); r.status != http.StatusBadRequest || len(r.body.Error.Errors["errorDocument"]) != 1 {
+		t.Fatalf("put website with path traversal in errorDocument = %d %+v", r.status, r.body.Error)
+	}
+}
+
 func TestHealthz(t *testing.T) {
 	healthy := true
 	h := &Handler{opts: Options{Health: func(context.Context) error {

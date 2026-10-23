@@ -166,3 +166,76 @@ func TestBucketQuotas(t *testing.T) {
 		t.Fatal("expected error when garage is down, got nil")
 	}
 }
+
+func TestBucketWebsite(t *testing.T) {
+	ctx := context.Background()
+	g := newFakeGarage("assets")
+	svc := newTestService(t, g, &fakeDNS{}, false)
+
+	// Validation: invalid document names.
+	_, err := svc.UpdateBucketWebsite(ctx, "id-assets", true, "sub/index.html", "")
+	wantField(t, err, KindInvalid, "indexDocument")
+
+	_, err = svc.UpdateBucketWebsite(ctx, "id-assets", true, "index.html", "../secret.html")
+	wantField(t, err, KindInvalid, "errorDocument")
+
+	longName := string(make([]byte, 256))
+	_, err = svc.UpdateBucketWebsite(ctx, "id-assets", true, longName, "")
+	wantField(t, err, KindInvalid, "indexDocument")
+
+	// Not found.
+	_, err = svc.UpdateBucketWebsite(ctx, "id-missing", true, "index.html", "")
+	wantKind(t, err, KindNotFound)
+
+	// Happy path: configure website with custom index & error document.
+	bd, err := svc.UpdateBucketWebsite(ctx, "id-assets", true, "main.html", "error.html")
+	if err != nil {
+		t.Fatalf("UpdateBucketWebsite() failed: %v", err)
+	}
+	if !bd.WebsiteAccess || bd.WebsiteConfig == nil || bd.WebsiteConfig.IndexDocument != "main.html" ||
+		bd.WebsiteConfig.ErrorDocument == nil || *bd.WebsiteConfig.ErrorDocument != "error.html" {
+		t.Fatalf("UpdateBucketWebsite() returned %+v", bd.WebsiteConfig)
+	}
+
+	// Verify GetBucket and ListBuckets reflect website settings.
+	get, err := svc.GetBucket(ctx, "id-assets")
+	if err != nil {
+		t.Fatalf("GetBucket() failed: %v", err)
+	}
+	if !get.WebsiteAccess || get.WebsiteConfig == nil || get.WebsiteConfig.IndexDocument != "main.html" {
+		t.Fatalf("GetBucket() websiteConfig = %+v", get.WebsiteConfig)
+	}
+
+	list, err := svc.ListBuckets(ctx)
+	if err != nil || len(list) != 1 {
+		t.Fatalf("ListBuckets() = %+v, %v", list, err)
+	}
+	if !list[0].WebsiteAccess || list[0].WebsiteConfig == nil || list[0].WebsiteConfig.IndexDocument != "main.html" {
+		t.Fatalf("ListBuckets()[0].WebsiteConfig = %+v", list[0].WebsiteConfig)
+	}
+
+	// Default index.html when empty string passed.
+	bd, err = svc.UpdateBucketWebsite(ctx, "id-assets", true, "", "")
+	if err != nil {
+		t.Fatalf("UpdateBucketWebsite(default) failed: %v", err)
+	}
+	if bd.WebsiteConfig.IndexDocument != "index.html" || bd.WebsiteConfig.ErrorDocument != nil {
+		t.Fatalf("expected default index.html and nil errorDoc, got %+v", bd.WebsiteConfig)
+	}
+
+	// Disabling website hosting.
+	bd, err = svc.UpdateBucketWebsite(ctx, "id-assets", false, "", "")
+	if err != nil {
+		t.Fatalf("UpdateBucketWebsite(disable) failed: %v", err)
+	}
+	if bd.WebsiteAccess || bd.WebsiteConfig != nil {
+		t.Fatalf("expected websiteAccess false and nil config, got %+v", bd)
+	}
+
+	// Garage down returns error.
+	g.failAll = errors.New("garage down")
+	_, err = svc.UpdateBucketWebsite(ctx, "id-assets", true, "index.html", "")
+	if err == nil {
+		t.Fatal("expected error when garage is down, got nil")
+	}
+}

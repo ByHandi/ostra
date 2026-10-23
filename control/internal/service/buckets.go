@@ -18,15 +18,21 @@ type BucketQuotas struct {
 	MaxObjects *int64 `json:"maxObjects"`
 }
 
+type BucketWebsiteConfig struct {
+	IndexDocument string  `json:"indexDocument"`
+	ErrorDocument *string `json:"errorDocument"`
+}
+
 type Bucket struct {
-	ID            string        `json:"id"`
-	Name          string        `json:"name"`
-	Created       string        `json:"created"`
-	Objects       int64         `json:"objects"`
-	Bytes         int64         `json:"bytes"`
-	WebsiteAccess bool          `json:"websiteAccess"`
-	Domains       []string      `json:"domains"`
-	Quotas        *BucketQuotas `json:"quotas"`
+	ID            string               `json:"id"`
+	Name          string               `json:"name"`
+	Created       string               `json:"created"`
+	Objects       int64                `json:"objects"`
+	Bytes         int64                `json:"bytes"`
+	WebsiteAccess bool                 `json:"websiteAccess"`
+	WebsiteConfig *BucketWebsiteConfig `json:"websiteConfig"`
+	Domains       []string             `json:"domains"`
+	Quotas        *BucketQuotas        `json:"quotas"`
 }
 
 type BucketKeyAccess struct {
@@ -196,6 +202,53 @@ func (s *Service) UpdateBucketQuotas(ctx context.Context, id string, maxSize, ma
 	return s.GetBucket(ctx, id)
 }
 
+func validateDocumentName(field, name string) error {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return invalid(field, "%s cannot be empty", field)
+	}
+	if len(name) > 255 {
+		return invalid(field, "%s cannot exceed 255 characters", field)
+	}
+	if strings.Contains(name, "/") || strings.Contains(name, "\\") || strings.Contains(name, "..") || strings.ContainsRune(name, 0) {
+		return invalid(field, "%s cannot contain slashes or path traversal characters", field)
+	}
+	return nil
+}
+
+// UpdateBucketWebsite configures or disables static website hosting on a bucket.
+func (s *Service) UpdateBucketWebsite(ctx context.Context, id string, enabled bool, indexDoc, errorDoc string) (BucketDetail, error) {
+	indexDoc = strings.TrimSpace(indexDoc)
+	errorDoc = strings.TrimSpace(errorDoc)
+
+	if enabled {
+		if indexDoc == "" {
+			indexDoc = "index.html"
+		}
+		if err := validateDocumentName("indexDocument", indexDoc); err != nil {
+			return BucketDetail{}, err
+		}
+		if errorDoc != "" {
+			if err := validateDocumentName("errorDocument", errorDoc); err != nil {
+				return BucketDetail{}, err
+			}
+		}
+	}
+
+	err := s.garage.UpdateWebsite(ctx, id, garage.UpdateWebsiteConfig{
+		Enabled:       enabled,
+		IndexDocument: indexDoc,
+		ErrorDocument: errorDoc,
+	})
+	if garage.IsNotFound(err) {
+		return BucketDetail{}, notFound("bucket not found")
+	}
+	if err != nil {
+		return BucketDetail{}, err
+	}
+	return s.GetBucket(ctx, id)
+}
+
 func toBucket(info garage.BucketInfo, isDomain map[string]bool) Bucket {
 	domains := []string{}
 	for _, a := range info.GlobalAliases {
@@ -210,6 +263,17 @@ func toBucket(info garage.BucketInfo, isDomain map[string]bool) Bucket {
 			MaxObjects: info.Quotas.MaxObjects,
 		}
 	}
+	var websiteCfg *BucketWebsiteConfig
+	if info.WebsiteConfig != nil {
+		websiteCfg = &BucketWebsiteConfig{
+			IndexDocument: info.WebsiteConfig.IndexDocument,
+			ErrorDocument: info.WebsiteConfig.ErrorDocument,
+		}
+	} else if info.WebsiteAccess {
+		websiteCfg = &BucketWebsiteConfig{
+			IndexDocument: "index.html",
+		}
+	}
 	return Bucket{
 		ID:            info.ID,
 		Name:          bucketName(info.ID, info.GlobalAliases, isDomain),
@@ -217,6 +281,7 @@ func toBucket(info garage.BucketInfo, isDomain map[string]bool) Bucket {
 		Objects:       info.Objects,
 		Bytes:         info.Bytes,
 		WebsiteAccess: info.WebsiteAccess,
+		WebsiteConfig: websiteCfg,
 		Domains:       domains,
 		Quotas:        quotas,
 	}

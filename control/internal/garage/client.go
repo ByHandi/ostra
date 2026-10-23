@@ -43,13 +43,19 @@ type BucketQuotas struct {
 	MaxObjects *int64 `json:"maxObjects"`
 }
 
+type WebsiteConfig struct {
+	IndexDocument string  `json:"indexDocument"`
+	ErrorDocument *string `json:"errorDocument,omitempty"`
+}
+
 type BucketInfo struct {
 	Bucket
-	WebsiteAccess bool         `json:"websiteAccess"`
-	Objects       int64        `json:"objects"`
-	Bytes         int64        `json:"bytes"`
-	Keys          []BucketKey  `json:"keys"`
-	Quotas        BucketQuotas `json:"quotas"`
+	WebsiteAccess bool           `json:"websiteAccess"`
+	WebsiteConfig *WebsiteConfig `json:"websiteConfig,omitempty"`
+	Objects       int64          `json:"objects"`
+	Bytes         int64          `json:"bytes"`
+	Keys          []BucketKey    `json:"keys"`
+	Quotas        BucketQuotas   `json:"quotas"`
 }
 
 type Permissions struct {
@@ -166,15 +172,39 @@ func (c *Client) RemoveAlias(ctx context.Context, bucketID, alias string) error 
 		map[string]any{"bucketId": bucketID, "globalAlias": alias}, nil)
 }
 
-func (c *Client) EnableWebsite(ctx context.Context, bucketID string) error {
+type UpdateWebsiteConfig struct {
+	Enabled       bool
+	IndexDocument string
+	ErrorDocument string
+}
+
+func (c *Client) UpdateWebsite(ctx context.Context, bucketID string, cfg UpdateWebsiteConfig) error {
+	access := map[string]any{
+		"enabled": cfg.Enabled,
+	}
+	if cfg.Enabled {
+		idx := cfg.IndexDocument
+		if idx == "" {
+			idx = "index.html"
+		}
+		access["indexDocument"] = idx
+		if cfg.ErrorDocument != "" {
+			access["errorDocument"] = cfg.ErrorDocument
+		} else {
+			access["errorDocument"] = nil
+		}
+	}
 	body := map[string]any{
-		"websiteAccess": map[string]any{
-			"enabled":       true,
-			"indexDocument": "index.html",
-			"errorDocument": nil,
-		},
+		"websiteAccess": access,
 	}
 	return c.do(ctx, http.MethodPost, "/v2/UpdateBucket", url.Values{"id": {bucketID}}, body, nil)
+}
+
+func (c *Client) EnableWebsite(ctx context.Context, bucketID string) error {
+	return c.UpdateWebsite(ctx, bucketID, UpdateWebsiteConfig{
+		Enabled:       true,
+		IndexDocument: "index.html",
+	})
 }
 
 func (c *Client) UpdateBucketQuotas(ctx context.Context, bucketID string, q BucketQuotas) error {
