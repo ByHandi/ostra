@@ -273,6 +273,8 @@ Responses use the same envelope as the `shadcn-vite` template and `go-service-bo
 | POST | `/api/buckets/{id}/objects/download-link` | `{"key"}` → a signed `/api/downloads/{token}` link, valid 5 minutes |
 | POST | `/api/buckets/{id}/objects/share-link` | `{"key","expiresIn"}` → signed download link, where expiry is `1h`, `1d`, or `7d` |
 | POST | `/api/buckets/{id}/objects/preview-link` | `{"key"}` → 5-minute signed inline preview link for supported image, video, PDF, or text files |
+| POST | `/api/buckets/{id}/objects/copy` | `{"src","dest"}` → copy one file or an entire folder (`"prefix/"`) |
+| POST | `/api/buckets/{id}/objects/move` | `{"src","dest"}` → rename or move one file or folder (`"prefix/"`) |
 | GET | `/api/downloads/{token}` | Download or preview the file (no session needed; the signed token is the authorization) |
 
 ## Repository layout

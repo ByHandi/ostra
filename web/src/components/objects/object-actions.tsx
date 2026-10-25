@@ -1,8 +1,11 @@
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { CopyObjectDialog } from "./copy-object-dialog";
 import { CreateShareLinkDialog } from "./create-share-link-dialog";
+import { MoveObjectDialog } from "./move-object-dialog";
 import { ObjectPreviewDialog } from "./object-preview-dialog";
+import { RenameObjectDialog } from "./rename-object-dialog";
 
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import ButtonMenu, { type ButtonMenuItem } from "@/components/ui/button-menu";
@@ -34,6 +37,9 @@ export function FileActions({
   const [confirming, setConfirming] = useState(false);
   const [previewing, setPreviewing] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [moving, setMoving] = useState(false);
+  const [copying, setCopying] = useState(false);
   const preview = previewKind(objectKey, contentType);
   const invalidate = useInvalidateBucketContents(bucketId);
 
@@ -74,12 +80,29 @@ export function FileActions({
       },
     });
   }
-  items.push({
-    label: "Delete",
-    icon: <Icon name="trash-2" className="size-4" />,
-    className: "text-destructive",
-    onClick: () => setConfirming(true),
-  });
+  items.push(
+    {
+      label: "Rename",
+      icon: <Icon name="pencil" className="size-4" />,
+      onClick: () => setRenaming(true),
+    },
+    {
+      label: "Move",
+      icon: <Icon name="folder-input" className="size-4" />,
+      onClick: () => setMoving(true),
+    },
+    {
+      label: "Duplicate",
+      icon: <Icon name="copy" className="size-4" />,
+      onClick: () => setCopying(true),
+    },
+    {
+      label: "Delete",
+      icon: <Icon name="trash-2" className="size-4" />,
+      className: "text-destructive",
+      onClick: () => setConfirming(true),
+    },
+  );
 
   const remove = async () => {
     try {
@@ -115,6 +138,30 @@ export function FileActions({
         onOpenChange={setSharing}
       />
 
+      <RenameObjectDialog
+        bucketId={bucketId}
+        objectKey={objectKey}
+        currentName={name}
+        open={renaming}
+        onOpenChange={setRenaming}
+      />
+
+      <MoveObjectDialog
+        bucketId={bucketId}
+        objectKey={objectKey}
+        currentName={name}
+        open={moving}
+        onOpenChange={setMoving}
+      />
+
+      <CopyObjectDialog
+        bucketId={bucketId}
+        objectKey={objectKey}
+        currentName={name}
+        open={copying}
+        onOpenChange={setCopying}
+      />
+
       <ConfirmDialog
         open={confirming}
         onOpenChange={setConfirming}
@@ -135,6 +182,9 @@ interface FolderActionsProps {
 
 export function FolderActions({ bucketId, prefix, name }: FolderActionsProps) {
   const [confirming, setConfirming] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [moving, setMoving] = useState(false);
+  const [copying, setCopying] = useState(false);
   const invalidate = useInvalidateBucketContents(bucketId);
 
   const remove = async () => {
@@ -155,12 +205,51 @@ export function FolderActions({ bucketId, prefix, name }: FolderActionsProps) {
         classNames={{ content: "w-40" }}
         items={[
           {
+            label: "Rename",
+            icon: <Icon name="pencil" className="size-4" />,
+            onClick: () => setRenaming(true),
+          },
+          {
+            label: "Move",
+            icon: <Icon name="folder-input" className="size-4" />,
+            onClick: () => setMoving(true),
+          },
+          {
+            label: "Duplicate",
+            icon: <Icon name="copy" className="size-4" />,
+            onClick: () => setCopying(true),
+          },
+          {
             label: "Delete folder",
             icon: <Icon name="trash-2" className="size-4" />,
             className: "text-destructive",
             onClick: () => setConfirming(true),
           },
         ]}
+      />
+
+      <RenameObjectDialog
+        bucketId={bucketId}
+        prefix={prefix}
+        currentName={name}
+        open={renaming}
+        onOpenChange={setRenaming}
+      />
+
+      <MoveObjectDialog
+        bucketId={bucketId}
+        prefix={prefix}
+        currentName={name}
+        open={moving}
+        onOpenChange={setMoving}
+      />
+
+      <CopyObjectDialog
+        bucketId={bucketId}
+        prefix={prefix}
+        currentName={name}
+        open={copying}
+        onOpenChange={setCopying}
       />
 
       <ConfirmDialog

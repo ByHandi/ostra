@@ -136,6 +136,37 @@ func (c *Client) Delete(ctx context.Context, bucket, key string) error {
 	return mapErr(c.client.RemoveObject(ctx, bucket, key, minio.RemoveObjectOptions{}))
 }
 
+// Copy duplicates one object within the same bucket.
+func (c *Client) Copy(ctx context.Context, bucket, srcKey, destKey string) error {
+	src := minio.CopySrcOptions{
+		Bucket: bucket,
+		Object: srcKey,
+	}
+	dst := minio.CopyDestOptions{
+		Bucket: bucket,
+		Object: destKey,
+	}
+	_, err := c.client.CopyObject(ctx, dst, src)
+	return mapErr(err)
+}
+
+// CopyPrefix duplicates every object under srcPrefix to destPrefix and returns how many were copied.
+func (c *Client) CopyPrefix(ctx context.Context, bucket, srcPrefix, destPrefix string) (int, error) {
+	copied := 0
+	for o := range c.client.ListObjects(ctx, bucket, minio.ListObjectsOptions{Prefix: srcPrefix, Recursive: true}) {
+		if o.Err != nil {
+			return copied, mapErr(o.Err)
+		}
+		rel := strings.TrimPrefix(o.Key, srcPrefix)
+		destKey := destPrefix + rel
+		if err := c.Copy(ctx, bucket, o.Key, destKey); err != nil {
+			return copied, err
+		}
+		copied++
+	}
+	return copied, nil
+}
+
 // DeletePrefix removes every object under prefix and returns how many were deleted.
 func (c *Client) DeletePrefix(ctx context.Context, bucket, prefix string) (int, error) {
 	ctx, cancel := context.WithCancel(ctx)

@@ -55,6 +55,17 @@ export const deleteObject = (bucketId: string, key: string) =>
 export const deleteFolder = (bucketId: string, prefix: string) =>
   api.delete<{ deleted: number }>(objectsPath(bucketId, { prefix }));
 
+export interface CopyMoveResult {
+  copied?: number;
+  moved?: number;
+}
+
+export const copyObject = (bucketId: string, src: string, dest: string) =>
+  api.post<CopyMoveResult>(`/buckets/${encodeURIComponent(bucketId)}/objects/copy`, { src, dest });
+
+export const moveObject = (bucketId: string, src: string, dest: string) =>
+  api.post<CopyMoveResult>(`/buckets/${encodeURIComponent(bucketId)}/objects/move`, { src, dest });
+
 export type ShareLinkExpiry = "1h" | "1d" | "7d";
 
 export interface ObjectLink {
