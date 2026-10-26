@@ -45,4 +45,5 @@ type User struct {
 	PasswordHash string `json:"passwordHash"`
 	CreatedAt    string `json:"createdAt"`
 	UpdatedAt    string `json:"updatedAt"`
+	Role         string `json:"role"`
 }

@@ -4,8 +4,9 @@
 // Usage:
 //
 //	control                                  run the server
-//	control createuser --email E --name N    create an admin account (prompts for password)
-//	control setpassword --email E            reset an admin account's password
+//	control createuser --email E --name N    create an account (prompts for password)
+//	control setpassword --email E            reset an account's password
+//	control setrole <email> <role>           change a user's role (admin or viewer)
 //	control version                          show the build version
 //	control healthcheck                      check the local server's /healthz (for the Docker healthcheck)
 //
@@ -67,12 +68,14 @@ func main() {
 		}
 	case "setpassword":
 		err = setPassword(os.Args[2:])
+	case "setrole":
+		err = setRole(os.Args[2:])
 	case "version", "--version":
 		fmt.Printf("ostra %s (%s)\n", version, commit)
 	case "healthcheck":
 		err = healthcheck()
 	default:
-		err = fmt.Errorf("unknown command %q (choices: serve, createuser, setpassword, version, healthcheck)", cmd)
+		err = fmt.Errorf("unknown command %q (choices: serve, createuser, setpassword, setrole, version, healthcheck)", cmd)
 	}
 	if err != nil {
 		slog.Error("control stopped", "err", err)
@@ -216,6 +219,7 @@ func createUser(args []string) error {
 	fs := flag.NewFlagSet("createuser", flag.ExitOnError)
 	email := fs.String("email", "", "login email (required)")
 	name := fs.String("name", "", "display name (required)")
+	role := fs.String("role", "admin", "user role: admin or viewer (default admin)")
 	fromStdin := fs.Bool("password-stdin", false, "read the password from stdin")
 	fs.Parse(args)
 
@@ -229,11 +233,46 @@ func createUser(args []string) error {
 	if err != nil {
 		return err
 	}
-	user, err := authSvc.CreateUser(context.Background(), *email, *name, password)
+	user, err := authSvc.CreateUser(context.Background(), *email, *name, password, *role)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("user %s (%s) created\n", user.Email, user.Name)
+	fmt.Printf("user %s (%s, %s) created\n", user.Email, user.Name, user.Role)
+	return nil
+}
+
+func setRole(args []string) error {
+	fs := flag.NewFlagSet("setrole", flag.ExitOnError)
+	emailFlag := fs.String("email", "", "user email")
+	roleFlag := fs.String("role", "", "user role: admin or viewer")
+	_ = fs.Parse(args)
+
+	email := *emailFlag
+	role := *roleFlag
+
+	if fs.NArg() == 2 {
+		email = fs.Arg(0)
+		role = fs.Arg(1)
+	} else if fs.NArg() == 1 && email != "" {
+		role = fs.Arg(0)
+	}
+
+	email = strings.TrimSpace(email)
+	role = strings.TrimSpace(role)
+	if email == "" || role == "" {
+		return errors.New("usage: control setrole <email> <role>")
+	}
+
+	authSvc, closeDB, err := openAuth()
+	if err != nil {
+		return err
+	}
+	defer closeDB()
+
+	if err := authSvc.SetRole(context.Background(), email, role); err != nil {
+		return err
+	}
+	fmt.Printf("role for %s changed to %s\n", email, role)
 	return nil
 }
 

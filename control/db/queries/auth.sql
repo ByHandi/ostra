@@ -1,6 +1,6 @@
 -- name: CreateUser :one
-INSERT INTO users (email, name, password_hash)
-VALUES (?, ?, ?)
+INSERT INTO users (email, name, password_hash, role)
+VALUES (?, ?, ?, ?)
 RETURNING *;
 
 -- name: GetUser :one
@@ -11,6 +11,15 @@ SELECT * FROM users WHERE email = ?;
 
 -- name: CountUsers :one
 SELECT COUNT(*) FROM users;
+
+-- name: CountAdmins :one
+SELECT COUNT(*) FROM users WHERE role = 'admin';
+
+-- name: UpdateUserRole :exec
+UPDATE users
+SET role = ?,
+    updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+WHERE id = ?;
 
 -- name: UpdateUserPassword :exec
 UPDATE users

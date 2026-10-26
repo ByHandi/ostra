@@ -3,10 +3,13 @@ import { queryOptions } from "@tanstack/react-query";
 import { api } from "./client";
 import { ApiError } from "./errors";
 
+export type UserRole = "admin" | "viewer";
+
 export interface CurrentUser {
   id: number;
   name: string;
   email: string;
+  role: UserRole;
 }
 
 export interface SessionContext {

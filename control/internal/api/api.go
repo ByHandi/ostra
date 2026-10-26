@@ -110,40 +110,48 @@ func (h *Handler) Public() http.Handler {
 			r.Get("/overview", h.overview)
 
 			r.Get("/buckets", h.listBuckets)
-			r.Post("/buckets", h.createBucket)
 			r.Get("/buckets/{id}", h.getBucket)
-			r.Put("/buckets/{id}/quotas", h.updateBucketQuotas)
-			r.Put("/buckets/{id}/website", h.updateBucketWebsite)
 			r.Get("/buckets/{id}/cors", h.getBucketCORS)
-			r.Put("/buckets/{id}/cors", h.setBucketCORS)
-			r.Delete("/buckets/{id}/cors", h.deleteBucketCORS)
 			r.Get("/buckets/{id}/lifecycle", h.getBucketLifecycle)
-			r.Put("/buckets/{id}/lifecycle", h.setBucketLifecycle)
-			r.Delete("/buckets/{id}/lifecycle", h.deleteBucketLifecycle)
-			r.Delete("/buckets/{id}", h.deleteBucket)
 			r.Get("/buckets/{id}/objects", h.listObjects)
-			r.Put("/buckets/{id}/objects", h.uploadObject)
-			r.Delete("/buckets/{id}/objects", h.deleteObjects)
 			r.Get("/buckets/{id}/objects/metadata", h.getObjectMetadata)
-			r.Put("/buckets/{id}/objects/metadata", h.updateObjectMetadata)
 			r.Post("/buckets/{id}/objects/download-link", h.createDownloadLink)
 			r.Post("/buckets/{id}/objects/share-link", h.createShareLink)
 			r.Post("/buckets/{id}/objects/preview-link", h.createPreviewLink)
-			r.Post("/buckets/{id}/objects/copy", h.copyObject)
-			r.Post("/buckets/{id}/objects/move", h.moveObject)
 
 			r.Get("/keys", h.listKeys)
-			r.Post("/keys", h.createKey)
 			r.Get("/keys/{id}", h.getKey)
-			r.Delete("/keys/{id}", h.deleteKey)
-			r.Put("/keys/{id}/expiration", h.updateKeyExpiration)
-			r.Put("/keys/{id}/buckets/{bucketId}", h.setKeyPermissions)
 
 			r.Get("/domains", h.listDomains)
-			r.Post("/domains", h.createDomain)
 			r.Get("/domains/{id}", h.getDomain)
-			r.Post("/domains/{id}/verify", h.verifyDomain)
-			r.Delete("/domains/{id}", h.deleteDomain)
+
+			// Admin-only mutating operations.
+			r.Group(func(r chi.Router) {
+				r.Use(h.requireAdmin)
+
+				r.Post("/buckets", h.createBucket)
+				r.Put("/buckets/{id}/quotas", h.updateBucketQuotas)
+				r.Put("/buckets/{id}/website", h.updateBucketWebsite)
+				r.Put("/buckets/{id}/cors", h.setBucketCORS)
+				r.Delete("/buckets/{id}/cors", h.deleteBucketCORS)
+				r.Put("/buckets/{id}/lifecycle", h.setBucketLifecycle)
+				r.Delete("/buckets/{id}/lifecycle", h.deleteBucketLifecycle)
+				r.Delete("/buckets/{id}", h.deleteBucket)
+				r.Put("/buckets/{id}/objects", h.uploadObject)
+				r.Delete("/buckets/{id}/objects", h.deleteObjects)
+				r.Put("/buckets/{id}/objects/metadata", h.updateObjectMetadata)
+				r.Post("/buckets/{id}/objects/copy", h.copyObject)
+				r.Post("/buckets/{id}/objects/move", h.moveObject)
+
+				r.Post("/keys", h.createKey)
+				r.Delete("/keys/{id}", h.deleteKey)
+				r.Put("/keys/{id}/expiration", h.updateKeyExpiration)
+				r.Put("/keys/{id}/buckets/{bucketId}", h.setKeyPermissions)
+
+				r.Post("/domains", h.createDomain)
+				r.Post("/domains/{id}/verify", h.verifyDomain)
+				r.Delete("/domains/{id}", h.deleteDomain)
+			})
 		})
 	})
 
@@ -213,6 +221,17 @@ func (h *Handler) requireUser(next http.Handler) http.Handler {
 			return
 		}
 		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), ctxKey{}, user)))
+	})
+}
+
+func (h *Handler) requireAdmin(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		u := currentUser(r)
+		if u.Role != auth.RoleAdmin {
+			writeFail(w, http.StatusForbidden, "forbidden", "admin role required", nil)
+			return
+		}
+		next.ServeHTTP(w, r)
 	})
 }
 

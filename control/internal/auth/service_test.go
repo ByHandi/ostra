@@ -48,14 +48,17 @@ func TestSessionLifecycle(t *testing.T) {
 	ctx := context.Background()
 	svc := newTestService(t)
 
-	if _, err := svc.CreateUser(ctx, "admin@example.com", "Admin", "short"); err == nil {
+	if _, err := svc.CreateUser(ctx, "admin@example.com", "Admin", "short", RoleAdmin); err == nil {
 		t.Fatal("short password must be rejected")
 	}
-	user, err := svc.CreateUser(ctx, "admin@example.com", "Admin", "secret123")
+	user, err := svc.CreateUser(ctx, "admin@example.com", "Admin", "secret123", RoleAdmin)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.CreateUser(ctx, "ADMIN@example.com", "Other", "secret123"); !errors.Is(err, ErrUserExists) {
+	if user.Role != RoleAdmin {
+		t.Fatalf("expected role %s, got %s", RoleAdmin, user.Role)
+	}
+	if _, err := svc.CreateUser(ctx, "ADMIN@example.com", "Other", "secret123", RoleAdmin); !errors.Is(err, ErrUserExists) {
 		t.Fatalf("duplicate email (different case): err = %v", err)
 	}
 
@@ -150,7 +153,7 @@ func TestBootstrapAdmin(t *testing.T) {
 func TestExpiredRefreshToken(t *testing.T) {
 	ctx := context.Background()
 	svc := newTestService(t)
-	svc.CreateUser(ctx, "admin@example.com", "Admin", "secret123")
+	svc.CreateUser(ctx, "admin@example.com", "Admin", "secret123", RoleAdmin)
 
 	sess, err := svc.Login(ctx, "admin@example.com", "secret123", Client{})
 	if err != nil {
@@ -174,5 +177,99 @@ func TestLoginLimiter(t *testing.T) {
 	}
 	if !l.Allow("5.6.7.8") {
 		t.Fatal("other IPs must not be blocked too")
+	}
+}
+
+func TestUserRoles(t *testing.T) {
+	ctx := context.Background()
+	svc := newTestService(t)
+
+	// CreateUser with default empty role -> admin
+	u1, err := svc.CreateUser(ctx, "u1@example.com", "U1", "secret123", "")
+	if err != nil || u1.Role != RoleAdmin {
+		t.Fatalf("CreateUser with empty role: err=%v, role=%s", err, u1.Role)
+	}
+
+	// CreateUser with viewer role
+	u2, err := svc.CreateUser(ctx, "u2@example.com", "U2", "secret123", RoleViewer)
+	if err != nil || u2.Role != RoleViewer {
+		t.Fatalf("CreateUser with viewer role: err=%v, role=%s", err, u2.Role)
+	}
+
+	// CreateUser with invalid role
+	if _, err := svc.CreateUser(ctx, "u3@example.com", "U3", "secret123", "superadmin"); !errors.Is(err, ErrInvalidRole) {
+		t.Fatalf("CreateUser with invalid role: got %v, want ErrInvalidRole", err)
+	}
+
+	// SetRole invalid role
+	if err := svc.SetRole(ctx, "u2@example.com", "owner"); !errors.Is(err, ErrInvalidRole) {
+		t.Fatalf("SetRole with invalid role: got %v, want ErrInvalidRole", err)
+	}
+
+	// SetRole unknown user
+	if err := svc.SetRole(ctx, "unknown@example.com", RoleAdmin); !errors.Is(err, ErrUserNotFound) {
+		t.Fatalf("SetRole with unknown email: got %v, want ErrUserNotFound", err)
+	}
+
+	// SetRole viewer to admin
+	if err := svc.SetRole(ctx, "u2@example.com", RoleAdmin); err != nil {
+		t.Fatalf("SetRole to admin: %v", err)
+	}
+
+	// Now there are 2 admins (u1 and u2). Demoting u1 to viewer succeeds.
+	if err := svc.SetRole(ctx, "u1@example.com", RoleViewer); err != nil {
+		t.Fatalf("demoting u1: %v", err)
+	}
+
+	// Demoting the last remaining admin (u2) must fail.
+	if err := svc.SetRole(ctx, "u2@example.com", RoleViewer); !errors.Is(err, ErrDemoteLastAdmin) {
+		t.Fatalf("demoting last admin: got %v, want ErrDemoteLastAdmin", err)
+	}
+
+	// SetRole to same role is a no-op
+	if err := svc.SetRole(ctx, "u2@example.com", RoleAdmin); err != nil {
+		t.Fatalf("SetRole to same role: %v", err)
+	}
+}
+
+func TestRoleImmediateEffectAndSessionRevocation(t *testing.T) {
+	ctx := context.Background()
+	svc := newTestService(t)
+
+	// Create two admins so demoting one is allowed.
+	admin1, err := svc.CreateUser(ctx, "admin1@example.com", "Admin 1", "secret123", RoleAdmin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = svc.CreateUser(ctx, "admin2@example.com", "Admin 2", "secret123", RoleAdmin)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	sess, err := svc.Login(ctx, "admin1@example.com", "secret123", Client{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Before role change, Authenticate returns RoleAdmin
+	user, err := svc.Authenticate(ctx, sess.AccessToken)
+	if err != nil || user.Role != RoleAdmin {
+		t.Fatalf("Authenticate before role change: role=%s, err=%v", user.Role, err)
+	}
+
+	// Demote admin1 to viewer
+	if err := svc.SetRole(ctx, admin1.Email, RoleViewer); err != nil {
+		t.Fatal(err)
+	}
+
+	// Immediate effect: next Authenticate with existing access token returns RoleViewer immediately!
+	user, err = svc.Authenticate(ctx, sess.AccessToken)
+	if err != nil || user.Role != RoleViewer {
+		t.Fatalf("Authenticate after role change: role=%s, err=%v", user.Role, err)
+	}
+
+	// Changing role revoked refresh sessions
+	if _, err := svc.Refresh(ctx, sess.RefreshToken, Client{}); !errors.Is(err, ErrSessionExpired) {
+		t.Fatalf("refresh after role change: got %v, want ErrSessionExpired", err)
 	}
 }
