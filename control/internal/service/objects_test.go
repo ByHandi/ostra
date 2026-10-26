@@ -120,6 +120,45 @@ func (f *fakeStore) DeletePrefix(_ context.Context, bucket, prefix string) (int,
 	return n, nil
 }
 
+func (f *fakeStore) Copy(_ context.Context, bucket, srcKey, destKey string) error {
+	if err := f.deny(); err != nil {
+		return err
+	}
+	o, ok := f.data[bucket][srcKey]
+	if !ok {
+		return objects.ErrNotFound
+	}
+	if f.data[bucket] == nil {
+		f.data[bucket] = map[string]fakeObject{}
+	}
+	f.data[bucket][destKey] = o
+	return nil
+}
+
+func (f *fakeStore) CopyPrefix(_ context.Context, bucket, srcPrefix, destPrefix string) (int, error) {
+	if err := f.deny(); err != nil {
+		return 0, err
+	}
+	type pair struct {
+		key string
+		obj fakeObject
+	}
+	var copies []pair
+	for key, o := range f.data[bucket] {
+		if strings.HasPrefix(key, srcPrefix) {
+			rel := strings.TrimPrefix(key, srcPrefix)
+			copies = append(copies, pair{key: destPrefix + rel, obj: o})
+		}
+	}
+	for _, cp := range copies {
+		if f.data[bucket] == nil {
+			f.data[bucket] = map[string]fakeObject{}
+		}
+		f.data[bucket][cp.key] = cp.obj
+	}
+	return len(copies), nil
+}
+
 func (f *fakeStore) GetCORS(_ context.Context, bucket string) (objects.CORSConfiguration, error) {
 	if err := f.deny(); err != nil {
 		return objects.CORSConfiguration{}, err
@@ -409,4 +448,138 @@ func TestObjectContentType(t *testing.T) {
 			t.Errorf("objectContentType(%q, %q) = %q, want %q", tt.key, tt.sent, got, tt.want)
 		}
 	}
+}
+
+func TestCopyMoveObject(t *testing.T) {
+	ctx := context.Background()
+	st := newFakeStore()
+	svc, _ := newObjectService(t, newFakeGarage("assets"), st)
+
+	put(t, svc, "id-assets", "docs/spec.txt", "hello world")
+
+	// Same source and destination
+	err := svc.CopyObject(ctx, "id-assets", "docs/spec.txt", "docs/spec.txt")
+	wantField(t, err, KindInvalid, "dest")
+	err = svc.MoveObject(ctx, "id-assets", "docs/spec.txt", "docs/spec.txt")
+	wantField(t, err, KindInvalid, "dest")
+
+	// Missing source
+	err = svc.CopyObject(ctx, "id-assets", "docs/missing.txt", "docs/out.txt")
+	wantKind(t, err, KindNotFound)
+	err = svc.MoveObject(ctx, "id-assets", "docs/missing.txt", "docs/out.txt")
+	wantKind(t, err, KindNotFound)
+
+	// Invalid names
+	err = svc.CopyObject(ctx, "id-assets", "docs/", "docs/out.txt")
+	wantField(t, err, KindInvalid, "src")
+	err = svc.CopyObject(ctx, "id-assets", "docs/spec.txt", "docs/")
+	wantField(t, err, KindInvalid, "dest")
+	err = svc.CopyObject(ctx, "id-assets", "../spec.txt", "docs/out.txt")
+	wantField(t, err, KindInvalid, "src")
+
+	// Successful copy
+	if err := svc.CopyObject(ctx, "id-assets", "docs/spec.txt", "docs/spec-copy.txt"); err != nil {
+		t.Fatalf("CopyObject: %v", err)
+	}
+	r, _, err := svc.OpenObject(ctx, "id-assets", "docs/spec.txt")
+	if err != nil {
+		t.Fatalf("source after copy: %v", err)
+	}
+	r.Close()
+	r, obj, err := svc.OpenObject(ctx, "id-assets", "docs/spec-copy.txt")
+	if err != nil {
+		t.Fatalf("dest after copy: %v", err)
+	}
+	data, _ := io.ReadAll(r)
+	r.Close()
+	if string(data) != "hello world" || obj.Size != 11 {
+		t.Fatalf("dest object content = %q, size = %d", data, obj.Size)
+	}
+
+	// Successful move (rename)
+	if err := svc.MoveObject(ctx, "id-assets", "docs/spec.txt", "archive/spec-moved.txt"); err != nil {
+		t.Fatalf("MoveObject: %v", err)
+	}
+	_, _, err = svc.OpenObject(ctx, "id-assets", "docs/spec.txt")
+	wantKind(t, err, KindNotFound)
+	r, obj, err = svc.OpenObject(ctx, "id-assets", "archive/spec-moved.txt")
+	if err != nil {
+		t.Fatalf("dest after move: %v", err)
+	}
+	data, _ = io.ReadAll(r)
+	r.Close()
+	if string(data) != "hello world" || obj.Size != 11 {
+		t.Fatalf("dest object content = %q, size = %d", data, obj.Size)
+	}
+}
+
+func TestCopyMoveFolder(t *testing.T) {
+	ctx := context.Background()
+	st := newFakeStore()
+	svc, _ := newObjectService(t, newFakeGarage("assets"), st)
+
+	put(t, svc, "id-assets", "images/2026/a.png", "img-a")
+	put(t, svc, "id-assets", "images/2026/b.png", "img-b")
+	put(t, svc, "id-assets", "images/readme.txt", "readme")
+
+	// Validation: folder into itself or its subfolder
+	_, err := svc.CopyFolder(ctx, "id-assets", "images/", "images/sub/")
+	wantField(t, err, KindInvalid, "dest")
+	_, err = svc.MoveFolder(ctx, "id-assets", "images/", "images/sub/")
+	wantField(t, err, KindInvalid, "dest")
+
+	// Validation: same prefix
+	_, err = svc.CopyFolder(ctx, "id-assets", "images/", "images/")
+	wantField(t, err, KindInvalid, "dest")
+
+	// Validation: missing trailing slash
+	_, err = svc.CopyFolder(ctx, "id-assets", "images", "backup/")
+	wantField(t, err, KindInvalid, "src")
+	_, err = svc.CopyFolder(ctx, "id-assets", "images/", "backup")
+	wantField(t, err, KindInvalid, "dest")
+
+	// Missing / empty folder
+	_, err = svc.CopyFolder(ctx, "id-assets", "empty/", "backup/")
+	wantKind(t, err, KindNotFound)
+	_, err = svc.MoveFolder(ctx, "id-assets", "empty/", "backup/")
+	wantKind(t, err, KindNotFound)
+
+	// Successful CopyFolder
+	copied, err := svc.CopyFolder(ctx, "id-assets", "images/", "images-backup/")
+	if err != nil {
+		t.Fatalf("CopyFolder: %v", err)
+	}
+	if copied != 3 {
+		t.Fatalf("copied = %d, want 3", copied)
+	}
+	// Source still exists
+	r, _, err := svc.OpenObject(ctx, "id-assets", "images/readme.txt")
+	if err != nil {
+		t.Fatalf("source after copy: %v", err)
+	}
+	r.Close()
+	// Target exists
+	r, _, err = svc.OpenObject(ctx, "id-assets", "images-backup/2026/a.png")
+	if err != nil {
+		t.Fatalf("dest after copy: %v", err)
+	}
+	r.Close()
+
+	// Successful MoveFolder
+	moved, err := svc.MoveFolder(ctx, "id-assets", "images/", "images-archived/")
+	if err != nil {
+		t.Fatalf("MoveFolder: %v", err)
+	}
+	if moved != 3 {
+		t.Fatalf("moved = %d, want 3", moved)
+	}
+	// Source is deleted
+	_, _, err = svc.OpenObject(ctx, "id-assets", "images/readme.txt")
+	wantKind(t, err, KindNotFound)
+	// Target exists
+	r, _, err = svc.OpenObject(ctx, "id-assets", "images-archived/2026/b.png")
+	if err != nil {
+		t.Fatalf("dest after move: %v", err)
+	}
+	r.Close()
 }

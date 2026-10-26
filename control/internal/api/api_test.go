@@ -270,6 +270,27 @@ func TestBucketLifecycleValidation(t *testing.T) {
 	if r := call(t, srv, "PUT", "/api/buckets/bucket/lifecycle", token, nil, `{"abortIncompleteMultipartUploadDays":-1}`); r.status != http.StatusBadRequest || len(r.body.Error.Errors["abortIncompleteMultipartUploadDays"]) != 1 {
 		t.Fatalf("put lifecycle with negative abortDays = %d %+v", r.status, r.body.Error)
 	}
+
+	// Copy and Move endpoints: auth required
+	if r := call(t, srv, "POST", "/api/buckets/bucket/objects/copy", "", nil, `{"src":"a.txt","dest":"b.txt"}`); r.status != http.StatusUnauthorized {
+		t.Fatalf("copy without auth = %d, want 401", r.status)
+	}
+	if r := call(t, srv, "POST", "/api/buckets/bucket/objects/move", "", nil, `{"src":"a.txt","dest":"b.txt"}`); r.status != http.StatusUnauthorized {
+		t.Fatalf("move without auth = %d, want 401", r.status)
+	}
+
+	// Unknown JSON fields rejected
+	if r := call(t, srv, "POST", "/api/buckets/bucket/objects/copy", token, nil, `{"src":"a.txt","dest":"b.txt","unknown":1}`); r.status != http.StatusBadRequest {
+		t.Fatalf("copy with unknown field = %d, want 400", r.status)
+	}
+
+	// Validation: same source and dest rejected before Garage is called
+	if r := call(t, srv, "POST", "/api/buckets/bucket/objects/copy", token, nil, `{"src":"a.txt","dest":"a.txt"}`); r.status != http.StatusBadRequest || len(r.body.Error.Errors["dest"]) != 1 {
+		t.Fatalf("copy with same src and dest = %d %+v", r.status, r.body.Error)
+	}
+	if r := call(t, srv, "POST", "/api/buckets/bucket/objects/move", token, nil, `{"src":"photos/","dest":"photos/"}`); r.status != http.StatusBadRequest || len(r.body.Error.Errors["dest"]) != 1 {
+		t.Fatalf("move with same folder prefix = %d %+v", r.status, r.body.Error)
+	}
 }
 
 func TestHealthz(t *testing.T) {

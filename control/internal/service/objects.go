@@ -19,6 +19,8 @@ type ObjectStore interface {
 	Put(ctx context.Context, bucket, key string, r io.Reader, size int64, contentType string) (objects.Object, error)
 	Delete(ctx context.Context, bucket, key string) error
 	DeletePrefix(ctx context.Context, bucket, prefix string) (int, error)
+	Copy(ctx context.Context, bucket, srcKey, destKey string) error
+	CopyPrefix(ctx context.Context, bucket, srcPrefix, destPrefix string) (int, error)
 	GetCORS(ctx context.Context, bucket string) (objects.CORSConfiguration, error)
 	SetCORS(ctx context.Context, bucket string, cfg objects.CORSConfiguration) error
 	DeleteCORS(ctx context.Context, bucket string) error
@@ -112,6 +114,131 @@ func (s *Service) DeleteFolder(ctx context.Context, bucketID, prefix string) (in
 		return err
 	})
 	return deleted, err
+}
+
+// CopyObject duplicates one file within a bucket.
+func (s *Service) CopyObject(ctx context.Context, bucketID, srcKey, destKey string) error {
+	if err := validateCopyMoveFiles(srcKey, destKey); err != nil {
+		return err
+	}
+	err := s.withBucket(ctx, bucketID, true, func(st ObjectStore, bucket string) error {
+		return st.Copy(ctx, bucket, srcKey, destKey)
+	})
+	if errors.Is(err, objects.ErrNotFound) {
+		return notFound("file not found")
+	}
+	return err
+}
+
+// CopyFolder duplicates every file under srcPrefix into destPrefix.
+func (s *Service) CopyFolder(ctx context.Context, bucketID, srcPrefix, destPrefix string) (int, error) {
+	if err := validateCopyMoveFolders(srcPrefix, destPrefix); err != nil {
+		return 0, err
+	}
+	var copied int
+	err := s.withBucket(ctx, bucketID, true, func(st ObjectStore, bucket string) error {
+		var err error
+		copied, err = st.CopyPrefix(ctx, bucket, srcPrefix, destPrefix)
+		return err
+	})
+	if err != nil {
+		return 0, err
+	}
+	if copied == 0 {
+		return 0, notFound("folder not found or empty")
+	}
+	return copied, nil
+}
+
+// MoveObject renames or moves one file within a bucket.
+func (s *Service) MoveObject(ctx context.Context, bucketID, srcKey, destKey string) error {
+	if err := validateCopyMoveFiles(srcKey, destKey); err != nil {
+		return err
+	}
+	err := s.withBucket(ctx, bucketID, true, func(st ObjectStore, bucket string) error {
+		if err := st.Copy(ctx, bucket, srcKey, destKey); err != nil {
+			return err
+		}
+		return st.Delete(ctx, bucket, srcKey)
+	})
+	if errors.Is(err, objects.ErrNotFound) {
+		return notFound("file not found")
+	}
+	return err
+}
+
+// MoveFolder moves every file under srcPrefix into destPrefix.
+func (s *Service) MoveFolder(ctx context.Context, bucketID, srcPrefix, destPrefix string) (int, error) {
+	if err := validateCopyMoveFolders(srcPrefix, destPrefix); err != nil {
+		return 0, err
+	}
+	var moved int
+	err := s.withBucket(ctx, bucketID, true, func(st ObjectStore, bucket string) error {
+		var err error
+		moved, err = st.CopyPrefix(ctx, bucket, srcPrefix, destPrefix)
+		if err != nil {
+			return err
+		}
+		if moved == 0 {
+			return notFound("folder not found or empty")
+		}
+		_, err = st.DeletePrefix(ctx, bucket, srcPrefix)
+		return err
+	})
+	return moved, err
+}
+
+func validateCopyMoveFiles(src, dest string) error {
+	if src == "" {
+		return invalid("src", "source file name is required")
+	}
+	if strings.HasSuffix(src, "/") {
+		return invalid("src", "source file name must not end with /")
+	}
+	if err := validatePath(src, "src"); err != nil {
+		return err
+	}
+	if dest == "" {
+		return invalid("dest", "destination file name is required")
+	}
+	if strings.HasSuffix(dest, "/") {
+		return invalid("dest", "destination file name must not end with /")
+	}
+	if err := validatePath(dest, "dest"); err != nil {
+		return err
+	}
+	if src == dest {
+		return invalid("dest", "destination must be different from source")
+	}
+	return nil
+}
+
+func validateCopyMoveFolders(src, dest string) error {
+	if src == "" || src == "/" {
+		return invalid("src", "choose a folder to copy or move")
+	}
+	if !strings.HasSuffix(src, "/") {
+		return invalid("src", "source folder must end with /")
+	}
+	if err := validatePath(strings.TrimSuffix(src, "/"), "src"); err != nil {
+		return err
+	}
+	if dest == "" || dest == "/" {
+		return invalid("dest", "destination folder is required")
+	}
+	if !strings.HasSuffix(dest, "/") {
+		return invalid("dest", "destination folder must end with /")
+	}
+	if err := validatePath(strings.TrimSuffix(dest, "/"), "dest"); err != nil {
+		return err
+	}
+	if src == dest {
+		return invalid("dest", "destination must be different from source")
+	}
+	if strings.HasPrefix(dest, src) {
+		return invalid("dest", "cannot copy or move a folder into itself or its subfolder")
+	}
+	return nil
 }
 
 // objectContentType keeps a meaningful type sent by the uploader and otherwise guesses one

@@ -127,6 +127,8 @@ func (h *Handler) Public() http.Handler {
 			r.Post("/buckets/{id}/objects/download-link", h.createDownloadLink)
 			r.Post("/buckets/{id}/objects/share-link", h.createShareLink)
 			r.Post("/buckets/{id}/objects/preview-link", h.createPreviewLink)
+			r.Post("/buckets/{id}/objects/copy", h.copyObject)
+			r.Post("/buckets/{id}/objects/move", h.moveObject)
 
 			r.Get("/keys", h.listKeys)
 			r.Post("/keys", h.createKey)

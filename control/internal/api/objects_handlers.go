@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"path"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -67,6 +68,41 @@ func (h *Handler) deleteObjects(w http.ResponseWriter, r *http.Request) {
 	default:
 		writeFail(w, http.StatusBadRequest, "validation", "pass either key or prefix", nil)
 	}
+}
+
+type copyMoveObjectRequest struct {
+	Src  string `json:"src"`
+	Dest string `json:"dest"`
+}
+
+func (h *Handler) copyObject(w http.ResponseWriter, r *http.Request) {
+	var in copyMoveObjectRequest
+	if !decode(w, r, &in) {
+		return
+	}
+	bucketID := chi.URLParam(r, "id")
+	if strings.HasSuffix(in.Src, "/") || strings.HasSuffix(in.Dest, "/") {
+		n, err := h.svc.CopyFolder(r.Context(), bucketID, in.Src, in.Dest)
+		respond(w, r, http.StatusOK, map[string]int{"copied": n}, err)
+		return
+	}
+	err := h.svc.CopyObject(r.Context(), bucketID, in.Src, in.Dest)
+	respond(w, r, http.StatusOK, map[string]int{"copied": 1}, err)
+}
+
+func (h *Handler) moveObject(w http.ResponseWriter, r *http.Request) {
+	var in copyMoveObjectRequest
+	if !decode(w, r, &in) {
+		return
+	}
+	bucketID := chi.URLParam(r, "id")
+	if strings.HasSuffix(in.Src, "/") || strings.HasSuffix(in.Dest, "/") {
+		n, err := h.svc.MoveFolder(r.Context(), bucketID, in.Src, in.Dest)
+		respond(w, r, http.StatusOK, map[string]int{"moved": n}, err)
+		return
+	}
+	err := h.svc.MoveObject(r.Context(), bucketID, in.Src, in.Dest)
+	respond(w, r, http.StatusOK, map[string]int{"moved": 1}, err)
 }
 
 type downloadLink struct {

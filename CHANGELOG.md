@@ -9,6 +9,11 @@ The release workflow uses the contents of that version's section as the GitHub R
 
 ## [Unreleased]
 
+### Added
+
+- Rename, move, and duplicate actions for files and folders in the object browser, backed by
+  new `POST /api/buckets/{id}/objects/copy` and `POST /api/buckets/{id}/objects/move` endpoints.
+
 ## [0.3.0] - 2026-10-23
 
 ### Added
