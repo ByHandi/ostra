@@ -32,6 +32,24 @@ type Object struct {
 	ContentType  string    `json:"contentType,omitempty"`
 }
 
+// Metadata holds user-editable HTTP headers for an object.
+type Metadata struct {
+	ContentType        string `json:"contentType"`
+	CacheControl       string `json:"cacheControl,omitempty"`
+	ContentDisposition string `json:"contentDisposition,omitempty"`
+}
+
+// ObjectMetadata describes an object along with its HTTP header metadata.
+type ObjectMetadata struct {
+	Key                string    `json:"key"`
+	Size               int64     `json:"size"`
+	LastModified       time.Time `json:"lastModified"`
+	ETag               string    `json:"etag"`
+	ContentType        string    `json:"contentType"`
+	CacheControl       string    `json:"cacheControl"`
+	ContentDisposition string    `json:"contentDisposition"`
+}
+
 // Page is one page of a "folder" listing (prefix + "/" delimiter).
 type Page struct {
 	// Folders are the full prefixes of sub-folders, each ending in "/".
@@ -147,6 +165,38 @@ func (c *Client) Copy(ctx context.Context, bucket, srcKey, destKey string) error
 		Object: destKey,
 	}
 	_, err := c.client.CopyObject(ctx, dst, src)
+	return mapErr(err)
+}
+
+// GetMetadata returns object metadata and HTTP headers.
+func (c *Client) GetMetadata(ctx context.Context, bucket, key string) (ObjectMetadata, error) {
+	info, err := c.client.StatObject(ctx, bucket, key, minio.StatObjectOptions{})
+	if err != nil {
+		return ObjectMetadata{}, mapErr(err)
+	}
+	return toObjectMetadata(info), nil
+}
+
+// UpdateMetadata updates an object's HTTP headers in place using CopyObject with ReplaceMetadata.
+func (c *Client) UpdateMetadata(ctx context.Context, bucket, key string, meta Metadata) error {
+	info, err := c.client.StatObject(ctx, bucket, key, minio.StatObjectOptions{})
+	if err != nil {
+		return mapErr(err)
+	}
+	src := minio.CopySrcOptions{
+		Bucket: bucket,
+		Object: key,
+	}
+	dst := minio.CopyDestOptions{
+		Bucket:             bucket,
+		Object:             key,
+		ReplaceMetadata:    true,
+		UserMetadata:       info.UserMetadata,
+		ContentType:        meta.ContentType,
+		CacheControl:       meta.CacheControl,
+		ContentDisposition: meta.ContentDisposition,
+	}
+	_, err = c.client.CopyObject(ctx, dst, src)
 	return mapErr(err)
 }
 
@@ -369,4 +419,34 @@ func toObject(o minio.ObjectInfo) Object {
 		ETag:         strings.Trim(o.ETag, `"`),
 		ContentType:  o.ContentType,
 	}
+}
+
+func toObjectMetadata(o minio.ObjectInfo) ObjectMetadata {
+	contentType := o.ContentType
+	if contentType == "" {
+		contentType = getHeader(o, "Content-Type")
+	}
+	return ObjectMetadata{
+		Key:                o.Key,
+		Size:               o.Size,
+		LastModified:       o.LastModified,
+		ETag:               strings.Trim(o.ETag, `"`),
+		ContentType:        contentType,
+		CacheControl:       getHeader(o, "Cache-Control"),
+		ContentDisposition: getHeader(o, "Content-Disposition"),
+	}
+}
+
+func getHeader(o minio.ObjectInfo, name string) string {
+	if o.Metadata != nil {
+		if v := o.Metadata.Get(name); v != "" {
+			return v
+		}
+	}
+	if o.Headers != nil {
+		if v := o.Headers.Get(name); v != "" {
+			return v
+		}
+	}
+	return ""
 }

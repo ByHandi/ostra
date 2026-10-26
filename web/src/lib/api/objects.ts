@@ -1,4 +1,4 @@
-import { infiniteQueryOptions } from "@tanstack/react-query";
+import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query";
 
 import { api, refreshSession } from "./client";
 import { API_URL } from "./config";
@@ -13,6 +13,22 @@ export interface StoredObject {
   lastModified: string;
   etag: string;
   contentType?: string;
+}
+
+export interface ObjectMetadata {
+  key: string;
+  size: number;
+  lastModified: string;
+  etag: string;
+  contentType: string;
+  cacheControl: string;
+  contentDisposition: string;
+}
+
+export interface UpdateObjectMetadataInput {
+  contentType: string;
+  cacheControl?: string;
+  contentDisposition?: string;
 }
 
 export interface ObjectPage {
@@ -47,6 +63,19 @@ export const folderQuery = (bucketId: string, prefix: string) =>
     getNextPageParam: (last) => last.nextCursor || undefined,
   });
 
+/** Object metadata and HTTP headers. */
+export const objectMetadataQuery = (bucketId: string, key: string) =>
+  queryOptions({
+    queryKey: [...objectKeys.bucket(bucketId), "metadata", key] as const,
+    queryFn: async () => {
+      const res = await api.get<ObjectMetadata>(
+        `/buckets/${encodeURIComponent(bucketId)}/objects/metadata?key=${encodeURIComponent(key)}`,
+      );
+      if (!res.data) throw new ApiError("Failed to fetch object metadata", 500);
+      return res.data;
+    },
+  });
+
 // ── Mutations ────────────────────────────────────────────────────────────────
 
 export const deleteObject = (bucketId: string, key: string) =>
@@ -54,6 +83,19 @@ export const deleteObject = (bucketId: string, key: string) =>
 
 export const deleteFolder = (bucketId: string, prefix: string) =>
   api.delete<{ deleted: number }>(objectsPath(bucketId, { prefix }));
+
+export const updateObjectMetadata = async (
+  bucketId: string,
+  key: string,
+  input: UpdateObjectMetadataInput,
+): Promise<ObjectMetadata> => {
+  const res = await api.put<ObjectMetadata>(
+    `/buckets/${encodeURIComponent(bucketId)}/objects/metadata?key=${encodeURIComponent(key)}`,
+    input,
+  );
+  if (!res.data) throw new ApiError("Failed to update object metadata", 500);
+  return res.data;
+};
 
 export interface CopyMoveResult {
   copied?: number;

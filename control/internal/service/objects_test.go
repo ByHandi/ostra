@@ -27,8 +27,10 @@ type fakeStore struct {
 }
 
 type fakeObject struct {
-	body        []byte
-	contentType string
+	body               []byte
+	contentType        string
+	cacheControl       string
+	contentDisposition string
 }
 
 func newFakeStore() *fakeStore {
@@ -216,6 +218,39 @@ func (f *fakeStore) DeleteLifecycle(_ context.Context, bucket string) error {
 		return err
 	}
 	delete(f.lifecycle, bucket)
+	return nil
+}
+
+func (f *fakeStore) GetMetadata(_ context.Context, bucket, key string) (objects.ObjectMetadata, error) {
+	if err := f.deny(); err != nil {
+		return objects.ObjectMetadata{}, err
+	}
+	o, ok := f.data[bucket][key]
+	if !ok {
+		return objects.ObjectMetadata{}, objects.ErrNotFound
+	}
+	return objects.ObjectMetadata{
+		Key:                key,
+		Size:               int64(len(o.body)),
+		ContentType:        o.contentType,
+		CacheControl:       o.cacheControl,
+		ContentDisposition: o.contentDisposition,
+		ETag:               "fake-etag",
+	}, nil
+}
+
+func (f *fakeStore) UpdateMetadata(_ context.Context, bucket, key string, meta objects.Metadata) error {
+	if err := f.deny(); err != nil {
+		return err
+	}
+	o, ok := f.data[bucket][key]
+	if !ok {
+		return objects.ErrNotFound
+	}
+	o.contentType = meta.ContentType
+	o.cacheControl = meta.CacheControl
+	o.contentDisposition = meta.ContentDisposition
+	f.data[bucket][key] = o
 	return nil
 }
 
@@ -582,4 +617,122 @@ func TestCopyMoveFolder(t *testing.T) {
 		t.Fatalf("dest after move: %v", err)
 	}
 	r.Close()
+}
+
+func TestObjectMetadata(t *testing.T) {
+	ctx := context.Background()
+	svc, _ := newObjectService(t, newFakeGarage("assets"), newFakeStore())
+
+	// Not found on non-existent object
+	_, err := svc.GetObjectMetadata(ctx, "id-assets", "missing.txt")
+	wantKind(t, err, KindNotFound)
+
+	// Upload a test object
+	_, err = svc.PutObject(ctx, "id-assets", "docs/manual.pdf", strings.NewReader("PDF content"), 11, "application/pdf")
+	if err != nil {
+		t.Fatalf("PutObject: %v", err)
+	}
+
+	// Read initial metadata
+	meta, err := svc.GetObjectMetadata(ctx, "id-assets", "docs/manual.pdf")
+	if err != nil {
+		t.Fatalf("GetObjectMetadata: %v", err)
+	}
+	if meta.Key != "docs/manual.pdf" || meta.ContentType != "application/pdf" || meta.CacheControl != "" || meta.ContentDisposition != "" {
+		t.Fatalf("initial metadata mismatch: %+v", meta)
+	}
+
+	// Update metadata with valid headers
+	updated, err := svc.UpdateObjectMetadata(ctx, "id-assets", "docs/manual.pdf", objects.Metadata{
+		ContentType:        "application/pdf",
+		CacheControl:       "public, max-age=31536000, immutable",
+		ContentDisposition: `inline; filename="manual.pdf"`,
+	})
+	if err != nil {
+		t.Fatalf("UpdateObjectMetadata: %v", err)
+	}
+	if updated.CacheControl != "public, max-age=31536000, immutable" || updated.ContentDisposition != `inline; filename="manual.pdf"` {
+		t.Fatalf("updated metadata mismatch: %+v", updated)
+	}
+
+	// Verify persistence via GetObjectMetadata
+	refetched, err := svc.GetObjectMetadata(ctx, "id-assets", "docs/manual.pdf")
+	if err != nil {
+		t.Fatalf("refetch metadata: %v", err)
+	}
+	if refetched.CacheControl != "public, max-age=31536000, immutable" || refetched.ContentDisposition != `inline; filename="manual.pdf"` {
+		t.Fatalf("persisted metadata mismatch: %+v", refetched)
+	}
+
+	// Update on missing object -> KindNotFound
+	_, err = svc.UpdateObjectMetadata(ctx, "id-assets", "missing.txt", objects.Metadata{
+		ContentType: "text/plain",
+	})
+	wantKind(t, err, KindNotFound)
+
+	// Validation tests:
+	// Empty content type
+	_, err = svc.UpdateObjectMetadata(ctx, "id-assets", "docs/manual.pdf", objects.Metadata{
+		ContentType: "",
+	})
+	wantField(t, err, KindInvalid, "contentType")
+
+	// Invalid content type format
+	_, err = svc.UpdateObjectMetadata(ctx, "id-assets", "docs/manual.pdf", objects.Metadata{
+		ContentType: "invalid/mime; ; ;",
+	})
+	wantField(t, err, KindInvalid, "contentType")
+
+	// Control character in content type
+	_, err = svc.UpdateObjectMetadata(ctx, "id-assets", "docs/manual.pdf", objects.Metadata{
+		ContentType: "application/pdf\r\nX-Injected: true",
+	})
+	wantField(t, err, KindInvalid, "contentType")
+
+	// Over-long content type (> 255)
+	_, err = svc.UpdateObjectMetadata(ctx, "id-assets", "docs/manual.pdf", objects.Metadata{
+		ContentType: "application/" + strings.Repeat("a", 250),
+	})
+	wantField(t, err, KindInvalid, "contentType")
+
+	// Control character in cache control
+	_, err = svc.UpdateObjectMetadata(ctx, "id-assets", "docs/manual.pdf", objects.Metadata{
+		ContentType:  "application/pdf",
+		CacheControl: "no-cache\nSet-Cookie: bad",
+	})
+	wantField(t, err, KindInvalid, "cacheControl")
+
+	// Over-long cache control (> 512)
+	_, err = svc.UpdateObjectMetadata(ctx, "id-assets", "docs/manual.pdf", objects.Metadata{
+		ContentType:  "application/pdf",
+		CacheControl: strings.Repeat("c", 513),
+	})
+	wantField(t, err, KindInvalid, "cacheControl")
+
+	// Control character in content disposition
+	_, err = svc.UpdateObjectMetadata(ctx, "id-assets", "docs/manual.pdf", objects.Metadata{
+		ContentType:        "application/pdf",
+		ContentDisposition: "inline\r\nX-Injected: true",
+	})
+	wantField(t, err, KindInvalid, "contentDisposition")
+
+	// Over-long content disposition (> 512)
+	_, err = svc.UpdateObjectMetadata(ctx, "id-assets", "docs/manual.pdf", objects.Metadata{
+		ContentType:        "application/pdf",
+		ContentDisposition: strings.Repeat("d", 513),
+	})
+	wantField(t, err, KindInvalid, "contentDisposition")
+
+	// Invalid disposition type (neither inline nor attachment)
+	_, err = svc.UpdateObjectMetadata(ctx, "id-assets", "docs/manual.pdf", objects.Metadata{
+		ContentType:        "application/pdf",
+		ContentDisposition: "unknown-disp",
+	})
+	wantField(t, err, KindInvalid, "contentDisposition")
+
+	// Invalid key validation
+	_, err = svc.GetObjectMetadata(ctx, "id-assets", "")
+	wantField(t, err, KindInvalid, "key")
+	_, err = svc.UpdateObjectMetadata(ctx, "id-assets", "", objects.Metadata{ContentType: "text/plain"})
+	wantField(t, err, KindInvalid, "key")
 }

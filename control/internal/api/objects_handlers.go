@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+
+	"github.com/ByHandi/ostra/control/internal/objects"
 )
 
 // downloadLinkTTL is how long a download link stays valid; long enough to start the
@@ -103,6 +105,32 @@ func (h *Handler) moveObject(w http.ResponseWriter, r *http.Request) {
 	}
 	err := h.svc.MoveObject(r.Context(), bucketID, in.Src, in.Dest)
 	respond(w, r, http.StatusOK, map[string]int{"moved": 1}, err)
+}
+
+type updateMetadataRequest struct {
+	ContentType        string `json:"contentType"`
+	CacheControl       string `json:"cacheControl"`
+	ContentDisposition string `json:"contentDisposition"`
+}
+
+func (h *Handler) getObjectMetadata(w http.ResponseWriter, r *http.Request) {
+	key := r.URL.Query().Get("key")
+	meta, err := h.svc.GetObjectMetadata(r.Context(), chi.URLParam(r, "id"), key)
+	respond(w, r, http.StatusOK, meta, err)
+}
+
+func (h *Handler) updateObjectMetadata(w http.ResponseWriter, r *http.Request) {
+	key := r.URL.Query().Get("key")
+	var in updateMetadataRequest
+	if !decode(w, r, &in) {
+		return
+	}
+	meta, err := h.svc.UpdateObjectMetadata(r.Context(), chi.URLParam(r, "id"), key, objects.Metadata{
+		ContentType:        in.ContentType,
+		CacheControl:       in.CacheControl,
+		ContentDisposition: in.ContentDisposition,
+	})
+	respond(w, r, http.StatusOK, meta, err)
 }
 
 type downloadLink struct {

@@ -124,6 +124,8 @@ func (h *Handler) Public() http.Handler {
 			r.Get("/buckets/{id}/objects", h.listObjects)
 			r.Put("/buckets/{id}/objects", h.uploadObject)
 			r.Delete("/buckets/{id}/objects", h.deleteObjects)
+			r.Get("/buckets/{id}/objects/metadata", h.getObjectMetadata)
+			r.Put("/buckets/{id}/objects/metadata", h.updateObjectMetadata)
 			r.Post("/buckets/{id}/objects/download-link", h.createDownloadLink)
 			r.Post("/buckets/{id}/objects/share-link", h.createShareLink)
 			r.Post("/buckets/{id}/objects/preview-link", h.createPreviewLink)

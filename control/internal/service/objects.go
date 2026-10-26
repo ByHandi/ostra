@@ -27,6 +27,8 @@ type ObjectStore interface {
 	GetLifecycle(ctx context.Context, bucket string) (objects.LifecycleConfiguration, error)
 	SetLifecycle(ctx context.Context, bucket string, cfg objects.LifecycleConfiguration) error
 	DeleteLifecycle(ctx context.Context, bucket string) error
+	GetMetadata(ctx context.Context, bucket, key string) (objects.ObjectMetadata, error)
+	UpdateMetadata(ctx context.Context, bucket, key string, meta objects.Metadata) error
 }
 
 const (
@@ -188,6 +190,48 @@ func (s *Service) MoveFolder(ctx context.Context, bucketID, srcPrefix, destPrefi
 	return moved, err
 }
 
+// GetObjectMetadata returns the metadata and HTTP headers of an object.
+func (s *Service) GetObjectMetadata(ctx context.Context, bucketID, key string) (objects.ObjectMetadata, error) {
+	if err := ValidateObjectKey(key); err != nil {
+		return objects.ObjectMetadata{}, err
+	}
+	var meta objects.ObjectMetadata
+	err := s.withBucket(ctx, bucketID, true, func(st ObjectStore, bucket string) error {
+		var err error
+		meta, err = st.GetMetadata(ctx, bucket, key)
+		return err
+	})
+	if errors.Is(err, objects.ErrNotFound) {
+		return objects.ObjectMetadata{}, notFound("file not found")
+	}
+	return meta, err
+}
+
+// UpdateObjectMetadata validates and replaces HTTP headers (Content-Type, Cache-Control, Content-Disposition) for an object.
+func (s *Service) UpdateObjectMetadata(ctx context.Context, bucketID, key string, meta objects.Metadata) (objects.ObjectMetadata, error) {
+	if err := ValidateObjectKey(key); err != nil {
+		return objects.ObjectMetadata{}, err
+	}
+	meta.ContentType = strings.TrimSpace(meta.ContentType)
+	meta.CacheControl = strings.TrimSpace(meta.CacheControl)
+	meta.ContentDisposition = strings.TrimSpace(meta.ContentDisposition)
+
+	if err := validateMetadata(meta); err != nil {
+		return objects.ObjectMetadata{}, err
+	}
+
+	err := s.withBucket(ctx, bucketID, true, func(st ObjectStore, bucket string) error {
+		return st.UpdateMetadata(ctx, bucket, key, meta)
+	})
+	if errors.Is(err, objects.ErrNotFound) {
+		return objects.ObjectMetadata{}, notFound("file not found")
+	}
+	if err != nil {
+		return objects.ObjectMetadata{}, err
+	}
+	return s.GetObjectMetadata(ctx, bucketID, key)
+}
+
 func validateCopyMoveFiles(src, dest string) error {
 	if src == "" {
 		return invalid("src", "source file name is required")
@@ -296,4 +340,66 @@ func validatePath(p, field string) error {
 		}
 	}
 	return nil
+}
+
+func validateMetadata(meta objects.Metadata) error {
+	if err := validateContentType(meta.ContentType); err != nil {
+		return err
+	}
+	if err := validateCacheControl(meta.CacheControl); err != nil {
+		return err
+	}
+	return validateContentDisposition(meta.ContentDisposition)
+}
+
+func validateContentType(ct string) error {
+	if ct == "" {
+		return invalid("contentType", "Content-Type is required")
+	}
+	if len(ct) > 255 {
+		return invalid("contentType", "Content-Type must be at most 255 characters")
+	}
+	if hasHeaderControlChars(ct) {
+		return invalid("contentType", "Content-Type must not contain control characters")
+	}
+	if _, _, err := mime.ParseMediaType(ct); err != nil {
+		return invalid("contentType", "invalid Content-Type format")
+	}
+	return nil
+}
+
+func validateCacheControl(cc string) error {
+	if cc == "" {
+		return nil
+	}
+	if len(cc) > 512 {
+		return invalid("cacheControl", "Cache-Control must be at most 512 characters")
+	}
+	if hasHeaderControlChars(cc) {
+		return invalid("cacheControl", "Cache-Control must not contain control characters")
+	}
+	return nil
+}
+
+func validateContentDisposition(cd string) error {
+	if cd == "" {
+		return nil
+	}
+	if len(cd) > 512 {
+		return invalid("contentDisposition", "Content-Disposition must be at most 512 characters")
+	}
+	if hasHeaderControlChars(cd) {
+		return invalid("contentDisposition", "Content-Disposition must not contain control characters")
+	}
+	dispType, _, err := mime.ParseMediaType(cd)
+	if err != nil || (dispType != "inline" && dispType != "attachment") {
+		return invalid("contentDisposition", `Content-Disposition must be "inline", "attachment", or follow RFC 6266 (e.g. attachment; filename="file.ext")`)
+	}
+	return nil
+}
+
+func hasHeaderControlChars(s string) bool {
+	return strings.ContainsFunc(s, func(r rune) bool {
+		return (r < 0x20 && r != '\t') || r == 0x7f
+	})
 }
