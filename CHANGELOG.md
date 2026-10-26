@@ -9,6 +9,8 @@ The release workflow uses the contents of that version's section as the GitHub R
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-26
+
 ### Added
 
 - Access keys with expiration dates: set key expiration during creation (preset or custom date)
@@ -18,8 +20,9 @@ The release workflow uses the contents of that version's section as the GitHub R
 - Search and sort in the object browser: filter folders and files by case-insensitive substring
   match, and sort by name, size, or last modified date in ascending or descending order, backed
   by `search`, `sortBy`, and `order` query parameters on `GET /api/buckets/{id}/objects`.
-- View and edit object HTTP metadata (`Content-Type`, `Cache-Control`, and `Content-Disposition`)
-  in the object browser and preview modal, backed by `GET` and `PUT /api/buckets/{id}/objects/metadata`.
+- View and edit object HTTP metadata (`Content-Type`, `Cache-Control`, and
+  `Content-Disposition`) in the object browser and preview modal, backed by
+  `GET` and `PUT /api/buckets/{id}/objects/metadata`.
 - Rename, move, and duplicate actions for files and folders in the object browser, backed by
   new `POST /api/buckets/{id}/objects/copy` and `POST /api/buckets/{id}/objects/move` endpoints.
 
