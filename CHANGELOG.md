@@ -11,6 +11,11 @@ The release workflow uses the contents of that version's section as the GitHub R
 
 ### Added
 
+- Viewer role UI permissions and display: clearly reflect read-only status for users logged in
+  with the `viewer` role across the dashboard. Displays user role badges in the Settings page and
+  sidebar footer, disables or hides write actions across buckets, access keys, custom domains, and
+  the object browser (upload, drag-and-drop, rename, move, duplicate, delete, and metadata editing),
+  and provides informative notices explaining administrator privileges required for write actions.
 - User management API and dashboard page: admin-only `/users` page to list users, create accounts
   with generated one-time temporary passwords, change user roles, and delete accounts. Backed by
   `GET /api/users`, `POST /api/users`, `PATCH /api/users/{id}/role`, and `DELETE /api/users/{id}`.

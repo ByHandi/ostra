@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import Icon from "@/components/ui/icon";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError } from "@/lib/api/errors";
+import { useIsAdmin } from "@/lib/api/session";
 import {
   type LifecycleConfiguration,
   bucketLifecycleQuery,
@@ -26,6 +27,7 @@ interface BucketLifecycleProps {
 export function BucketLifecycle({ bucketId, bucketName }: BucketLifecycleProps) {
   const queryClient = useQueryClient();
   const lifecycleQuery = useQuery(bucketLifecycleQuery(bucketId));
+  const isAdmin = useIsAdmin();
 
   const deleteMutation = useMutation({
     mutationFn: () => deleteBucketLifecycle(bucketId),
@@ -75,7 +77,7 @@ export function BucketLifecycle({ bucketId, bucketName }: BucketLifecycleProps) 
       title="Lifecycle rules"
       description="Automated object expiration after N days and automatic cleanup of incomplete multipart uploads."
       action={
-        hasRules && (
+        isAdmin && hasRules ? (
           <div className="flex gap-2">
             <ConfigureLifecycleDialog
               bucketId={bucketId}
@@ -107,7 +109,7 @@ export function BucketLifecycle({ bucketId, bucketName }: BucketLifecycleProps) 
               }
             />
           </div>
-        )
+        ) : undefined
       }
     >
       {hasRules ? (
@@ -156,11 +158,13 @@ export function BucketLifecycle({ bucketId, bucketName }: BucketLifecycleProps) 
           title="No lifecycle rules configured"
           description="Automate file expiration and multipart upload cleanup to prevent temporary data from accumulating."
           action={
-            <ConfigureLifecycleDialog
-              bucketId={bucketId}
-              bucketName={bucketName}
-              lifecycle={lifecycle}
-            />
+            isAdmin ? (
+              <ConfigureLifecycleDialog
+                bucketId={bucketId}
+                bucketName={bucketName}
+                lifecycle={lifecycle}
+              />
+            ) : undefined
           }
         />
       )}

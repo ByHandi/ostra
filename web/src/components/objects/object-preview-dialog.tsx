@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import Icon from "@/components/ui/icon";
 import { type PreviewKind, createPreviewLink } from "@/lib/api/objects";
+import { useIsAdmin } from "@/lib/api/session";
 
 interface ObjectPreviewDialogProps {
   bucketId: string;
@@ -30,6 +31,7 @@ export function ObjectPreviewDialog(props: ObjectPreviewDialogProps) {
   const [url, setURL] = useState<string>();
   const [error, setError] = useState<string>();
   const [editingMetadata, setEditingMetadata] = useState(false);
+  const isAdmin = useIsAdmin();
 
   useEffect(() => {
     let canceled = false;
@@ -65,15 +67,19 @@ export function ObjectPreviewDialog(props: ObjectPreviewDialogProps) {
           <div className="h-80 animate-pulse rounded-md bg-muted" />
         )}
         <DialogFooter className="flex flex-row items-center justify-between sm:justify-between">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setEditingMetadata(true)}
-          >
-            <Icon name="tag" className="size-4" />
-            Edit metadata
-          </Button>
+          {isAdmin ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setEditingMetadata(true)}
+            >
+              <Icon name="tag" className="size-4" />
+              Edit metadata
+            </Button>
+          ) : (
+            <span />
+          )}
           <DialogClose asChild>
             <Button type="button" variant="outline">
               Close

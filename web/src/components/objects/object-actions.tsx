@@ -14,6 +14,7 @@ import Icon from "@/components/ui/icon";
 import { useInvalidateBucketContents } from "@/hooks/use-invalidate-bucket-contents";
 import { ApiError } from "@/lib/api/errors";
 import { deleteFolder, deleteObject, downloadObject, previewKind } from "@/lib/api/objects";
+import { useIsAdmin } from "@/lib/api/session";
 import { publicUrl } from "@/lib/object-path";
 
 function errorMessage(error: unknown, fallback: string): string {
@@ -40,6 +41,7 @@ export function FileActions(props: FileActionsProps) {
   const [editingMetadata, setEditingMetadata] = useState(false);
   const preview = previewKind(objectKey, contentType);
   const invalidate = useInvalidateBucketContents(bucketId);
+  const isAdmin = useIsAdmin();
 
   const items: ButtonMenuItem[] = [];
   if (preview) {
@@ -81,34 +83,36 @@ export function FileActions(props: FileActionsProps) {
     });
   }
 
-  items.push(
-    {
-      label: "Rename",
-      icon: <Icon name="pencil" className="size-4" />,
-      onClick: () => setRenaming(true),
-    },
-    {
-      label: "Move",
-      icon: <Icon name="folder-input" className="size-4" />,
-      onClick: () => setMoving(true),
-    },
-    {
-      label: "Duplicate",
-      icon: <Icon name="copy" className="size-4" />,
-      onClick: () => setCopying(true),
-    },
-    {
-      label: "Edit metadata",
-      icon: <Icon name="tag" className="size-4" />,
-      onClick: () => setEditingMetadata(true),
-    },
-    {
-      label: "Delete",
-      icon: <Icon name="trash-2" className="size-4" />,
-      className: "text-destructive",
-      onClick: () => setConfirming(true),
-    },
-  );
+  if (isAdmin) {
+    items.push(
+      {
+        label: "Rename",
+        icon: <Icon name="pencil" className="size-4" />,
+        onClick: () => setRenaming(true),
+      },
+      {
+        label: "Move",
+        icon: <Icon name="folder-input" className="size-4" />,
+        onClick: () => setMoving(true),
+      },
+      {
+        label: "Duplicate",
+        icon: <Icon name="copy" className="size-4" />,
+        onClick: () => setCopying(true),
+      },
+      {
+        label: "Edit metadata",
+        icon: <Icon name="tag" className="size-4" />,
+        onClick: () => setEditingMetadata(true),
+      },
+      {
+        label: "Delete",
+        icon: <Icon name="trash-2" className="size-4" />,
+        className: "text-destructive",
+        onClick: () => setConfirming(true),
+      },
+    );
+  }
 
   const remove = async () => {
     try {
@@ -200,6 +204,11 @@ export function FolderActions({ bucketId, prefix, name }: FolderActionsProps) {
   const [moving, setMoving] = useState(false);
   const [copying, setCopying] = useState(false);
   const invalidate = useInvalidateBucketContents(bucketId);
+  const isAdmin = useIsAdmin();
+
+  if (!isAdmin) {
+    return null;
+  }
 
   const remove = async () => {
     const res = await deleteFolder(bucketId, prefix).catch((error: unknown) => {
