@@ -11,6 +11,8 @@ The release workflow uses the contents of that version's section as the GitHub R
 
 ### Added
 
+- View and edit object HTTP metadata (`Content-Type`, `Cache-Control`, and `Content-Disposition`)
+  in the object browser and preview modal, backed by `GET` and `PUT /api/buckets/{id}/objects/metadata`.
 - Rename, move, and duplicate actions for files and folders in the object browser, backed by
   new `POST /api/buckets/{id}/objects/copy` and `POST /api/buckets/{id}/objects/move` endpoints.
 

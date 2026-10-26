@@ -236,7 +236,7 @@ Garage API for each one before starting, since this list was put together from i
       endpoint, region, and key filled in
 - [x] Website settings per bucket: index document and error page (today the website is only
       switched on with the defaults)
-- [ ] Object metadata: view and edit `Content-Type`, `Cache-Control`, `Content-Disposition`
+- [x] Object metadata: view and edit `Content-Type`, `Cache-Control`, `Content-Disposition`
       (through a copy onto itself)
 - [x] Rename, move, and copy files and folders (`CopyObject` + delete)
 - [ ] Search and sort in the object browser: by prefix (native), by size or date (per loaded page)

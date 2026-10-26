@@ -3,6 +3,7 @@ import { toast } from "sonner";
 
 import { CopyObjectDialog } from "./copy-object-dialog";
 import { CreateShareLinkDialog } from "./create-share-link-dialog";
+import { EditMetadataDialog } from "./edit-metadata-dialog";
 import { MoveObjectDialog } from "./move-object-dialog";
 import { ObjectPreviewDialog } from "./object-preview-dialog";
 import { RenameObjectDialog } from "./rename-object-dialog";
@@ -27,19 +28,16 @@ interface FileActionsProps {
   contentType?: string;
 }
 
-export function FileActions({
-  bucketId,
-  objectKey,
-  name,
-  publicBaseUrl,
-  contentType,
-}: FileActionsProps) {
+export function FileActions(props: FileActionsProps) {
+  const { bucketId, objectKey, name, publicBaseUrl, contentType } = props;
+
   const [confirming, setConfirming] = useState(false);
   const [previewing, setPreviewing] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [moving, setMoving] = useState(false);
   const [copying, setCopying] = useState(false);
+  const [editingMetadata, setEditingMetadata] = useState(false);
   const preview = previewKind(objectKey, contentType);
   const invalidate = useInvalidateBucketContents(bucketId);
 
@@ -51,6 +49,7 @@ export function FileActions({
       onClick: () => setPreviewing(true),
     });
   }
+
   items.push(
     {
       label: "Download",
@@ -66,6 +65,7 @@ export function FileActions({
       onClick: () => setSharing(true),
     },
   );
+
   if (publicBaseUrl) {
     items.push({
       label: "Copy public URL",
@@ -80,6 +80,7 @@ export function FileActions({
       },
     });
   }
+
   items.push(
     {
       label: "Rename",
@@ -95,6 +96,11 @@ export function FileActions({
       label: "Duplicate",
       icon: <Icon name="copy" className="size-4" />,
       onClick: () => setCopying(true),
+    },
+    {
+      label: "Edit metadata",
+      icon: <Icon name="tag" className="size-4" />,
+      onClick: () => setEditingMetadata(true),
     },
     {
       label: "Delete",
@@ -160,6 +166,14 @@ export function FileActions({
         currentName={name}
         open={copying}
         onOpenChange={setCopying}
+      />
+
+      <EditMetadataDialog
+        bucketId={bucketId}
+        objectKey={objectKey}
+        name={name}
+        open={editingMetadata}
+        onOpenChange={setEditingMetadata}
       />
 
       <ConfirmDialog

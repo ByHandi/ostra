@@ -293,6 +293,52 @@ func TestBucketLifecycleValidation(t *testing.T) {
 	}
 }
 
+func TestObjectMetadataValidation(t *testing.T) {
+	srv := newTestServer(t)
+	login := call(t, srv, "POST", "/api/auth/login", "", nil, `{"email":"admin@example.com","password":"secret123"}`)
+	token := accessToken(t, login)
+
+	// GET metadata: auth required
+	if r := call(t, srv, "GET", "/api/buckets/bucket/objects/metadata?key=a.txt", "", nil, ""); r.status != http.StatusUnauthorized {
+		t.Fatalf("get metadata without auth = %d, want 401", r.status)
+	}
+
+	// GET metadata: key required
+	if r := call(t, srv, "GET", "/api/buckets/bucket/objects/metadata", token, nil, ""); r.status != http.StatusBadRequest || len(r.body.Error.Errors["key"]) != 1 {
+		t.Fatalf("get metadata without key = %d %+v", r.status, r.body.Error)
+	}
+
+	// PUT metadata: auth required
+	if r := call(t, srv, "PUT", "/api/buckets/bucket/objects/metadata?key=a.txt", "", nil, `{"contentType":"text/plain"}`); r.status != http.StatusUnauthorized {
+		t.Fatalf("put metadata without auth = %d, want 401", r.status)
+	}
+
+	// PUT metadata: key required
+	if r := call(t, srv, "PUT", "/api/buckets/bucket/objects/metadata", token, nil, `{"contentType":"text/plain"}`); r.status != http.StatusBadRequest || len(r.body.Error.Errors["key"]) != 1 {
+		t.Fatalf("put metadata without key = %d %+v", r.status, r.body.Error)
+	}
+
+	// PUT metadata: unknown fields rejected
+	if r := call(t, srv, "PUT", "/api/buckets/bucket/objects/metadata?key=a.txt", token, nil, `{"contentType":"text/plain","unknown":true}`); r.status != http.StatusBadRequest {
+		t.Fatalf("put metadata with unknown field = %d, want 400", r.status)
+	}
+
+	// PUT metadata: contentType required
+	if r := call(t, srv, "PUT", "/api/buckets/bucket/objects/metadata?key=a.txt", token, nil, `{"contentType":""}`); r.status != http.StatusBadRequest || len(r.body.Error.Errors["contentType"]) != 1 {
+		t.Fatalf("put metadata with empty contentType = %d %+v", r.status, r.body.Error)
+	}
+
+	// PUT metadata: invalid contentType format
+	if r := call(t, srv, "PUT", "/api/buckets/bucket/objects/metadata?key=a.txt", token, nil, `{"contentType":"invalid/mime; ; ;"}`); r.status != http.StatusBadRequest || len(r.body.Error.Errors["contentType"]) != 1 {
+		t.Fatalf("put metadata with invalid contentType = %d %+v", r.status, r.body.Error)
+	}
+
+	// PUT metadata: invalid contentDisposition
+	if r := call(t, srv, "PUT", "/api/buckets/bucket/objects/metadata?key=a.txt", token, nil, `{"contentType":"text/plain","contentDisposition":"bad-disp"}`); r.status != http.StatusBadRequest || len(r.body.Error.Errors["contentDisposition"]) != 1 {
+		t.Fatalf("put metadata with bad contentDisposition = %d %+v", r.status, r.body.Error)
+	}
+}
+
 func TestHealthz(t *testing.T) {
 	healthy := true
 	h := &Handler{opts: Options{Health: func(context.Context) error {

@@ -1,14 +1,19 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { EditMetadataDialog } from "./edit-metadata-dialog";
+
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import Icon from "@/components/ui/icon";
 import { type PreviewKind, createPreviewLink } from "@/lib/api/objects";
 
 interface ObjectPreviewDialogProps {
@@ -24,6 +29,7 @@ export function ObjectPreviewDialog(props: ObjectPreviewDialogProps) {
   const { bucketId, objectKey, name, kind, open, onOpenChange } = props;
   const [url, setURL] = useState<string>();
   const [error, setError] = useState<string>();
+  const [editingMetadata, setEditingMetadata] = useState(false);
 
   useEffect(() => {
     let canceled = false;
@@ -58,8 +64,31 @@ export function ObjectPreviewDialog(props: ObjectPreviewDialogProps) {
         ) : (
           <div className="h-80 animate-pulse rounded-md bg-muted" />
         )}
-        <DialogFooter showCloseButton />
+        <DialogFooter className="flex flex-row items-center justify-between sm:justify-between">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setEditingMetadata(true)}
+          >
+            <Icon name="tag" className="size-4" />
+            Edit metadata
+          </Button>
+          <DialogClose asChild>
+            <Button type="button" variant="outline">
+              Close
+            </Button>
+          </DialogClose>
+        </DialogFooter>
       </DialogContent>
+
+      <EditMetadataDialog
+        bucketId={bucketId}
+        objectKey={objectKey}
+        name={name}
+        open={editingMetadata}
+        onOpenChange={setEditingMetadata}
+      />
     </Dialog>
   );
 }
@@ -68,9 +97,11 @@ function PreviewContent({ url, kind }: { url: string; kind: PreviewKind }) {
   if (kind === "image") {
     return <img src={url} alt="" className="max-h-[65dvh] w-full rounded-md object-contain" />;
   }
+
   if (kind === "video") {
     return <video src={url} controls className="max-h-[65dvh] w-full rounded-md bg-black" />;
   }
+
   if (kind === "pdf") {
     return (
       <iframe
@@ -81,6 +112,7 @@ function PreviewContent({ url, kind }: { url: string; kind: PreviewKind }) {
       />
     );
   }
+
   return <TextPreview url={url} />;
 }
 
