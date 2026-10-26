@@ -17,6 +17,7 @@ type Querier interface {
 	DeleteDomain(ctx context.Context, id int64) error
 	DeleteExpiredSessions(ctx context.Context, expiresAt string) error
 	DeleteSessionByHash(ctx context.Context, tokenHash string) error
+	DeleteUser(ctx context.Context, id int64) error
 	DeleteUserSessions(ctx context.Context, userID int64) error
 	GetDomain(ctx context.Context, id int64) (Domain, error)
 	GetDomainByName(ctx context.Context, domain string) (Domain, error)
@@ -27,6 +28,7 @@ type Querier interface {
 	ListDomains(ctx context.Context) ([]Domain, error)
 	ListDomainsByBucket(ctx context.Context, bucketID string) ([]Domain, error)
 	ListDomainsByStatus(ctx context.Context, status string) ([]Domain, error)
+	ListUsers(ctx context.Context) ([]ListUsersRow, error)
 	MarkDomainActive(ctx context.Context, id int64) (Domain, error)
 	MarkDomainChecked(ctx context.Context, arg MarkDomainCheckedParams) (Domain, error)
 	MarkDomainError(ctx context.Context, arg MarkDomainErrorParams) (Domain, error)

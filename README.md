@@ -253,6 +253,9 @@ Responses use the same envelope as the `shadcn-vite` template and `go-service-bo
 | POST | `/api/auth/logout` | Revoke the session, clear the cookie |
 | GET | `/api/me` | The signed-in user (`id`, `name`, `email`, `role`) |
 | POST | `/api/me/password` | `{"currentPassword","newPassword"}`, ends other sessions |
+| GET/POST | `/api/users` | List / create (`{"email","role"}`) (admin only; one-time password returned on creation) |
+| PATCH | `/api/users/{id}/role` | `{"role"}` (admin only; rejects self-demotion or demoting the last admin) |
+| DELETE | `/api/users/{id}` | Delete user (admin only; rejects self-deletion or deleting the last admin) |
 | GET | `/api/version` | Build version and commit |
 | GET | `/api/overview` | Statistics + cluster health |
 | GET/POST | `/api/buckets` | List / create (`{"name"}`) |

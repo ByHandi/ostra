@@ -1,7 +1,10 @@
+import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "@tanstack/react-router";
 
 import Icon from "@/components/ui/icon";
 import { isActivePath, navItems } from "@/config/navigation";
+import { sessionContextQuery } from "@/lib/api/session";
+import { cn } from "@/lib/utils";
 
 /**
  * iOS-style bottom tab bar — the only navigation on phones; the sidebar is
@@ -10,14 +13,18 @@ import { isActivePath, navItems } from "@/config/navigation";
  */
 export function MobileTabBar() {
   const { pathname } = useLocation();
+  const session = useQuery(sessionContextQuery());
+  const role = session.data?.user.role;
+
+  const visibleItems = navItems.filter((item) => !item.adminOnly || role === "admin");
 
   return (
     <nav
       aria-label="Main"
       className="fixed inset-x-0 bottom-0 z-40 border-t border-sidebar-border bg-sidebar pb-[env(safe-area-inset-bottom)] backdrop-blur-xl [view-transition-name:tab-bar] md:hidden"
     >
-      <ul className="grid grid-cols-5">
-        {navItems.map((item) => {
+      <ul className={cn("grid", visibleItems.length === 6 ? "grid-cols-6" : "grid-cols-5")}>
+        {visibleItems.map((item) => {
           const active = isActivePath(pathname, item.href);
 
           return (

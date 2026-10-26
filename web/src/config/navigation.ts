@@ -11,6 +11,8 @@ export interface NavItem {
   icon: IconName;
   /** Label under the icon in the mobile tab bar, where the full title doesn't fit. */
   shortTitle?: string;
+  /** Visible only to administrators. */
+  adminOnly?: boolean;
 }
 
 export interface NavGroup {
@@ -33,7 +35,10 @@ export const navGroups: NavGroup[] = [
   },
   {
     label: "Account",
-    items: [{ title: "Settings", href: "/settings", icon: "settings" }],
+    items: [
+      { title: "Users", href: "/users", icon: "users", adminOnly: true },
+      { title: "Settings", href: "/settings", icon: "settings" },
+    ],
   },
 ];
 

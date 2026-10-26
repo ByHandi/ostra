@@ -19,6 +19,7 @@ import { Route as appDomainsIndexRouteImport } from "./routes/(app)/domains/inde
 import { Route as appDomainsDomainIdRouteImport } from "./routes/(app)/domains/$domainId";
 import { Route as appKeysIndexRouteImport } from "./routes/(app)/keys/index";
 import { Route as appKeysKeyIdRouteImport } from "./routes/(app)/keys/$keyId";
+import { Route as appUsersIndexRouteImport } from "./routes/(app)/users/index";
 import { Route as appBucketsBucketIdIndexRouteImport } from "./routes/(app)/buckets/$bucketId/index";
 import { Route as appBucketsBucketIdAccessRouteImport } from "./routes/(app)/buckets/$bucketId/access";
 import { Route as appBucketsBucketIdDomainsRouteImport } from "./routes/(app)/buckets/$bucketId/domains";
@@ -73,6 +74,11 @@ const appKeysKeyIdRoute = appKeysKeyIdRouteImport.update({
   path: "/keys/$keyId",
   getParentRoute: () => appRouteRoute,
 } as any);
+const appUsersIndexRoute = appUsersIndexRouteImport.update({
+  id: "/users/",
+  path: "/users/",
+  getParentRoute: () => appRouteRoute,
+} as any);
 const appBucketsBucketIdIndexRoute = appBucketsBucketIdIndexRouteImport.update({
   id: "/buckets/$bucketId/",
   path: "/buckets/$bucketId/",
@@ -111,6 +117,7 @@ export interface FileRoutesByFullPath {
   "/buckets/": typeof appBucketsIndexRoute;
   "/domains/": typeof appDomainsIndexRoute;
   "/keys/": typeof appKeysIndexRoute;
+  "/users/": typeof appUsersIndexRoute;
   "/buckets/$bucketId/access": typeof appBucketsBucketIdAccessRoute;
   "/buckets/$bucketId/domains": typeof appBucketsBucketIdDomainsRoute;
   "/buckets/$bucketId/files": typeof appBucketsBucketIdFilesRoute;
@@ -126,6 +133,7 @@ export interface FileRoutesByTo {
   "/buckets": typeof appBucketsIndexRoute;
   "/domains": typeof appDomainsIndexRoute;
   "/keys": typeof appKeysIndexRoute;
+  "/users": typeof appUsersIndexRoute;
   "/buckets/$bucketId/access": typeof appBucketsBucketIdAccessRoute;
   "/buckets/$bucketId/domains": typeof appBucketsBucketIdDomainsRoute;
   "/buckets/$bucketId/files": typeof appBucketsBucketIdFilesRoute;
@@ -144,6 +152,7 @@ export interface FileRoutesById {
   "/(app)/buckets/": typeof appBucketsIndexRoute;
   "/(app)/domains/": typeof appDomainsIndexRoute;
   "/(app)/keys/": typeof appKeysIndexRoute;
+  "/(app)/users/": typeof appUsersIndexRoute;
   "/(app)/buckets/$bucketId/access": typeof appBucketsBucketIdAccessRoute;
   "/(app)/buckets/$bucketId/domains": typeof appBucketsBucketIdDomainsRoute;
   "/(app)/buckets/$bucketId/files": typeof appBucketsBucketIdFilesRoute;
@@ -161,6 +170,7 @@ export interface FileRouteTypes {
     | "/buckets/"
     | "/domains/"
     | "/keys/"
+    | "/users/"
     | "/buckets/$bucketId/access"
     | "/buckets/$bucketId/domains"
     | "/buckets/$bucketId/files"
@@ -176,6 +186,7 @@ export interface FileRouteTypes {
     | "/buckets"
     | "/domains"
     | "/keys"
+    | "/users"
     | "/buckets/$bucketId/access"
     | "/buckets/$bucketId/domains"
     | "/buckets/$bucketId/files"
@@ -193,6 +204,7 @@ export interface FileRouteTypes {
     | "/(app)/buckets/"
     | "/(app)/domains/"
     | "/(app)/keys/"
+    | "/(app)/users/"
     | "/(app)/buckets/$bucketId/access"
     | "/(app)/buckets/$bucketId/domains"
     | "/(app)/buckets/$bucketId/files"
@@ -277,6 +289,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof appKeysKeyIdRouteImport;
       parentRoute: typeof appRouteRoute;
     };
+    "/(app)/users/": {
+      id: "/(app)/users/";
+      path: "/users";
+      fullPath: "/users/";
+      preLoaderRoute: typeof appUsersIndexRouteImport;
+      parentRoute: typeof appRouteRoute;
+    };
     "/(app)/buckets/$bucketId/": {
       id: "/(app)/buckets/$bucketId/";
       path: "/buckets/$bucketId";
@@ -323,6 +342,7 @@ interface appRouteRouteChildren {
   appBucketsIndexRoute: typeof appBucketsIndexRoute;
   appDomainsIndexRoute: typeof appDomainsIndexRoute;
   appKeysIndexRoute: typeof appKeysIndexRoute;
+  appUsersIndexRoute: typeof appUsersIndexRoute;
   appBucketsBucketIdAccessRoute: typeof appBucketsBucketIdAccessRoute;
   appBucketsBucketIdDomainsRoute: typeof appBucketsBucketIdDomainsRoute;
   appBucketsBucketIdFilesRoute: typeof appBucketsBucketIdFilesRoute;
@@ -338,6 +358,7 @@ const appRouteRouteChildren: appRouteRouteChildren = {
   appBucketsIndexRoute: appBucketsIndexRoute,
   appDomainsIndexRoute: appDomainsIndexRoute,
   appKeysIndexRoute: appKeysIndexRoute,
+  appUsersIndexRoute: appUsersIndexRoute,
   appBucketsBucketIdAccessRoute: appBucketsBucketIdAccessRoute,
   appBucketsBucketIdDomainsRoute: appBucketsBucketIdDomainsRoute,
   appBucketsBucketIdFilesRoute: appBucketsBucketIdFilesRoute,

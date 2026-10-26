@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { Link, createFileRoute } from "@tanstack/react-router";
 
 import { useTransition } from "react";
 import { useForm } from "react-hook-form";
@@ -10,6 +10,7 @@ import InputSelect from "@/components/form/input-select";
 import InputText from "@/components/form/input-text";
 import Section from "@/components/section";
 import { useTheme } from "@/components/theme-provider";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import Icon from "@/components/ui/icon";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -31,6 +32,7 @@ function Settings() {
 
       <div className="flex max-w-2xl flex-col gap-6 p-4 md:p-6">
         <Profile />
+        <UserManagement />
         <ChangePassword />
         <Appearance />
         <About />
@@ -45,11 +47,8 @@ function Profile() {
   const user = session.data?.user;
 
   return (
-    <Section
-      title="Profile"
-      description="Name and email are managed with the CLI on the server (control createuser)."
-    >
-      <dl className="grid gap-4 sm:grid-cols-2">
+    <Section title="Profile" description="Your account credentials and current role.">
+      <dl className="grid gap-4 sm:grid-cols-3">
         <div className="space-y-1">
           <dt className="text-xs text-muted-foreground">Name</dt>
           <dd className="text-sm">{user ? user.name : <Skeleton className="h-5 w-32" />}</dd>
@@ -58,7 +57,45 @@ function Profile() {
           <dt className="text-xs text-muted-foreground">Email</dt>
           <dd className="text-sm">{user ? user.email : <Skeleton className="h-5 w-48" />}</dd>
         </div>
+        <div className="space-y-1">
+          <dt className="text-xs text-muted-foreground">Role</dt>
+          <dd className="text-sm">
+            {user ? (
+              <Badge variant={user.role === "admin" ? "default" : "secondary"}>
+                {user.role === "admin" ? "Admin" : "Viewer"}
+              </Badge>
+            ) : (
+              <Skeleton className="h-5 w-16" />
+            )}
+          </dd>
+        </div>
       </dl>
+    </Section>
+  );
+}
+
+function UserManagement() {
+  const session = useQuery(sessionContextQuery());
+  const user = session.data?.user;
+
+  if (user?.role !== "admin") return null;
+
+  return (
+    <Section
+      title="User Management"
+      description="Invite, edit roles, and manage access for operators."
+    >
+      <div className="flex items-center justify-between rounded-lg border bg-muted/20 p-4">
+        <div className="space-y-0.5">
+          <p className="text-sm font-medium">Dashboard Users</p>
+          <p className="text-xs text-muted-foreground">
+            Manage admin and viewer accounts directly from the dashboard.
+          </p>
+        </div>
+        <Button asChild variant="outline" size="sm">
+          <Link to="/users">Manage users</Link>
+        </Button>
+      </div>
     </Section>
   );
 }
