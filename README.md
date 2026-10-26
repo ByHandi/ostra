@@ -267,7 +267,7 @@ Responses use the same envelope as the `shadcn-vite` template and `go-service-bo
 | GET/POST | `/api/domains` | List / register (`{"domain","bucket"}`) |
 | GET/DELETE | `/api/domains/{id}` | Details + `dnsRecords` / delete |
 | POST | `/api/domains/{id}/verify` | Check DNS now |
-| GET | `/api/buckets/{id}/objects` | List a folder: `?prefix=` (`""` or ending in `/`), `&cursor=`, `&limit=` (max 1000) |
+| GET | `/api/buckets/{id}/objects` | List a folder: `?prefix=` (`""` or ending in `/`), `&cursor=`, `&limit=` (max 1000), `&search=`, `&sortBy=name\|size\|lastModified`, `&order=asc\|desc` |
 | PUT | `/api/buckets/{id}/objects?key=` | Upload the raw request body as that file (capped by `MAX_UPLOAD_SIZE_MB`) |
 | DELETE | `/api/buckets/{id}/objects` | Delete one file (`?key=`) or a whole folder (`?prefix=`) |
 | POST | `/api/buckets/{id}/objects/download-link` | `{"key"}` → a signed `/api/downloads/{token}` link, valid 5 minutes |

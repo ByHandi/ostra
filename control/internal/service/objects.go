@@ -6,6 +6,7 @@ import (
 	"io"
 	"mime"
 	"path"
+	"sort"
 	"strings"
 	"unicode/utf8"
 
@@ -38,21 +39,146 @@ const (
 	maxKeyBytes = 1024
 )
 
-// ListObjects lists the direct children of prefix ("" for the bucket root, otherwise ending in "/").
-func (s *Service) ListObjects(ctx context.Context, bucketID, prefix, cursor string, limit int) (objects.Page, error) {
-	if err := validatePrefix(prefix); err != nil {
+// ListObjectsOptions specifies filtering, sorting, and pagination parameters for listing objects.
+type ListObjectsOptions struct {
+	Prefix string
+	Cursor string
+	Limit  int
+	Search string
+	SortBy string // "name" (default), "size", "lastModified"
+	Order  string // "asc" (default), "desc"
+}
+
+// ListObjects lists the direct children of prefix with optional search filtering and sorting.
+func (s *Service) ListObjects(ctx context.Context, bucketID string, opts ListObjectsOptions) (objects.Page, error) {
+	if err := validateListOptions(&opts); err != nil {
 		return objects.Page{}, err
-	}
-	if limit <= 0 || limit > maxListLimit {
-		limit = defaultListLimit
 	}
 	var page objects.Page
 	err := s.withBucket(ctx, bucketID, true, func(st ObjectStore, bucket string) error {
 		var err error
-		page, err = st.List(ctx, bucket, prefix, cursor, limit)
+		page, err = st.List(ctx, bucket, opts.Prefix, opts.Cursor, opts.Limit)
 		return err
 	})
-	return page, err
+	if err != nil {
+		return objects.Page{}, err
+	}
+	page = filterPage(page, opts.Search)
+	page = sortPage(page, opts.SortBy, opts.Order)
+	return page, nil
+}
+
+func validateListOptions(opts *ListObjectsOptions) error {
+	if err := validatePrefix(opts.Prefix); err != nil {
+		return err
+	}
+	opts.Search = strings.TrimSpace(opts.Search)
+	if len(opts.Search) > 255 {
+		return invalid("search", "search query must be at most 255 characters")
+	}
+	opts.SortBy = strings.TrimSpace(opts.SortBy)
+	switch opts.SortBy {
+	case "", "name":
+		opts.SortBy = "name"
+	case "size", "lastModified":
+		// valid
+	default:
+		return invalid("sortBy", "sortBy must be name, size, or lastModified")
+	}
+
+	opts.Order = strings.TrimSpace(opts.Order)
+	switch opts.Order {
+	case "", "asc":
+		opts.Order = "asc"
+	case "desc":
+		// valid
+	default:
+		return invalid("order", "order must be asc or desc")
+	}
+
+	if opts.Limit <= 0 || opts.Limit > maxListLimit {
+		opts.Limit = defaultListLimit
+	}
+	return nil
+}
+
+func filterPage(page objects.Page, query string) objects.Page {
+	if query == "" {
+		return page
+	}
+	lowerQuery := strings.ToLower(query)
+	var filteredFolders []string
+	for _, f := range page.Folders {
+		name := strings.ToLower(path.Base(strings.TrimSuffix(f, "/")))
+		if strings.Contains(name, lowerQuery) {
+			filteredFolders = append(filteredFolders, f)
+		}
+	}
+	var filteredObjects []objects.Object
+	for _, o := range page.Objects {
+		name := strings.ToLower(path.Base(o.Key))
+		if strings.Contains(name, lowerQuery) {
+			filteredObjects = append(filteredObjects, o)
+		}
+	}
+	if filteredFolders == nil {
+		filteredFolders = []string{}
+	}
+	if filteredObjects == nil {
+		filteredObjects = []objects.Object{}
+	}
+	page.Folders = filteredFolders
+	page.Objects = filteredObjects
+	return page
+}
+
+func sortPage(page objects.Page, sortBy, order string) objects.Page {
+	desc := order == "desc"
+	sortFolders(page.Folders, desc)
+	sortObjects(page.Objects, sortBy, desc)
+	return page
+}
+
+func sortFolders(folders []string, desc bool) {
+	sort.SliceStable(folders, func(i, j int) bool {
+		nameI := strings.ToLower(path.Base(strings.TrimSuffix(folders[i], "/")))
+		nameJ := strings.ToLower(path.Base(strings.TrimSuffix(folders[j], "/")))
+		if desc {
+			return nameI > nameJ
+		}
+		return nameI < nameJ
+	})
+}
+
+func sortObjects(objs []objects.Object, sortBy string, desc bool) {
+	sort.SliceStable(objs, func(i, j int) bool {
+		return compareObjects(objs[i], objs[j], sortBy, desc)
+	})
+}
+
+func compareObjects(a, b objects.Object, sortBy string, desc bool) bool {
+	switch sortBy {
+	case "size":
+		if a.Size != b.Size {
+			if desc {
+				return a.Size > b.Size
+			}
+			return a.Size < b.Size
+		}
+	case "lastModified":
+		if !a.LastModified.Equal(b.LastModified) {
+			if desc {
+				return a.LastModified.After(b.LastModified)
+			}
+			return a.LastModified.Before(b.LastModified)
+		}
+	}
+	nameA := strings.ToLower(path.Base(a.Key))
+	nameB := strings.ToLower(path.Base(b.Key))
+	if desc {
+		return nameA > nameB
+	}
+	return nameA < nameB
 }
 
 // PutObject uploads one file. size may be -1 when unknown.

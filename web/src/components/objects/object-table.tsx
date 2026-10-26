@@ -4,6 +4,7 @@ import { FileActions, FolderActions } from "./object-actions";
 
 import { ListGroup, ListRowContent } from "@/components/list-group";
 import { TableSkeleton } from "@/components/table-skeleton";
+import { Button } from "@/components/ui/button";
 import Icon from "@/components/ui/icon";
 import {
   Table,
@@ -13,7 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { StoredObject } from "@/lib/api/objects";
+import type { SortBy, SortOrder, StoredObject } from "@/lib/api/objects";
 import { formatBytes, formatDate } from "@/lib/format";
 import { listRowClass } from "@/lib/list-row";
 import { baseName } from "@/lib/object-path";
@@ -26,18 +27,109 @@ interface ObjectTableProps {
   folders: string[];
   objects: StoredObject[];
   publicBaseUrl: string;
+  sortBy?: SortBy;
+  order?: SortOrder;
+  onSortChange?(sortBy: SortBy, order: SortOrder): void;
 }
 
-function ObjectTable({ bucketId, folders, objects, publicBaseUrl }: ObjectTableProps) {
+interface SortHeaderProps {
+  label: string;
+  column: SortBy;
+  currentSort: SortBy;
+  currentOrder: SortOrder;
+  onSort(column: SortBy): void;
+}
+
+function SortHeader({ label, column, currentSort, currentOrder, onSort }: SortHeaderProps) {
+  const active = currentSort === column;
+  return (
+    <button
+      type="button"
+      className="inline-flex cursor-pointer items-center gap-1.5 font-medium select-none hover:text-foreground"
+      onClick={() => onSort(column)}
+    >
+      {label}
+      {active ? (
+        <Icon
+          name={currentOrder === "asc" ? "arrow-up" : "arrow-down"}
+          className="size-3.5 text-primary"
+        />
+      ) : (
+        <Icon name="arrow-up-down" className="size-3 text-muted-foreground/60" />
+      )}
+    </button>
+  );
+}
+
+function MobileSortBar({
+  sortBy,
+  order,
+  onSort,
+}: {
+  sortBy: SortBy;
+  order: SortOrder;
+  onSort(column: SortBy): void;
+}) {
+  const columns: { label: string; column: SortBy }[] = [
+    { label: "Name", column: "name" },
+    { label: "Size", column: "size" },
+    { label: "Date", column: "lastModified" },
+  ];
+
+  return (
+    <li className="flex items-center justify-between border-b bg-muted/20 px-3 py-1.5 text-xs text-muted-foreground md:hidden">
+      <span className="font-medium">Sort:</span>
+      <div className="flex items-center gap-1">
+        {columns.map(({ label, column }) => {
+          const active = sortBy === column;
+          return (
+            <Button
+              key={column}
+              type="button"
+              variant={active ? "secondary" : "ghost"}
+              size="xs"
+              onClick={() => onSort(column)}
+            >
+              {label}
+              {active && (
+                <Icon name={order === "asc" ? "arrow-up" : "arrow-down"} className="size-3" />
+              )}
+            </Button>
+          );
+        })}
+      </div>
+    </li>
+  );
+}
+
+function ObjectTable({
+  bucketId,
+  folders,
+  objects,
+  publicBaseUrl,
+  sortBy = "name",
+  order = "asc",
+  onSortChange,
+}: ObjectTableProps) {
+  const handleSort = (col: SortBy) => {
+    if (!onSortChange) return;
+    if (sortBy === col) {
+      onSortChange(col, order === "asc" ? "desc" : "asc");
+    } else {
+      onSortChange(col, col === "name" ? "asc" : "desc");
+    }
+  };
+
   return (
     <>
       <ListGroup>
+        <MobileSortBar sortBy={sortBy} order={order} onSort={handleSort} />
         {folders.map((prefix) => (
           <li key={prefix} className="flex items-center">
             <Link
               to="/buckets/$bucketId/files"
               params={{ bucketId }}
-              search={{ prefix }}
+              search={(prev) => ({ ...prev, prefix, search: undefined })}
               className={cn(listRowClass, "min-w-0 flex-1")}
             >
               <ListRowContent icon="folder" title={baseName(prefix)} subtitle="Folder" chevron />
@@ -70,11 +162,34 @@ function ObjectTable({ bucketId, folders, objects, publicBaseUrl }: ObjectTableP
         <Table scrollable>
           <TableHeader>
             <TableRow>
-              {COLUMNS.map((c) => (
-                <TableHead key={c} className={c === "" ? "w-12" : undefined}>
-                  {c}
-                </TableHead>
-              ))}
+              <TableHead>
+                <SortHeader
+                  label="Name"
+                  column="name"
+                  currentSort={sortBy}
+                  currentOrder={order}
+                  onSort={handleSort}
+                />
+              </TableHead>
+              <TableHead>
+                <SortHeader
+                  label="Size"
+                  column="size"
+                  currentSort={sortBy}
+                  currentOrder={order}
+                  onSort={handleSort}
+                />
+              </TableHead>
+              <TableHead>
+                <SortHeader
+                  label="Last modified"
+                  column="lastModified"
+                  currentSort={sortBy}
+                  currentOrder={order}
+                  onSort={handleSort}
+                />
+              </TableHead>
+              <TableHead className="w-12" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -84,7 +199,7 @@ function ObjectTable({ bucketId, folders, objects, publicBaseUrl }: ObjectTableP
                   <Link
                     to="/buckets/$bucketId/files"
                     params={{ bucketId }}
-                    search={{ prefix }}
+                    search={(prev) => ({ ...prev, prefix, search: undefined })}
                     className="inline-flex items-center gap-2 font-medium hover:underline"
                   >
                     <Icon name="folder" className="size-4 text-muted-foreground" />

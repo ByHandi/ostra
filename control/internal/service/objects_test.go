@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/minio/minio-go/v7"
 
@@ -31,6 +32,7 @@ type fakeObject struct {
 	contentType        string
 	cacheControl       string
 	contentDisposition string
+	lastModified       time.Time
 }
 
 func newFakeStore() *fakeStore {
@@ -67,7 +69,7 @@ func (f *fakeStore) List(_ context.Context, bucket, prefix, _ string, _ int) (ob
 			}
 			continue
 		}
-		page.Objects = append(page.Objects, objects.Object{Key: key, Size: int64(len(o.body)), ContentType: o.contentType})
+		page.Objects = append(page.Objects, objects.Object{Key: key, Size: int64(len(o.body)), ContentType: o.contentType, LastModified: o.lastModified})
 	}
 	sort.Strings(page.Folders)
 	sort.Slice(page.Objects, func(i, j int) bool { return page.Objects[i].Key < page.Objects[j].Key })
@@ -82,7 +84,7 @@ func (f *fakeStore) Open(_ context.Context, bucket, key string) (io.ReadCloser, 
 	if !ok {
 		return nil, objects.Object{}, objects.ErrNotFound
 	}
-	return io.NopCloser(bytes.NewReader(o.body)), objects.Object{Key: key, Size: int64(len(o.body)), ContentType: o.contentType}, nil
+	return io.NopCloser(bytes.NewReader(o.body)), objects.Object{Key: key, Size: int64(len(o.body)), ContentType: o.contentType, LastModified: o.lastModified}, nil
 }
 
 func (f *fakeStore) Put(_ context.Context, bucket, key string, r io.Reader, _ int64, contentType string) (objects.Object, error) {
@@ -96,8 +98,9 @@ func (f *fakeStore) Put(_ context.Context, bucket, key string, r io.Reader, _ in
 	if f.data[bucket] == nil {
 		f.data[bucket] = map[string]fakeObject{}
 	}
-	f.data[bucket][key] = fakeObject{body: body, contentType: contentType}
-	return objects.Object{Key: key, Size: int64(len(body)), ContentType: contentType}, nil
+	now := time.Now()
+	f.data[bucket][key] = fakeObject{body: body, contentType: contentType, lastModified: now}
+	return objects.Object{Key: key, Size: int64(len(body)), ContentType: contentType, LastModified: now}, nil
 }
 
 func (f *fakeStore) Delete(_ context.Context, bucket, key string) error {
@@ -295,10 +298,10 @@ func TestSystemKeyIsCreatedOnceAndHidden(t *testing.T) {
 		t.Fatalf("before browsing: keys=%v garage=%d", keys, len(g.keys))
 	}
 
-	if _, err := svc.ListObjects(ctx, "id-assets", "", "", 0); err != nil {
+	if _, err := svc.ListObjects(ctx, "id-assets", ListObjectsOptions{}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.ListObjects(ctx, "id-assets", "", "", 0); err != nil {
+	if _, err := svc.ListObjects(ctx, "id-assets", ListObjectsOptions{}); err != nil {
 		t.Fatal(err)
 	}
 	if len(g.keys) != 2 || g.allowCalls != 1 {
@@ -329,14 +332,14 @@ func TestSystemKeyIsCreatedOnceAndHidden(t *testing.T) {
 
 	// A new process reuses the stored key...
 	svc2 := newServiceOnDB(sqlDB, g, st)
-	if _, err := svc2.ListObjects(ctx, "id-assets", "", "", 0); err != nil || len(g.keys) != 2 || st.createdFor != sysID {
+	if _, err := svc2.ListObjects(ctx, "id-assets", ListObjectsOptions{}); err != nil || len(g.keys) != 2 || st.createdFor != sysID {
 		t.Fatalf("restart: err=%v keys=%d key=%s", err, len(g.keys), st.createdFor)
 	}
 
 	// ...and replaces it if it was deleted from Garage.
 	delete(g.keys, sysID)
 	svc3 := newServiceOnDB(sqlDB, g, st)
-	if _, err := svc3.ListObjects(ctx, "id-assets", "", "", 0); err != nil {
+	if _, err := svc3.ListObjects(ctx, "id-assets", ListObjectsOptions{}); err != nil {
 		t.Fatal(err)
 	}
 	if st.createdFor == sysID || g.keys[st.createdFor] == nil {
@@ -354,11 +357,11 @@ func TestObjectOperations(t *testing.T) {
 	put(t, svc, "id-assets", "img/cat.png", "png")
 	put(t, svc, "id-assets", "img/2026/dog.png", "png2")
 
-	root, err := svc.ListObjects(ctx, "id-assets", "", "", 0)
+	root, err := svc.ListObjects(ctx, "id-assets", ListObjectsOptions{})
 	if err != nil || len(root.Folders) != 1 || root.Folders[0] != "img/" || len(root.Objects) != 1 {
 		t.Fatalf("root listing = %+v, %v", root, err)
 	}
-	img, _ := svc.ListObjects(ctx, "id-assets", "img/", "", 0)
+	img, _ := svc.ListObjects(ctx, "id-assets", ListObjectsOptions{Prefix: "img/"})
 	if len(img.Folders) != 1 || img.Folders[0] != "img/2026/" || len(img.Objects) != 1 || img.Objects[0].Key != "img/cat.png" {
 		t.Fatalf("img/ listing = %+v", img)
 	}
@@ -388,7 +391,7 @@ func TestObjectOperations(t *testing.T) {
 		t.Fatalf("DeleteFolder() = %d, %v; left %v", n, err, st.data["assets"])
 	}
 
-	_, err = svc.ListObjects(ctx, "id-missing", "", "", 0)
+	_, err = svc.ListObjects(ctx, "id-missing", ListObjectsOptions{})
 	wantKind(t, err, KindNotFound)
 }
 
@@ -398,12 +401,12 @@ func TestObjectAccessDeniedIsRegranted(t *testing.T) {
 	st := newFakeStore()
 	svc, _ := newObjectService(t, g, st)
 
-	if _, err := svc.ListObjects(ctx, "id-assets", "", "", 0); err != nil {
+	if _, err := svc.ListObjects(ctx, "id-assets", ListObjectsOptions{}); err != nil {
 		t.Fatal(err)
 	}
 	// Someone revoked the permission by hand: the next call is denied once.
 	st.denyNext = 1
-	if _, err := svc.ListObjects(ctx, "id-assets", "", "", 0); err != nil {
+	if _, err := svc.ListObjects(ctx, "id-assets", ListObjectsOptions{}); err != nil {
 		t.Fatalf("ListObjects after revoke: %v", err)
 	}
 	if g.allowCalls != 2 {
@@ -434,7 +437,7 @@ func TestObjectKeyValidation(t *testing.T) {
 	ctx := context.Background()
 	svc, _ := newObjectService(t, newFakeGarage("assets"), newFakeStore())
 	for _, prefix := range []string{"no-slash", "/abs/", "a//"} {
-		_, err := svc.ListObjects(ctx, "id-assets", prefix, "", 0)
+		_, err := svc.ListObjects(ctx, "id-assets", ListObjectsOptions{Prefix: prefix})
 		wantKind(t, err, KindInvalid)
 	}
 	_, err := svc.DeleteFolder(ctx, "id-assets", "")
@@ -443,7 +446,7 @@ func TestObjectKeyValidation(t *testing.T) {
 
 func TestObjectBrowserDisabled(t *testing.T) {
 	svc := newTestService(t, newFakeGarage("assets"), &fakeDNS{}, false)
-	if _, err := svc.ListObjects(context.Background(), "id-assets", "", "", 0); err != errObjectBrowserDisabled {
+	if _, err := svc.ListObjects(context.Background(), "id-assets", ListObjectsOptions{}); err != errObjectBrowserDisabled {
 		t.Fatalf("err = %v, want errObjectBrowserDisabled", err)
 	}
 }
@@ -735,4 +738,128 @@ func TestObjectMetadata(t *testing.T) {
 	wantField(t, err, KindInvalid, "key")
 	_, err = svc.UpdateObjectMetadata(ctx, "id-assets", "", objects.Metadata{ContentType: "text/plain"})
 	wantField(t, err, KindInvalid, "key")
+}
+
+func TestObjectSearchAndSort(t *testing.T) {
+	ctx := context.Background()
+	st := newFakeStore()
+	svc, _ := newObjectService(t, newFakeGarage("assets"), st)
+
+	t1 := time.Date(2026, 1, 1, 10, 0, 0, 0, time.UTC)
+	t2 := time.Date(2026, 1, 2, 10, 0, 0, 0, time.UTC)
+	t3 := time.Date(2026, 1, 3, 10, 0, 0, 0, time.UTC)
+
+	st.data["assets"] = map[string]fakeObject{
+		"zebra.txt":         {body: []byte("12345"), contentType: "text/plain", lastModified: t2},
+		"apple.txt":         {body: []byte("12"), contentType: "text/plain", lastModified: t3},
+		"banana.txt":        {body: []byte("123456789"), contentType: "text/plain", lastModified: t1},
+		"docs/guide.pdf":    {body: []byte("guide"), contentType: "application/pdf", lastModified: t1},
+		"photos/nature.jpg": {body: []byte("img"), contentType: "image/jpeg", lastModified: t1},
+	}
+
+	// Default listing
+	res, err := svc.ListObjects(ctx, "id-assets", ListObjectsOptions{})
+	if err != nil {
+		t.Fatalf("ListObjects: %v", err)
+	}
+	if len(res.Folders) != 2 || res.Folders[0] != "docs/" || res.Folders[1] != "photos/" {
+		t.Fatalf("default folders = %v", res.Folders)
+	}
+	if len(res.Objects) != 3 || res.Objects[0].Key != "apple.txt" || res.Objects[1].Key != "banana.txt" || res.Objects[2].Key != "zebra.txt" {
+		t.Fatalf("default objects = %v", res.Objects)
+	}
+
+	// Search filter
+	res, err = svc.ListObjects(ctx, "id-assets", ListObjectsOptions{Search: "na"})
+	if err != nil {
+		t.Fatalf("search 'na': %v", err)
+	}
+	if len(res.Folders) != 0 || len(res.Objects) != 1 || res.Objects[0].Key != "banana.txt" {
+		t.Fatalf("search 'na' result = %+v", res)
+	}
+
+	// Search folder name
+	res, err = svc.ListObjects(ctx, "id-assets", ListObjectsOptions{Search: "doc"})
+	if err != nil {
+		t.Fatalf("search 'doc': %v", err)
+	}
+	if len(res.Folders) != 1 || res.Folders[0] != "docs/" || len(res.Objects) != 0 {
+		t.Fatalf("search 'doc' result = %+v", res)
+	}
+
+	// Search case-insensitive
+	res, err = svc.ListObjects(ctx, "id-assets", ListObjectsOptions{Search: "ZEBRA"})
+	if err != nil {
+		t.Fatalf("search 'ZEBRA': %v", err)
+	}
+	if len(res.Objects) != 1 || res.Objects[0].Key != "zebra.txt" {
+		t.Fatalf("search 'ZEBRA' result = %+v", res)
+	}
+
+	// Search no match
+	res, err = svc.ListObjects(ctx, "id-assets", ListObjectsOptions{Search: "nonexistent"})
+	if err != nil {
+		t.Fatalf("search 'nonexistent': %v", err)
+	}
+	if len(res.Folders) != 0 || len(res.Objects) != 0 {
+		t.Fatalf("search with no match should be empty: %+v", res)
+	}
+
+	// Sort name desc
+	res, err = svc.ListObjects(ctx, "id-assets", ListObjectsOptions{SortBy: "name", Order: "desc"})
+	if err != nil {
+		t.Fatalf("sort name desc: %v", err)
+	}
+	if res.Folders[0] != "photos/" || res.Folders[1] != "docs/" {
+		t.Fatalf("folders name desc = %v", res.Folders)
+	}
+	if res.Objects[0].Key != "zebra.txt" || res.Objects[1].Key != "banana.txt" || res.Objects[2].Key != "apple.txt" {
+		t.Fatalf("objects name desc = %v", res.Objects)
+	}
+
+	// Sort size asc
+	res, err = svc.ListObjects(ctx, "id-assets", ListObjectsOptions{SortBy: "size", Order: "asc"})
+	if err != nil {
+		t.Fatalf("sort size asc: %v", err)
+	}
+	if res.Objects[0].Key != "apple.txt" || res.Objects[1].Key != "zebra.txt" || res.Objects[2].Key != "banana.txt" {
+		t.Fatalf("objects size asc = %v", res.Objects)
+	}
+
+	// Sort size desc
+	res, err = svc.ListObjects(ctx, "id-assets", ListObjectsOptions{SortBy: "size", Order: "desc"})
+	if err != nil {
+		t.Fatalf("sort size desc: %v", err)
+	}
+	if res.Objects[0].Key != "banana.txt" || res.Objects[1].Key != "zebra.txt" || res.Objects[2].Key != "apple.txt" {
+		t.Fatalf("objects size desc = %v", res.Objects)
+	}
+
+	// Sort lastModified asc
+	res, err = svc.ListObjects(ctx, "id-assets", ListObjectsOptions{SortBy: "lastModified", Order: "asc"})
+	if err != nil {
+		t.Fatalf("sort lastModified asc: %v", err)
+	}
+	if res.Objects[0].Key != "banana.txt" || res.Objects[1].Key != "zebra.txt" || res.Objects[2].Key != "apple.txt" {
+		t.Fatalf("objects lastModified asc = %v", res.Objects)
+	}
+
+	// Sort lastModified desc
+	res, err = svc.ListObjects(ctx, "id-assets", ListObjectsOptions{SortBy: "lastModified", Order: "desc"})
+	if err != nil {
+		t.Fatalf("sort lastModified desc: %v", err)
+	}
+	if res.Objects[0].Key != "apple.txt" || res.Objects[1].Key != "zebra.txt" || res.Objects[2].Key != "banana.txt" {
+		t.Fatalf("objects lastModified desc = %v", res.Objects)
+	}
+
+	// Validation
+	_, err = svc.ListObjects(ctx, "id-assets", ListObjectsOptions{SortBy: "invalid"})
+	wantField(t, err, KindInvalid, "sortBy")
+
+	_, err = svc.ListObjects(ctx, "id-assets", ListObjectsOptions{Order: "up"})
+	wantField(t, err, KindInvalid, "order")
+
+	_, err = svc.ListObjects(ctx, "id-assets", ListObjectsOptions{Search: strings.Repeat("x", 256)})
+	wantField(t, err, KindInvalid, "search")
 }

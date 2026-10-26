@@ -11,6 +11,9 @@ The release workflow uses the contents of that version's section as the GitHub R
 
 ### Added
 
+- Search and sort in the object browser: filter folders and files by case-insensitive substring
+  match, and sort by name, size, or last modified date in ascending or descending order, backed
+  by `search`, `sortBy`, and `order` query parameters on `GET /api/buckets/{id}/objects`.
 - View and edit object HTTP metadata (`Content-Type`, `Cache-Control`, and `Content-Disposition`)
   in the object browser and preview modal, backed by `GET` and `PUT /api/buckets/{id}/objects/metadata`.
 - Rename, move, and duplicate actions for files and folders in the object browser, backed by

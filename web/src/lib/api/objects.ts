@@ -40,22 +40,44 @@ export interface ObjectPage {
 
 // ── Queries ──────────────────────────────────────────────────────────────────
 
+export type SortBy = "name" | "size" | "lastModified";
+export type SortOrder = "asc" | "desc";
+
 export const objectKeys = {
   bucket: (bucketId: string) => ["objects", bucketId] as const,
-  folder: (bucketId: string, prefix: string) => ["objects", bucketId, prefix] as const,
+  folder: (
+    bucketId: string,
+    prefix = "",
+    search = "",
+    sortBy: SortBy = "name",
+    order: SortOrder = "asc",
+  ) => ["objects", bucketId, prefix, { search, sortBy, order }] as const,
 };
 
 function objectsPath(bucketId: string, params: Record<string, string>): string {
-  const search = new URLSearchParams(params).toString();
-  return `/buckets/${encodeURIComponent(bucketId)}/objects${search ? `?${search}` : ""}`;
+  const search = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v) search.set(k, v);
+  }
+  const qs = search.toString();
+  return `/buckets/${encodeURIComponent(bucketId)}/objects${qs ? `?${qs}` : ""}`;
 }
 
-/** One folder, page by page ("Load more"). */
-export const folderQuery = (bucketId: string, prefix: string) =>
+/** One folder, page by page ("Load more"), with optional search and sort. */
+export const folderQuery = (
+  bucketId: string,
+  prefix = "",
+  search = "",
+  sortBy: SortBy = "name",
+  order: SortOrder = "asc",
+) =>
   infiniteQueryOptions({
-    queryKey: objectKeys.folder(bucketId, prefix),
+    queryKey: objectKeys.folder(bucketId, prefix, search, sortBy, order),
     queryFn: async ({ pageParam }) => {
       const params: Record<string, string> = { prefix };
+      if (search) params.search = search;
+      if (sortBy && sortBy !== "name") params.sortBy = sortBy;
+      if (order && order !== "asc") params.order = order;
       if (pageParam) params.cursor = pageParam;
       return (await api.get<ObjectPage>(objectsPath(bucketId, params))).data as ObjectPage;
     },
