@@ -58,6 +58,19 @@ func TestClient(t *testing.T) {
 			json.NewDecoder(r.Body).Decode(&body)
 			gotBody = body["bucketId"] + "|" + body["globalAlias"]
 			w.Write([]byte(`{}`))
+		case "/v2/CreateKey":
+			var body map[string]any
+			json.NewDecoder(r.Body).Decode(&body)
+			exp, _ := body["expiration"].(string)
+			gotBody = fmt.Sprintf("create:%v|exp:%s", body["name"], exp)
+			w.Write([]byte(`{"accessKeyId":"GK1","name":"app","expiration":"2027-01-01T00:00:00Z","secretAccessKey":"sec123"}`))
+		case "/v2/UpdateKey":
+			var body map[string]any
+			json.NewDecoder(r.Body).Decode(&body)
+			exp, _ := body["expiration"].(string)
+			never, _ := body["neverExpires"].(bool)
+			gotBody = fmt.Sprintf("update:%s|exp:%s|never:%v", r.URL.Query().Get("id"), exp, never)
+			w.Write([]byte(`{"accessKeyId":"GK1","name":"app","expiration":"2027-01-01T00:00:00Z"}`))
 		default:
 			w.WriteHeader(http.StatusBadGateway)
 		}
@@ -97,6 +110,17 @@ func TestClient(t *testing.T) {
 
 	if err := c.AddAlias(ctx, "abc", "cdn.brand.com"); err != nil || gotBody != "abc|cdn.brand.com" {
 		t.Fatalf("AddAlias() err=%v body=%q", err, gotBody)
+	}
+
+	exp := "2027-01-01T00:00:00Z"
+	k, err := c.CreateKey(ctx, "app", &exp)
+	if err != nil || k.AccessKeyID != "GK1" || k.Expiration == nil || *k.Expiration != exp || gotBody != "create:app|exp:2027-01-01T00:00:00Z" {
+		t.Fatalf("CreateKey() err=%v k=%+v gotBody=%q", err, k, gotBody)
+	}
+
+	k, err = c.UpdateKey(ctx, "GK1", nil)
+	if err != nil || gotBody != "update:GK1|exp:|never:true" {
+		t.Fatalf("UpdateKey(never) err=%v gotBody=%q", err, gotBody)
 	}
 
 	// A non-JSON error body still becomes an *Error with the correct status.

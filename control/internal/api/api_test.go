@@ -417,3 +417,44 @@ func TestRoutingAndLoginRateLimit(t *testing.T) {
 		t.Fatalf("6th login attempt = %d, want 429", last)
 	}
 }
+
+func TestKeyExpirationValidation(t *testing.T) {
+	srv := newTestServer(t)
+	login := call(t, srv, "POST", "/api/auth/login", "", nil, `{"email":"admin@example.com","password":"secret123"}`)
+	token := accessToken(t, login)
+
+	// Auth required
+	if r := call(t, srv, "POST", "/api/keys", "", nil, `{"name":"test"}`); r.status != http.StatusUnauthorized {
+		t.Fatalf("create key without auth = %d, want 401", r.status)
+	}
+	if r := call(t, srv, "PUT", "/api/keys/GK1/expiration", "", nil, `{"expiresAt":null}`); r.status != http.StatusUnauthorized {
+		t.Fatalf("update key expiration without auth = %d, want 401", r.status)
+	}
+
+	// Unknown fields rejected
+	if r := call(t, srv, "POST", "/api/keys", token, nil, `{"name":"test","unknown":true}`); r.status != http.StatusBadRequest {
+		t.Fatalf("create key with unknown field = %d, want 400", r.status)
+	}
+	if r := call(t, srv, "PUT", "/api/keys/GK1/expiration", token, nil, `{"expiresAt":null,"unknown":true}`); r.status != http.StatusBadRequest {
+		t.Fatalf("update key expiration with unknown field = %d, want 400", r.status)
+	}
+
+	// Validation: empty name
+	if r := call(t, srv, "POST", "/api/keys", token, nil, `{"name":"   "}`); r.status != http.StatusBadRequest || len(r.body.Error.Errors["name"]) != 1 {
+		t.Fatalf("create key with empty name = %d %+v", r.status, r.body.Error)
+	}
+
+	// Validation: past expiresAt
+	past := time.Now().Add(-1 * time.Hour).UTC().Format(time.RFC3339)
+	if r := call(t, srv, "POST", "/api/keys", token, nil, `{"name":"test","expiresAt":"`+past+`"}`); r.status != http.StatusBadRequest || len(r.body.Error.Errors["expiresAt"]) != 1 {
+		t.Fatalf("create key with past expiresAt = %d %+v", r.status, r.body.Error)
+	}
+	if r := call(t, srv, "PUT", "/api/keys/GK1/expiration", token, nil, `{"expiresAt":"`+past+`"}`); r.status != http.StatusBadRequest || len(r.body.Error.Errors["expiresAt"]) != 1 {
+		t.Fatalf("update key with past expiresAt = %d %+v", r.status, r.body.Error)
+	}
+
+	// Validation: invalid format expiresAt
+	if r := call(t, srv, "PUT", "/api/keys/GK1/expiration", token, nil, `{"expiresAt":"not-a-date"}`); r.status != http.StatusBadRequest || len(r.body.Error.Errors["expiresAt"]) != 1 {
+		t.Fatalf("update key with invalid format = %d %+v", r.status, r.body.Error)
+	}
+}

@@ -72,10 +72,11 @@ type BucketKey struct {
 }
 
 type Key struct {
-	ID      string `json:"id"`
-	Name    string `json:"name"`
-	Created string `json:"created"`
-	Expired bool   `json:"expired"`
+	ID         string  `json:"id"`
+	Name       string  `json:"name"`
+	Created    string  `json:"created"`
+	Expired    bool    `json:"expired"`
+	Expiration *string `json:"expiration,omitempty"`
 }
 
 // KeyBucket is a bucket that a key can access.
@@ -86,10 +87,11 @@ type KeyBucket struct {
 }
 
 type KeyInfo struct {
-	AccessKeyID string `json:"accessKeyId"`
-	Name        string `json:"name"`
-	Created     string `json:"created"`
-	Expired     bool   `json:"expired"`
+	AccessKeyID string  `json:"accessKeyId"`
+	Name        string  `json:"name"`
+	Created     string  `json:"created"`
+	Expired     bool    `json:"expired"`
+	Expiration  *string `json:"expiration,omitempty"`
 	// SecretAccessKey is only set in the CreateKey response.
 	SecretAccessKey string      `json:"secretAccessKey,omitempty"`
 	Buckets         []KeyBucket `json:"buckets"`
@@ -230,9 +232,26 @@ func (c *Client) GetKey(ctx context.Context, id string) (KeyInfo, error) {
 }
 
 // CreateKey creates an access key. The secret is only returned here and cannot be read again via the API.
-func (c *Client) CreateKey(ctx context.Context, name string) (KeyInfo, error) {
+func (c *Client) CreateKey(ctx context.Context, name string, expiration *string) (KeyInfo, error) {
+	body := map[string]any{"name": name}
+	if expiration != nil {
+		body["expiration"] = *expiration
+	}
 	var out KeyInfo
-	err := c.do(ctx, http.MethodPost, "/v2/CreateKey", nil, map[string]any{"name": name}, &out)
+	err := c.do(ctx, http.MethodPost, "/v2/CreateKey", nil, body, &out)
+	return out, err
+}
+
+func (c *Client) UpdateKey(ctx context.Context, id string, expiration *string) (KeyInfo, error) {
+	body := map[string]any{}
+	if expiration != nil {
+		body["expiration"] = *expiration
+		body["neverExpires"] = false
+	} else {
+		body["neverExpires"] = true
+	}
+	var out KeyInfo
+	err := c.do(ctx, http.MethodPost, "/v2/UpdateKey", url.Values{"id": {id}}, body, &out)
 	return out, err
 }
 

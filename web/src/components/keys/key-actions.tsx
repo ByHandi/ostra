@@ -3,6 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { ConnectionSnippetsDialog } from "./connection-snippets-dialog";
+import { EditKeyExpirationDialog } from "./edit-key-expiration-dialog";
 
 import ButtonMenu, { type ButtonMenuItem } from "@/components/ui/button-menu";
 import Icon from "@/components/ui/icon";
@@ -10,10 +11,12 @@ import Icon from "@/components/ui/icon";
 interface KeyActionsProps {
   keyId: string;
   keyName?: string;
+  expiresAt?: string | null;
 }
 
-export function KeyActions({ keyId, keyName }: KeyActionsProps) {
+export function KeyActions({ keyId, keyName, expiresAt }: KeyActionsProps) {
   const [snippetsOpen, setSnippetsOpen] = useState(false);
+  const [expirationOpen, setExpirationOpen] = useState(false);
   const navigate = useNavigate();
 
   const items: ButtonMenuItem[] = [
@@ -21,6 +24,11 @@ export function KeyActions({ keyId, keyName }: KeyActionsProps) {
       label: "View details",
       icon: <Icon name="arrow-right" className="size-4" />,
       onClick: () => navigate({ to: "/keys/$keyId", params: { keyId } }),
+    },
+    {
+      label: "Edit expiration",
+      icon: <Icon name="calendar" className="size-4" />,
+      onClick: () => setExpirationOpen(true),
     },
     {
       label: "Connection snippets",
@@ -32,6 +40,14 @@ export function KeyActions({ keyId, keyName }: KeyActionsProps) {
   return (
     <>
       <ButtonMenu items={items} align="end" variant="ghost" classNames={{ content: "w-48" }} />
+
+      <EditKeyExpirationDialog
+        keyId={keyId}
+        keyName={keyName}
+        currentExpiresAt={expiresAt ?? null}
+        open={expirationOpen}
+        onOpenChange={setExpirationOpen}
+      />
 
       <ConnectionSnippetsDialog
         keyId={keyId}

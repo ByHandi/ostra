@@ -11,6 +11,10 @@ The release workflow uses the contents of that version's section as the GitHub R
 
 ### Added
 
+- Access keys with expiration dates: set key expiration during creation (preset or custom date)
+  or modify expiration on existing keys, backed by `PUT /api/keys/{id}/expiration` and updated
+  `POST /api/keys`. Visual status badges show active, expiring soon, and expired states across
+  the dashboard.
 - Search and sort in the object browser: filter folders and files by case-insensitive substring
   match, and sort by name, size, or last modified date in ascending or descending order, backed
   by `search`, `sortBy`, and `order` query parameters on `GET /api/buckets/{id}/objects`.

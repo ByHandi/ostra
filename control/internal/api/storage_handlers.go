@@ -192,13 +192,25 @@ func (h *Handler) listKeys(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) createKey(w http.ResponseWriter, r *http.Request) {
 	var in struct {
-		Name string `json:"name"`
+		Name      string  `json:"name"`
+		ExpiresAt *string `json:"expiresAt"`
 	}
 	if !decode(w, r, &in) {
 		return
 	}
-	k, err := h.svc.CreateKey(r.Context(), in.Name)
+	k, err := h.svc.CreateKey(r.Context(), in.Name, in.ExpiresAt)
 	respond(w, r, http.StatusCreated, k, err)
+}
+
+func (h *Handler) updateKeyExpiration(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		ExpiresAt *string `json:"expiresAt"`
+	}
+	if !decode(w, r, &in) {
+		return
+	}
+	k, err := h.svc.UpdateKeyExpiration(r.Context(), chi.URLParam(r, "id"), in.ExpiresAt)
+	respond(w, r, http.StatusOK, k, err)
 }
 
 func (h *Handler) getKey(w http.ResponseWriter, r *http.Request) {

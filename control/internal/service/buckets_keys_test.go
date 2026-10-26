@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/ByHandi/ostra/control/internal/garage"
 )
@@ -57,10 +58,10 @@ func TestKeys(t *testing.T) {
 	g := newFakeGarage("assets")
 	svc := newTestService(t, g, &fakeDNS{}, false)
 
-	_, err := svc.CreateKey(ctx, "  ")
+	_, err := svc.CreateKey(ctx, "  ", nil)
 	wantKind(t, err, KindInvalid)
 
-	k, err := svc.CreateKey(ctx, "app")
+	k, err := svc.CreateKey(ctx, "app", nil)
 	if err != nil || k.SecretAccessKey == "" || k.ID == "" {
 		t.Fatalf("CreateKey() = %+v, %v", k, err)
 	}
@@ -100,6 +101,59 @@ func TestKeys(t *testing.T) {
 		t.Fatal(err)
 	}
 	wantKind(t, svc.DeleteKey(ctx, k.ID), KindNotFound)
+}
+
+func TestKeyExpiration(t *testing.T) {
+	ctx := context.Background()
+	g := newFakeGarage("assets")
+	svc := newTestService(t, g, &fakeDNS{}, false)
+
+	// Past timestamp rejected.
+	past := time.Now().Add(-1 * time.Hour).UTC().Format(time.RFC3339)
+	_, err := svc.CreateKey(ctx, "past-key", &past)
+	wantField(t, err, KindInvalid, "expiresAt")
+
+	// Invalid format rejected.
+	invalidDate := "not-a-date"
+	_, err = svc.CreateKey(ctx, "bad-key", &invalidDate)
+	wantField(t, err, KindInvalid, "expiresAt")
+
+	// Future expiration works.
+	future := time.Now().Add(24 * time.Hour).UTC().Format(time.RFC3339)
+	k, err := svc.CreateKey(ctx, "temp-key", &future)
+	if err != nil {
+		t.Fatalf("CreateKey() failed: %v", err)
+	}
+	if k.ExpiresAt == nil || *k.ExpiresAt != future || k.Expired {
+		t.Fatalf("k = %+v, want future expiry and expired=false", k)
+	}
+
+	// Update expiration to another future time.
+	future2 := time.Now().Add(48 * time.Hour).UTC().Format(time.RFC3339)
+	up, err := svc.UpdateKeyExpiration(ctx, k.ID, &future2)
+	if err != nil {
+		t.Fatalf("UpdateKeyExpiration() failed: %v", err)
+	}
+	if up.ExpiresAt == nil || *up.ExpiresAt != future2 || up.Expired {
+		t.Fatalf("up = %+v, want future2 expiry", up)
+	}
+
+	// Clear expiration (never expires).
+	up, err = svc.UpdateKeyExpiration(ctx, k.ID, nil)
+	if err != nil {
+		t.Fatalf("UpdateKeyExpiration(nil) failed: %v", err)
+	}
+	if up.ExpiresAt != nil || up.Expired {
+		t.Fatalf("up = %+v, want nil expiry", up)
+	}
+
+	// Update expiration with past date rejected.
+	_, err = svc.UpdateKeyExpiration(ctx, k.ID, &past)
+	wantField(t, err, KindInvalid, "expiresAt")
+
+	// Update expiration on non-existent key.
+	_, err = svc.UpdateKeyExpiration(ctx, "GKmissing", &future)
+	wantKind(t, err, KindNotFound)
 }
 
 func TestBucketQuotas(t *testing.T) {

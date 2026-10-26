@@ -240,7 +240,7 @@ Garage API for each one before starting, since this list was put together from i
       (through a copy onto itself)
 - [x] Rename, move, and copy files and folders (`CopyObject` + delete)
 - [x] Search and sort in the object browser: by prefix (native), by size or date (per loaded page)
-- [ ] Access keys with an expiry date (Garage key expiration)
+- [x] Access keys with an expiry date (Garage key expiration)
 - [ ] Bucket size and object count over time. Garage only reports the current numbers, so the
       control-plane has to record them
 

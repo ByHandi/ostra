@@ -289,7 +289,7 @@ func put(t *testing.T, svc *Service, bucketID, key, body string) {
 func TestSystemKeyIsCreatedOnceAndHidden(t *testing.T) {
 	ctx := context.Background()
 	g := newFakeGarage("assets")
-	g.CreateKey(ctx, "app")
+	g.CreateKey(ctx, "app", nil)
 	st := newFakeStore()
 	svc, sqlDB := newObjectService(t, g, st)
 

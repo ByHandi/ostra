@@ -26,7 +26,8 @@ type Garage interface {
 
 	ListKeys(ctx context.Context) ([]garage.Key, error)
 	GetKey(ctx context.Context, id string) (garage.KeyInfo, error)
-	CreateKey(ctx context.Context, name string) (garage.KeyInfo, error)
+	CreateKey(ctx context.Context, name string, expiration *string) (garage.KeyInfo, error)
+	UpdateKey(ctx context.Context, id string, expiration *string) (garage.KeyInfo, error)
 	DeleteKey(ctx context.Context, id string) error
 	AllowBucketKey(ctx context.Context, bucketID, keyID string, p garage.Permissions) error
 	DenyBucketKey(ctx context.Context, bucketID, keyID string, p garage.Permissions) error

@@ -261,8 +261,9 @@ Responses use the same envelope as the `shadcn-vite` template and `go-service-bo
 | PUT | `/api/buckets/{id}/website` | `{"enabled","indexDocument","errorDocument"}` static website hosting |
 | GET/PUT/DELETE | `/api/buckets/{id}/cors` | Get, set, or clear bucket CORS rules (`{"rules":[...]}`) |
 | GET/PUT/DELETE | `/api/buckets/{id}/lifecycle` | Get, set, or clear lifecycle rules (`{"expirationDays","abortIncompleteMultipartUploadDays"}`) |
-| GET/POST | `/api/keys` | List / create (`{"name"}`; the secret is only returned here) |
+| GET/POST | `/api/keys` | List / create (`{"name","expiresAt"}`; the secret is only returned here) |
 | GET/DELETE | `/api/keys/{id}` | Per-bucket permissions / delete |
+| PUT | `/api/keys/{id}/expiration` | `{"expiresAt"}` (future RFC 3339 timestamp, null to clear) |
 | PUT | `/api/keys/{id}/buckets/{bucketId}` | `{"read","write","owner"}`, sets permissions exactly |
 | GET/POST | `/api/domains` | List / register (`{"domain","bucket"}`) |
 | GET/DELETE | `/api/domains/{id}` | Details + `dnsRecords` / delete |
