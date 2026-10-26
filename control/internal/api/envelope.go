@@ -54,41 +54,69 @@ func writeFail(w http.ResponseWriter, status int, typ, message string, fields ma
 
 // writeError maps an error to an HTTP status. Unknown errors become a 500 without leaking details.
 func writeError(w http.ResponseWriter, r *http.Request, err error) {
-	var se *service.Error
-	if errors.As(err, &se) {
-		status, typ := http.StatusBadRequest, "validation"
-		switch se.Kind {
-		case service.KindNotFound:
-			status, typ = http.StatusNotFound, "not_found"
-		case service.KindConflict:
-			status, typ = http.StatusConflict, "conflict"
-		}
-		writeFail(w, status, typ, se.Message, fieldErrors(se.Field, se.Message))
-		return
-	}
-
-	var fe *auth.FieldError
-	if errors.As(err, &fe) {
-		writeFail(w, http.StatusBadRequest, "validation", fe.Message, fieldErrors(fe.Field, fe.Message))
-		return
-	}
-
-	var ge *garage.Error
-	if errors.As(err, &ge) && ge.Status < http.StatusInternalServerError {
-		status := http.StatusBadRequest
-		if ge.Status == http.StatusNotFound || ge.Status == http.StatusConflict {
-			status = ge.Status
-		}
-		writeFail(w, status, ge.Code, ge.Message, nil)
+	if writeServiceError(w, err) || writeAuthError(w, err) || writeGarageError(w, err) {
 		return
 	}
 
 	slog.Error("request failed", "method", r.Method, "path", r.URL.Path, "err", err)
-	if ge != nil {
+	var ge *garage.Error
+	if errors.As(err, &ge) {
 		writeFail(w, http.StatusBadGateway, "storage_error", "storage is having problems, try again later", nil)
 		return
 	}
 	writeFail(w, http.StatusInternalServerError, "internal", "an internal error occurred", nil)
+}
+
+func writeServiceError(w http.ResponseWriter, err error) bool {
+	var se *service.Error
+	if !errors.As(err, &se) {
+		return false
+	}
+	status, typ := http.StatusBadRequest, "validation"
+	switch se.Kind {
+	case service.KindNotFound:
+		status, typ = http.StatusNotFound, "not_found"
+	case service.KindConflict:
+		status, typ = http.StatusConflict, "conflict"
+	}
+	writeFail(w, status, typ, se.Message, fieldErrors(se.Field, se.Message))
+	return true
+}
+
+func writeAuthError(w http.ResponseWriter, err error) bool {
+	var fe *auth.FieldError
+	if errors.As(err, &fe) {
+		writeFail(w, http.StatusBadRequest, "validation", fe.Message, fieldErrors(fe.Field, fe.Message))
+		return true
+	}
+	switch {
+	case errors.Is(err, auth.ErrUserNotFound):
+		writeFail(w, http.StatusNotFound, "not_found", err.Error(), nil)
+		return true
+	case errors.Is(err, auth.ErrUserExists):
+		writeFail(w, http.StatusConflict, "conflict", err.Error(), fieldErrors("email", err.Error()))
+		return true
+	case errors.Is(err, auth.ErrDemoteLastAdmin), errors.Is(err, auth.ErrDeleteLastAdmin):
+		writeFail(w, http.StatusConflict, "conflict", err.Error(), nil)
+		return true
+	case errors.Is(err, auth.ErrSelfDemote), errors.Is(err, auth.ErrSelfDelete), errors.Is(err, auth.ErrInvalidRole):
+		writeFail(w, http.StatusBadRequest, "validation", err.Error(), nil)
+		return true
+	}
+	return false
+}
+
+func writeGarageError(w http.ResponseWriter, err error) bool {
+	var ge *garage.Error
+	if !errors.As(err, &ge) || ge.Status >= http.StatusInternalServerError {
+		return false
+	}
+	status := http.StatusBadRequest
+	if ge.Status == http.StatusNotFound || ge.Status == http.StatusConflict {
+		status = ge.Status
+	}
+	writeFail(w, status, ge.Code, ge.Message, nil)
+	return true
 }
 
 func fieldErrors(field, message string) map[string][]string {

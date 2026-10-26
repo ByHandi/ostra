@@ -273,3 +273,90 @@ func TestRoleImmediateEffectAndSessionRevocation(t *testing.T) {
 		t.Fatalf("refresh after role change: got %v, want ErrSessionExpired", err)
 	}
 }
+
+func TestUserManagement(t *testing.T) {
+	ctx := context.Background()
+	svc := newTestService(t)
+
+	// Create admin 1
+	admin1, err := svc.CreateUser(ctx, "admin1@example.com", "Admin 1", "secret123", RoleAdmin)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Create viewer with temporary password
+	viewer, tempPass, err := svc.CreateUserWithTemporaryPassword(ctx, "viewer@example.com", "Viewer User", RoleViewer)
+	if err != nil {
+		t.Fatalf("CreateUserWithTemporaryPassword: %v", err)
+	}
+	if len(tempPass) < MinPasswordLength {
+		t.Fatalf("temp password %q is shorter than MinPasswordLength", tempPass)
+	}
+	if viewer.Role != RoleViewer {
+		t.Fatalf("expected role %s, got %s", RoleViewer, viewer.Role)
+	}
+
+	// Verify the temporary password works for login
+	sess, err := svc.Login(ctx, viewer.Email, tempPass, Client{})
+	if err != nil {
+		t.Fatalf("login with temporary password failed: %v", err)
+	}
+
+	// List users
+	users, err := svc.ListUsers(ctx)
+	if err != nil {
+		t.Fatalf("ListUsers: %v", err)
+	}
+	if len(users) != 2 {
+		t.Fatalf("expected 2 users, got %d", len(users))
+	}
+
+	// Test self-demotion rejected
+	if _, err := svc.UpdateUserRole(ctx, admin1.ID, admin1.ID, RoleViewer); !errors.Is(err, ErrSelfDemote) {
+		t.Fatalf("self demotion should fail with ErrSelfDemote, got %v", err)
+	}
+
+	// Test self-deletion rejected
+	if err := svc.DeleteUser(ctx, admin1.ID, admin1.ID); !errors.Is(err, ErrSelfDelete) {
+		t.Fatalf("self deletion should fail with ErrSelfDelete, got %v", err)
+	}
+
+	// Promote viewer to admin
+	updated, err := svc.UpdateUserRole(ctx, admin1.ID, viewer.ID, RoleAdmin)
+	if err != nil || updated.Role != RoleAdmin {
+		t.Fatalf("promoting viewer to admin failed: %v", err)
+	}
+
+	// Active session for viewer was revoked by role change
+	if _, err := svc.Refresh(ctx, sess.RefreshToken, Client{}); !errors.Is(err, ErrSessionExpired) {
+		t.Fatalf("expected session to be revoked after role change, got %v", err)
+	}
+
+	// Now there are two admins (admin1 and viewer).
+	// Demote admin1 by viewer
+	if _, err := svc.UpdateUserRole(ctx, viewer.ID, admin1.ID, RoleViewer); err != nil {
+		t.Fatalf("demoting admin1 failed: %v", err)
+	}
+
+	// Now viewer is the ONLY admin left.
+	// Demoting the last admin must fail
+	if _, err := svc.UpdateUserRole(ctx, admin1.ID, viewer.ID, RoleViewer); !errors.Is(err, ErrDemoteLastAdmin) {
+		t.Fatalf("demoting last admin should fail with ErrDemoteLastAdmin, got %v", err)
+	}
+
+	// Deleting the last admin must fail
+	if err := svc.DeleteUser(ctx, admin1.ID, viewer.ID); !errors.Is(err, ErrDeleteLastAdmin) {
+		t.Fatalf("deleting last admin should fail with ErrDeleteLastAdmin, got %v", err)
+	}
+
+	// Deleting non-admin (admin1) by viewer succeeds
+	if err := svc.DeleteUser(ctx, viewer.ID, admin1.ID); err != nil {
+		t.Fatalf("deleting admin1 failed: %v", err)
+	}
+
+	// Verify user is gone
+	usersAfterDelete, err := svc.ListUsers(ctx)
+	if err != nil || len(usersAfterDelete) != 1 {
+		t.Fatalf("expected 1 user after delete, got %d", len(usersAfterDelete))
+	}
+}

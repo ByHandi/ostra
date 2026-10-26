@@ -151,6 +151,11 @@ func (h *Handler) Public() http.Handler {
 				r.Post("/domains", h.createDomain)
 				r.Post("/domains/{id}/verify", h.verifyDomain)
 				r.Delete("/domains/{id}", h.deleteDomain)
+
+				r.Get("/users", h.listUsers)
+				r.Post("/users", h.createUser)
+				r.Patch("/users/{id}/role", h.updateUserRole)
+				r.Delete("/users/{id}", h.deleteUser)
 			})
 		})
 	})

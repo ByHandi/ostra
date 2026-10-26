@@ -47,6 +47,9 @@ var (
 	ErrUserNotFound       = errors.New("user not found")
 	ErrInvalidRole        = errors.New(`role must be "admin" or "viewer"`)
 	ErrDemoteLastAdmin    = errors.New("cannot demote the last admin")
+	ErrDeleteLastAdmin    = errors.New("cannot delete the last admin")
+	ErrSelfDemote         = errors.New("cannot change your own role")
+	ErrSelfDelete         = errors.New("cannot delete your own account")
 )
 
 // FieldError is an input error tied to a single form field.
@@ -313,6 +316,110 @@ func (s *Service) SetRole(ctx context.Context, email, role string) error {
 		return err
 	}
 	return s.q.DeleteUserSessions(ctx, user.ID)
+}
+
+// GenerateTemporaryPassword produces a random 16-character alphanumeric temporary password.
+func GenerateTemporaryPassword() (string, error) {
+	raw := make([]byte, 12)
+	if _, err := rand.Read(raw); err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(raw), nil
+}
+
+// ListUsers returns all registered users without password hashes.
+func (s *Service) ListUsers(ctx context.Context) ([]store.ListUsersRow, error) {
+	return s.q.ListUsers(ctx)
+}
+
+// CreateUserWithTemporaryPassword creates an account with a randomly generated temporary password.
+func (s *Service) CreateUserWithTemporaryPassword(ctx context.Context, email, name, role string) (store.User, string, error) {
+	email = strings.TrimSpace(email)
+	name = strings.TrimSpace(name)
+	if name == "" {
+		parts := strings.Split(email, "@")
+		name = parts[0]
+	}
+	tempPassword, err := GenerateTemporaryPassword()
+	if err != nil {
+		return store.User{}, "", err
+	}
+	user, err := s.CreateUser(ctx, email, name, tempPassword, role)
+	if err != nil {
+		return store.User{}, "", err
+	}
+	return user, tempPassword, nil
+}
+
+// UpdateUserRole updates a target user's role.
+// Self-demotion and demoting the last admin are rejected.
+// Changing a user's role revokes all of their active sessions.
+func (s *Service) UpdateUserRole(ctx context.Context, actorID, targetID int64, role string) (store.User, error) {
+	if actorID == targetID {
+		return store.User{}, ErrSelfDemote
+	}
+	role = strings.TrimSpace(role)
+	if err := ValidateRole(role); err != nil {
+		return store.User{}, err
+	}
+	user, err := s.q.GetUser(ctx, targetID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return store.User{}, ErrUserNotFound
+	}
+	if err != nil {
+		return store.User{}, err
+	}
+	if user.Role == role {
+		return user, nil
+	}
+	if user.Role == RoleAdmin && role != RoleAdmin {
+		count, err := s.q.CountAdmins(ctx)
+		if err != nil {
+			return store.User{}, err
+		}
+		if count <= 1 {
+			return store.User{}, ErrDemoteLastAdmin
+		}
+	}
+	if err := s.q.UpdateUserRole(ctx, store.UpdateUserRoleParams{
+		Role: role,
+		ID:   targetID,
+	}); err != nil {
+		return store.User{}, err
+	}
+	if err := s.q.DeleteUserSessions(ctx, targetID); err != nil {
+		return store.User{}, err
+	}
+	user.Role = role
+	return user, nil
+}
+
+// DeleteUser removes a user account and revokes all active sessions.
+// Self-deletion and deleting the last admin are rejected.
+func (s *Service) DeleteUser(ctx context.Context, actorID, targetID int64) error {
+	if actorID == targetID {
+		return ErrSelfDelete
+	}
+	user, err := s.q.GetUser(ctx, targetID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ErrUserNotFound
+	}
+	if err != nil {
+		return err
+	}
+	if user.Role == RoleAdmin {
+		count, err := s.q.CountAdmins(ctx)
+		if err != nil {
+			return err
+		}
+		if count <= 1 {
+			return ErrDeleteLastAdmin
+		}
+	}
+	if err := s.q.DeleteUserSessions(ctx, targetID); err != nil {
+		return err
+	}
+	return s.q.DeleteUser(ctx, targetID)
 }
 
 // SetPassword is used by the CLI `control setpassword` to reset a password without the old one.

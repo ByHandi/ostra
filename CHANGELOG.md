@@ -11,6 +11,11 @@ The release workflow uses the contents of that version's section as the GitHub R
 
 ### Added
 
+- User management API and dashboard page: admin-only `/users` page to list users, create accounts
+  with generated one-time temporary passwords, change user roles, and delete accounts. Backed by
+  `GET /api/users`, `POST /api/users`, `PATCH /api/users/{id}/role`, and `DELETE /api/users/{id}`.
+  Enforces demotion and deletion protection for self and the last remaining admin, and immediately
+  revokes target user sessions on role change or deletion.
 - User roles and API authorization: support `admin` (full access) and `viewer` (read-only) roles
   backed by SQLite migration `00004_user_roles.sql`. Mutating API endpoints (buckets, access keys,
   custom domains, and object write operations) enforce admin privileges and reject viewer requests

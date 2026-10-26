@@ -117,6 +117,15 @@ func (q *Queries) DeleteSessionByHash(ctx context.Context, tokenHash string) err
 	return err
 }
 
+const deleteUser = `-- name: DeleteUser :exec
+DELETE FROM users WHERE id = ?
+`
+
+func (q *Queries) DeleteUser(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, deleteUser, id)
+	return err
+}
+
 const deleteUserSessions = `-- name: DeleteUserSessions :exec
 DELETE FROM sessions WHERE user_id = ?
 `
@@ -186,6 +195,51 @@ func (q *Queries) GetValidSession(ctx context.Context, arg GetValidSessionParams
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const listUsers = `-- name: ListUsers :many
+SELECT id, email, name, role, created_at, updated_at
+FROM users
+ORDER BY id ASC
+`
+
+type ListUsersRow struct {
+	ID        int64  `json:"id"`
+	Email     string `json:"email"`
+	Name      string `json:"name"`
+	Role      string `json:"role"`
+	CreatedAt string `json:"createdAt"`
+	UpdatedAt string `json:"updatedAt"`
+}
+
+func (q *Queries) ListUsers(ctx context.Context) ([]ListUsersRow, error) {
+	rows, err := q.db.QueryContext(ctx, listUsers)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListUsersRow
+	for rows.Next() {
+		var i ListUsersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Email,
+			&i.Name,
+			&i.Role,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const updateUserPassword = `-- name: UpdateUserPassword :exec

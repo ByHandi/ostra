@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -537,6 +538,12 @@ func TestViewerRoleAuthorization(t *testing.T) {
 		{"POST", "/api/domains", `{"domain":"example.com"}`},
 		{"POST", "/api/domains/d1/verify", ""},
 		{"DELETE", "/api/domains/d1", ""},
+
+		// Users
+		{"GET", "/api/users", ""},
+		{"POST", "/api/users", `{"email":"new@example.com","name":"New"}`},
+		{"PATCH", "/api/users/1/role", `{"role":"viewer"}`},
+		{"DELETE", "/api/users/1", ""},
 	}
 
 	for _, req := range blocked {
@@ -544,5 +551,97 @@ func TestViewerRoleAuthorization(t *testing.T) {
 		if r.status != http.StatusForbidden || r.body.Error == nil || r.body.Error.Type != "forbidden" {
 			t.Errorf("viewer %s %s: status = %d, want 403; body = %+v", req.method, req.path, r.status, r.body)
 		}
+	}
+}
+
+func TestUserManagementAPI(t *testing.T) {
+	srv := newTestServer(t)
+
+	// Admin login
+	adminLogin := call(t, srv, "POST", "/api/auth/login", "", nil, `{"email":"admin@example.com","password":"secret123"}`)
+	adminToken := accessToken(t, adminLogin)
+
+	// 1. GET /api/users lists users
+	listRes := call(t, srv, "GET", "/api/users", adminToken, nil, "")
+	if listRes.status != http.StatusOK {
+		t.Fatalf("GET /api/users failed: %d %+v", listRes.status, listRes.body)
+	}
+	usersData, ok := listRes.body.Data.([]any)
+	if !ok || len(usersData) < 2 {
+		t.Fatalf("expected at least 2 users, got %+v", listRes.body.Data)
+	}
+
+	// Find admin ID and viewer ID
+	var adminID, viewerID int64
+	for _, u := range usersData {
+		userMap := u.(map[string]any)
+		id := int64(userMap["id"].(float64))
+		if userMap["email"] == "admin@example.com" {
+			adminID = id
+		}
+		if userMap["email"] == "viewer@example.com" {
+			viewerID = id
+		}
+	}
+
+	// 2. POST /api/users - create new user
+	createRes := call(t, srv, "POST", "/api/users", adminToken, nil, `{"email":"newoperator@example.com","name":"New Operator","role":"viewer"}`)
+	if createRes.status != http.StatusCreated {
+		t.Fatalf("POST /api/users = %d %+v", createRes.status, createRes.body)
+	}
+	createdData, ok := createRes.body.Data.(map[string]any)
+	if !ok || createdData["temporaryPassword"] == nil {
+		t.Fatalf("expected temporaryPassword in create response: %+v", createRes.body.Data)
+	}
+	tempPass := createdData["temporaryPassword"].(string)
+	newUserID := int64(createdData["id"].(float64))
+
+	// Verify new operator can log in with temp password
+	newLogin := call(t, srv, "POST", "/api/auth/login", "", nil, `{"email":"newoperator@example.com","password":"`+tempPass+`"}`)
+	if newLogin.status != http.StatusOK {
+		t.Fatalf("login with temporary password failed: %d %+v", newLogin.status, newLogin.body)
+	}
+
+	// 3. Self-demotion rejected with 400
+	selfDemote := call(t, srv, "PATCH", "/api/users/"+strconv.FormatInt(adminID, 10)+"/role", adminToken, nil, `{"role":"viewer"}`)
+	if selfDemote.status != http.StatusBadRequest {
+		t.Fatalf("self demotion status = %d, want 400", selfDemote.status)
+	}
+
+	// 4. Self-deletion rejected with 400
+	selfDelete := call(t, srv, "DELETE", "/api/users/"+strconv.FormatInt(adminID, 10), adminToken, nil, "")
+	if selfDelete.status != http.StatusBadRequest {
+		t.Fatalf("self deletion status = %d, want 400", selfDelete.status)
+	}
+
+	// 5. Promote viewer to admin
+	promoteRes := call(t, srv, "PATCH", "/api/users/"+strconv.FormatInt(viewerID, 10)+"/role", adminToken, nil, `{"role":"admin"}`)
+	if promoteRes.status != http.StatusOK {
+		t.Fatalf("promote viewer failed: %d %+v", promoteRes.status, promoteRes.body)
+	}
+
+	// Log in as promoted viewer (now admin)
+	viewerLogin := call(t, srv, "POST", "/api/auth/login", "", nil, `{"email":"viewer@example.com","password":"secret123"}`)
+	if viewerLogin.status != http.StatusOK {
+		t.Fatalf("viewer login as admin failed: %d %+v", viewerLogin.status, viewerLogin.body)
+	}
+	viewerAdminToken := accessToken(t, viewerLogin)
+
+	// 6. Demote original admin to viewer (performed by promoted viewer admin)
+	demoteAdmin := call(t, srv, "PATCH", "/api/users/"+strconv.FormatInt(adminID, 10)+"/role", viewerAdminToken, nil, `{"role":"viewer"}`)
+	if demoteAdmin.status != http.StatusOK {
+		t.Fatalf("demote admin failed: %d %+v", demoteAdmin.status, demoteAdmin.body)
+	}
+
+	// 7. Delete newly created operator
+	deleteRes := call(t, srv, "DELETE", "/api/users/"+strconv.FormatInt(newUserID, 10), viewerAdminToken, nil, "")
+	if deleteRes.status != http.StatusOK {
+		t.Fatalf("delete user failed: %d %+v", deleteRes.status, deleteRes.body)
+	}
+
+	// 8. Delete original admin (who is now viewer)
+	deleteDemoted := call(t, srv, "DELETE", "/api/users/"+strconv.FormatInt(adminID, 10), viewerAdminToken, nil, "")
+	if deleteDemoted.status != http.StatusOK {
+		t.Fatalf("delete demoted admin failed: %d %+v", deleteDemoted.status, deleteDemoted.body)
 	}
 }

@@ -259,7 +259,7 @@ once the control-plane runs as more than one instance.
 - [x] Authorization in the API, not only the UI: `viewer` gets read endpoints only, checked per
       route with tests. `Authenticate` already loads the user on every request, so a role change
       applies immediately instead of when the access token expires
-- [ ] Users page (admin only): list, create with a one-time password, change role, delete.
+- [x] Users page (admin only): list, create with a one-time password, change role, delete.
       Deleting a user or changing their role ends their sessions; the last admin cannot be
       deleted or demoted
 - [x] CLI: `createuser --role`, plus `setrole`; `ADMIN_EMAIL` keeps creating an `admin`

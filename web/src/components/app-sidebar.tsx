@@ -24,6 +24,7 @@ import { type NavItem, isActivePath, navGroups } from "@/config/navigation";
 export interface SidebarUser {
   name: string;
   email: string;
+  role?: string;
 }
 
 function initials(name: string): string {
@@ -48,21 +49,23 @@ function AppSidebar({ user, onLogout }: Props) {
   const [isLoggingOut, startLogout] = useTransition();
 
   const renderItems = (items: NavItem[]) =>
-    items.map((item) => (
-      <SidebarMenuItem key={item.href}>
-        <SidebarMenuButton
-          asChild
-          isActive={isActivePath(pathname, item.href)}
-          tooltip={item.title}
-          onClick={() => setOpenMobile(false)}
-        >
-          <Link to={item.href}>
-            <Icon name={item.icon} />
-            <span>{item.title}</span>
-          </Link>
-        </SidebarMenuButton>
-      </SidebarMenuItem>
-    ));
+    items
+      .filter((item) => !item.adminOnly || user?.role === "admin")
+      .map((item) => (
+        <SidebarMenuItem key={item.href}>
+          <SidebarMenuButton
+            asChild
+            isActive={isActivePath(pathname, item.href)}
+            tooltip={item.title}
+            onClick={() => setOpenMobile(false)}
+          >
+            <Link to={item.href}>
+              <Icon name={item.icon} />
+              <span>{item.title}</span>
+            </Link>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      ));
 
   return (
     <Sidebar collapsible="icon" className="z-50 [view-transition-name:sidebar]">

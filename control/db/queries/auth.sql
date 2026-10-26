@@ -15,6 +15,14 @@ SELECT COUNT(*) FROM users;
 -- name: CountAdmins :one
 SELECT COUNT(*) FROM users WHERE role = 'admin';
 
+-- name: ListUsers :many
+SELECT id, email, name, role, created_at, updated_at
+FROM users
+ORDER BY id ASC;
+
+-- name: DeleteUser :exec
+DELETE FROM users WHERE id = ?;
+
 -- name: UpdateUserRole :exec
 UPDATE users
 SET role = ?,
