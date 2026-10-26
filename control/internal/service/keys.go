@@ -3,16 +3,18 @@ package service
 import (
 	"context"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/ByHandi/ostra/control/internal/garage"
 )
 
 type AccessKey struct {
-	ID      string `json:"id"`
-	Name    string `json:"name"`
-	Created string `json:"created"`
-	Expired bool   `json:"expired"`
+	ID        string  `json:"id"`
+	Name      string  `json:"name"`
+	Created   string  `json:"created"`
+	Expired   bool    `json:"expired"`
+	ExpiresAt *string `json:"expiresAt"`
 }
 
 type KeyBucketAccess struct {
@@ -46,7 +48,13 @@ func (s *Service) ListKeys(ctx context.Context) ([]AccessKey, error) {
 		if k.ID == sysID {
 			continue // the object browser's own key is not managed from the dashboard
 		}
-		out = append(out, AccessKey{ID: k.ID, Name: k.Name, Created: k.Created, Expired: k.Expired})
+		out = append(out, AccessKey{
+			ID:        k.ID,
+			Name:      k.Name,
+			Created:   k.Created,
+			Expired:   k.Expired,
+			ExpiresAt: k.Expiration,
+		})
 	}
 	return out, nil
 }
@@ -78,7 +86,29 @@ func (s *Service) GetKey(ctx context.Context, id string) (AccessKeyDetail, error
 	return s.toKeyDetail(ctx, info)
 }
 
-func (s *Service) CreateKey(ctx context.Context, name string) (CreatedKey, error) {
+func parseAndValidateExpiration(expiresAt *string) (*string, error) {
+	if expiresAt == nil {
+		return nil, nil
+	}
+	raw := strings.TrimSpace(*expiresAt)
+	if raw == "" {
+		return nil, nil
+	}
+	t, err := time.Parse(time.RFC3339Nano, raw)
+	if err != nil {
+		t, err = time.Parse(time.RFC3339, raw)
+	}
+	if err != nil {
+		return nil, invalid("expiresAt", "expiration must be a valid RFC 3339 timestamp")
+	}
+	if !t.After(time.Now()) {
+		return nil, invalid("expiresAt", "expiration must be in the future")
+	}
+	formatted := t.UTC().Format(time.RFC3339)
+	return &formatted, nil
+}
+
+func (s *Service) CreateKey(ctx context.Context, name string, expiresAt *string) (CreatedKey, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return CreatedKey{}, invalid("name", "key name is required")
@@ -86,7 +116,11 @@ func (s *Service) CreateKey(ctx context.Context, name string) (CreatedKey, error
 	if utf8.RuneCountInString(name) > 100 {
 		return CreatedKey{}, invalid("name", "key name must be at most 100 characters")
 	}
-	info, err := s.garage.CreateKey(ctx, name)
+	exp, err := parseAndValidateExpiration(expiresAt)
+	if err != nil {
+		return CreatedKey{}, err
+	}
+	info, err := s.garage.CreateKey(ctx, name, exp)
 	if err != nil {
 		return CreatedKey{}, err
 	}
@@ -95,6 +129,22 @@ func (s *Service) CreateKey(ctx context.Context, name string) (CreatedKey, error
 		return CreatedKey{}, err
 	}
 	return CreatedKey{AccessKeyDetail: detail, SecretAccessKey: info.SecretAccessKey}, nil
+}
+
+func (s *Service) UpdateKeyExpiration(ctx context.Context, keyID string, expiresAt *string) (AccessKeyDetail, error) {
+	if err := s.hiddenKey(ctx, keyID); err != nil {
+		return AccessKeyDetail{}, err
+	}
+	exp, err := parseAndValidateExpiration(expiresAt)
+	if err != nil {
+		return AccessKeyDetail{}, err
+	}
+	if _, err := s.garage.UpdateKey(ctx, keyID, exp); garage.IsNotFound(err) {
+		return AccessKeyDetail{}, notFound("access key not found")
+	} else if err != nil {
+		return AccessKeyDetail{}, err
+	}
+	return s.GetKey(ctx, keyID)
 }
 
 func (s *Service) DeleteKey(ctx context.Context, id string) error {
@@ -153,7 +203,13 @@ func (s *Service) toKeyDetail(ctx context.Context, info garage.KeyInfo) (AccessK
 		})
 	}
 	return AccessKeyDetail{
-		AccessKey: AccessKey{ID: info.AccessKeyID, Name: info.Name, Created: info.Created, Expired: info.Expired},
-		Buckets:   buckets,
+		AccessKey: AccessKey{
+			ID:        info.AccessKeyID,
+			Name:      info.Name,
+			Created:   info.Created,
+			Expired:   info.Expired,
+			ExpiresAt: info.Expiration,
+		},
+		Buckets: buckets,
 	}, nil
 }

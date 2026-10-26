@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/ByHandi/ostra/control/internal/garage"
 	"github.com/ByHandi/ostra/control/internal/store"
@@ -162,20 +163,38 @@ func (g *fakeGarage) DeleteBucket(_ context.Context, id string) error {
 }
 
 func (g *fakeGarage) ListKeys(context.Context) ([]garage.Key, error) {
+	if g.failAll != nil {
+		return nil, g.failAll
+	}
 	var out []garage.Key
 	for _, k := range g.keys {
-		out = append(out, garage.Key{ID: k.AccessKeyID, Name: k.Name})
+		out = append(out, garage.Key{
+			ID:         k.AccessKeyID,
+			Name:       k.Name,
+			Created:    k.Created,
+			Expired:    k.Expired,
+			Expiration: k.Expiration,
+		})
 	}
 	return out, nil
 }
 
 // GetKey derives the bucket list from the permissions recorded on buckets, like Garage.
 func (g *fakeGarage) GetKey(_ context.Context, id string) (garage.KeyInfo, error) {
+	if g.failAll != nil {
+		return garage.KeyInfo{}, g.failAll
+	}
 	k, ok := g.keys[id]
 	if !ok {
 		return garage.KeyInfo{}, &garage.Error{Status: http.StatusNotFound, Code: "NoSuchAccessKey"}
 	}
-	out := garage.KeyInfo{AccessKeyID: k.AccessKeyID, Name: k.Name}
+	out := garage.KeyInfo{
+		AccessKeyID: k.AccessKeyID,
+		Name:        k.Name,
+		Created:     k.Created,
+		Expired:     k.Expired,
+		Expiration:  k.Expiration,
+	}
 	for _, b := range g.buckets {
 		for _, bk := range b.Keys {
 			if bk.AccessKeyID == id {
@@ -186,15 +205,59 @@ func (g *fakeGarage) GetKey(_ context.Context, id string) (garage.KeyInfo, error
 	return out, nil
 }
 
-func (g *fakeGarage) CreateKey(_ context.Context, name string) (garage.KeyInfo, error) {
+func (g *fakeGarage) CreateKey(_ context.Context, name string, expiration *string) (garage.KeyInfo, error) {
+	if g.failAll != nil {
+		return garage.KeyInfo{}, g.failAll
+	}
 	// Like Garage, every key gets a fresh ID, even when the name is reused.
 	g.keySeq++
-	k := &garage.KeyInfo{AccessKeyID: fmt.Sprintf("GK%d%s", g.keySeq, name), Name: name}
-	g.keys[k.AccessKeyID] = k
-	return garage.KeyInfo{AccessKeyID: k.AccessKeyID, Name: name, SecretAccessKey: "secret-" + name}, nil
+	id := fmt.Sprintf("GK%d%s", g.keySeq, name)
+	expired := false
+	if expiration != nil {
+		if t, err := time.Parse(time.RFC3339, *expiration); err == nil && time.Now().After(t) {
+			expired = true
+		}
+	}
+	k := &garage.KeyInfo{
+		AccessKeyID: id,
+		Name:        name,
+		Created:     time.Now().UTC().Format(time.RFC3339),
+		Expired:     expired,
+		Expiration:  expiration,
+	}
+	g.keys[id] = k
+	return garage.KeyInfo{
+		AccessKeyID:     id,
+		Name:            name,
+		Created:         k.Created,
+		SecretAccessKey: "secret-" + name,
+		Expired:         expired,
+		Expiration:      expiration,
+	}, nil
+}
+
+func (g *fakeGarage) UpdateKey(_ context.Context, id string, expiration *string) (garage.KeyInfo, error) {
+	if g.failAll != nil {
+		return garage.KeyInfo{}, g.failAll
+	}
+	k, ok := g.keys[id]
+	if !ok {
+		return garage.KeyInfo{}, &garage.Error{Status: http.StatusNotFound, Code: "NoSuchAccessKey"}
+	}
+	k.Expiration = expiration
+	k.Expired = false
+	if expiration != nil {
+		if t, err := time.Parse(time.RFC3339, *expiration); err == nil && time.Now().After(t) {
+			k.Expired = true
+		}
+	}
+	return *k, nil
 }
 
 func (g *fakeGarage) DeleteKey(_ context.Context, id string) error {
+	if g.failAll != nil {
+		return g.failAll
+	}
 	if _, ok := g.keys[id]; !ok {
 		return &garage.Error{Status: http.StatusNotFound, Code: "NoSuchAccessKey"}
 	}

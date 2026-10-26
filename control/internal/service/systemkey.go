@@ -102,7 +102,7 @@ func (s *Service) loadOrCreateSystemKey(ctx context.Context) (id, secret string,
 		return "", "", secretErr
 	}
 
-	info, err := s.garage.CreateKey(ctx, systemKeyName)
+	info, err := s.garage.CreateKey(ctx, systemKeyName, nil)
 	if err != nil {
 		return "", "", err
 	}

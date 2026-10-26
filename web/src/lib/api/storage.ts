@@ -69,6 +69,7 @@ export interface AccessKey {
   name: string;
   created: string;
   expired: boolean;
+  expiresAt: string | null;
 }
 
 export interface KeyBucketAccess {
@@ -265,7 +266,11 @@ export const deleteBucketLifecycle = (id: string) =>
 
 export const deleteBucket = (id: string) => api.delete(`/buckets/${encodeURIComponent(id)}`);
 
-export const createKey = (input: { name: string }) => data(api.post<CreatedKey>("/keys", input));
+export const createKey = (input: { name: string; expiresAt?: string | null }) =>
+  data(api.post<CreatedKey>("/keys", input));
+
+export const updateKeyExpiration = (id: string, expiresAt: string | null) =>
+  data(api.put<AccessKeyDetail>(`/keys/${encodeURIComponent(id)}/expiration`, { expiresAt }));
 
 export const deleteKey = (id: string) => api.delete(`/keys/${encodeURIComponent(id)}`);
 

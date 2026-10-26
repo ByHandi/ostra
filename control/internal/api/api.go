@@ -136,6 +136,7 @@ func (h *Handler) Public() http.Handler {
 			r.Post("/keys", h.createKey)
 			r.Get("/keys/{id}", h.getKey)
 			r.Delete("/keys/{id}", h.deleteKey)
+			r.Put("/keys/{id}/expiration", h.updateKeyExpiration)
 			r.Put("/keys/{id}/buckets/{bucketId}", h.setKeyPermissions)
 
 			r.Get("/domains", h.listDomains)

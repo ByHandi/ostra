@@ -7,15 +7,18 @@ import AppHeader from "@/components/app-header";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { CopyButton } from "@/components/copy-button";
 import { ConnectionSnippetsDialog } from "@/components/keys/connection-snippets-dialog";
+import { EditKeyExpirationDialog } from "@/components/keys/edit-key-expiration-dialog";
 import KeyPermissions from "@/components/keys/key-permissions";
 import { QueryError } from "@/components/query-error";
 import Section from "@/components/section";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import Icon from "@/components/ui/icon";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError } from "@/lib/api/errors";
 import { bucketsQuery, deleteKey, keyQuery, storageKeys } from "@/lib/api/storage";
 import { formatDate } from "@/lib/format";
+import { getKeyExpirationStatus } from "@/lib/key-expiration";
 import { pageMeta } from "@/lib/page-meta";
 
 export const Route = createFileRoute("/(app)/keys/$keyId")({
@@ -91,7 +94,17 @@ function KeyPage() {
           <QueryError error={key.error} onRetry={() => key.refetch()} backTo="/keys" />
         ) : (
           <>
-            {k ? <KeyInfo id={k.id} name={k.name} created={k.created} /> : <KeyInfoSkeleton />}
+            {k ? (
+              <KeyInfo
+                id={k.id}
+                name={k.name}
+                created={k.created}
+                expired={k.expired}
+                expiresAt={k.expiresAt}
+              />
+            ) : (
+              <KeyInfoSkeleton />
+            )}
 
             <Section
               title="Bucket permissions"
@@ -112,7 +125,21 @@ function KeyPage() {
   );
 }
 
-function KeyInfo({ id, name, created }: { id: string; name?: string; created: string }) {
+function KeyInfo({
+  id,
+  name,
+  created,
+  expired,
+  expiresAt,
+}: {
+  id: string;
+  name?: string;
+  created: string;
+  expired: boolean;
+  expiresAt: string | null;
+}) {
+  const expiry = getKeyExpirationStatus({ expired, expiresAt });
+
   return (
     <div className="grid gap-4 panel p-4 sm:grid-cols-[1fr_auto]">
       <div className="min-w-0 space-y-1">
@@ -125,24 +152,52 @@ function KeyInfo({ id, name, created }: { id: string; name?: string; created: st
           The secret key is shown only when the key is created.
         </p>
       </div>
-      <div className="flex flex-col gap-2 sm:items-end">
-        <div className="space-y-1 sm:text-right">
-          <p className="text-xs text-muted-foreground">Created</p>
-          <p className="text-sm">{formatDate(created)}</p>
+      <div className="flex flex-col gap-3 sm:items-end">
+        <div className="flex flex-wrap items-center gap-4 sm:justify-end">
+          <div className="space-y-0.5 sm:text-right">
+            <p className="text-xs text-muted-foreground">Created</p>
+            <p className="text-sm">{formatDate(created)}</p>
+          </div>
+          <div className="space-y-0.5 sm:text-right">
+            <p className="text-xs text-muted-foreground">Expires</p>
+            <div className="flex items-center gap-1.5 sm:justify-end">
+              <span className="text-sm font-medium">
+                {expiresAt ? formatDate(expiresAt) : "Never"}
+              </span>
+              {expiry.status === "expired" && <Badge variant="destructive">Expired</Badge>}
+              {expiry.status === "expiring_soon" && <Badge variant="warning">Expiring soon</Badge>}
+            </div>
+          </div>
         </div>
-        <ConnectionSnippetsDialog
-          keyId={id}
-          keyName={name}
-          trigger={
-            <Button
-              variant="outline"
-              size="sm"
-              startContent={<Icon name="code" className="size-4" />}
-            >
-              Connection snippets
-            </Button>
-          }
-        />
+        <div className="flex items-center gap-2">
+          <EditKeyExpirationDialog
+            keyId={id}
+            keyName={name}
+            currentExpiresAt={expiresAt}
+            trigger={
+              <Button
+                variant="outline"
+                size="sm"
+                startContent={<Icon name="calendar" className="size-4" />}
+              >
+                Edit expiration
+              </Button>
+            }
+          />
+          <ConnectionSnippetsDialog
+            keyId={id}
+            keyName={name}
+            trigger={
+              <Button
+                variant="outline"
+                size="sm"
+                startContent={<Icon name="code" className="size-4" />}
+              >
+                Connection snippets
+              </Button>
+            }
+          />
+        </div>
       </div>
     </div>
   );
@@ -160,9 +215,9 @@ function KeyInfoSkeleton() {
         <Skeleton className="h-5 w-64 max-w-full" />
         <Skeleton className="h-3 w-56" />
       </div>
-      <div className="space-y-2">
-        <Skeleton className="h-3 w-12" />
-        <Skeleton className="h-4 w-28" />
+      <div className="space-y-2 sm:items-end">
+        <Skeleton className="h-3 w-24" />
+        <Skeleton className="h-4 w-32" />
       </div>
     </div>
   );
