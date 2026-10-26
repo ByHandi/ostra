@@ -339,6 +339,32 @@ func TestObjectMetadataValidation(t *testing.T) {
 	}
 }
 
+func TestObjectListSearchAndSortValidation(t *testing.T) {
+	srv := newTestServer(t)
+	login := call(t, srv, "POST", "/api/auth/login", "", nil, `{"email":"admin@example.com","password":"secret123"}`)
+	token := accessToken(t, login)
+
+	// Auth required
+	if r := call(t, srv, "GET", "/api/buckets/bucket/objects?sortBy=invalid", "", nil, ""); r.status != http.StatusUnauthorized {
+		t.Fatalf("list objects without auth = %d, want 401", r.status)
+	}
+
+	// Invalid sortBy
+	if r := call(t, srv, "GET", "/api/buckets/bucket/objects?sortBy=invalid", token, nil, ""); r.status != http.StatusBadRequest || len(r.body.Error.Errors["sortBy"]) != 1 {
+		t.Fatalf("list objects with invalid sortBy = %d %+v", r.status, r.body.Error)
+	}
+
+	// Invalid order
+	if r := call(t, srv, "GET", "/api/buckets/bucket/objects?order=invalid", token, nil, ""); r.status != http.StatusBadRequest || len(r.body.Error.Errors["order"]) != 1 {
+		t.Fatalf("list objects with invalid order = %d %+v", r.status, r.body.Error)
+	}
+
+	// Over-long search
+	if r := call(t, srv, "GET", "/api/buckets/bucket/objects?search="+strings.Repeat("a", 256), token, nil, ""); r.status != http.StatusBadRequest || len(r.body.Error.Errors["search"]) != 1 {
+		t.Fatalf("list objects with over-long search = %d %+v", r.status, r.body.Error)
+	}
+}
+
 func TestHealthz(t *testing.T) {
 	healthy := true
 	h := &Handler{opts: Options{Health: func(context.Context) error {

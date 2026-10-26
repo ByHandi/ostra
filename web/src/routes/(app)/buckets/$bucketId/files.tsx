@@ -6,6 +6,8 @@ import {
 } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 
+import { useEffect, useState } from "react";
+
 import AppHeader from "@/components/app-header";
 import { BucketTabs } from "@/components/buckets/bucket-tabs";
 import { EmptyState } from "@/components/empty-state";
@@ -14,18 +16,38 @@ import ObjectTable from "@/components/objects/object-table";
 import { DropZone, UploadButton } from "@/components/objects/upload";
 import { QueryError } from "@/components/query-error";
 import { Button } from "@/components/ui/button";
+import Icon from "@/components/ui/icon";
 import { useUploadManager } from "@/hooks/use-upload-manager";
-import { type ObjectPage, folderQuery } from "@/lib/api/objects";
+import { type ObjectPage, type SortBy, type SortOrder, folderQuery } from "@/lib/api/objects";
 import { bucketQuery } from "@/lib/api/storage";
 import { pageMeta } from "@/lib/page-meta";
 
+interface FilesSearch {
+  prefix?: string;
+  search?: string;
+  sortBy?: SortBy;
+  order?: SortOrder;
+}
+
 export const Route = createFileRoute("/(app)/buckets/$bucketId/files")({
   /** ?prefix= is the open folder; anything that is not a folder path means the bucket root. */
-  validateSearch: (search: Record<string, unknown>): { prefix?: string } => {
+  validateSearch: (search: Record<string, unknown>): FilesSearch => {
+    const out: FilesSearch = {};
     const prefix = search.prefix;
-    return typeof prefix === "string" && prefix.endsWith("/") && !prefix.startsWith("/")
-      ? { prefix }
-      : {};
+    if (typeof prefix === "string" && prefix.endsWith("/") && !prefix.startsWith("/")) {
+      out.prefix = prefix;
+    }
+    const q = search.search;
+    if (typeof q === "string" && q.trim()) {
+      out.search = q.trim();
+    }
+    if (search.sortBy === "name" || search.sortBy === "size" || search.sortBy === "lastModified") {
+      out.sortBy = search.sortBy;
+    }
+    if (search.order === "asc" || search.order === "desc") {
+      out.order = search.order;
+    }
+    return out;
   },
   /**
    * Loads the bucket up front so the tab title can name it. A failure is left to
@@ -50,10 +72,58 @@ export const Route = createFileRoute("/(app)/buckets/$bucketId/files")({
 
 function FilesPage() {
   const { bucketId } = Route.useParams();
-  const { prefix = "" } = Route.useSearch();
+  const { prefix = "", search = "", sortBy = "name", order = "asc" } = Route.useSearch();
+  const navigate = Route.useNavigate();
+
+  const [prevSearch, setPrevSearch] = useState(search);
+  const [localSearch, setLocalSearch] = useState(search);
+
+  if (prevSearch !== search) {
+    setPrevSearch(search);
+    setLocalSearch(search);
+  }
+
+  useEffect(() => {
+    const trimmed = localSearch.trim();
+    if (trimmed === search) return;
+
+    const timer = setTimeout(() => {
+      navigate({
+        search: (prev) => ({
+          ...prev,
+          search: trimmed || undefined,
+        }),
+        replace: true,
+      });
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [localSearch, search, navigate]);
+
+  const handleClearSearch = () => {
+    setLocalSearch("");
+    navigate({
+      search: (prev) => ({
+        ...prev,
+        search: undefined,
+      }),
+      replace: true,
+    });
+  };
+
+  const handleSortChange = (newSortBy: SortBy, newOrder: SortOrder) => {
+    navigate({
+      search: (prev) => ({
+        ...prev,
+        sortBy: newSortBy,
+        order: newOrder,
+      }),
+      replace: true,
+    });
+  };
 
   const bucket = useQuery(bucketQuery(bucketId));
-  const folder = useInfiniteQuery(folderQuery(bucketId, prefix));
+  const folder = useInfiniteQuery(folderQuery(bucketId, prefix, search, sortBy, order));
   const { start } = useUploadManager();
 
   const upload = (files: FileList) => start(bucketId, files, prefix);
@@ -75,21 +145,51 @@ function FilesPage() {
           slide under a full-width bar. Desktop needs none of that — only the
           table body scrolls there.
         */}
-        <div className="sticky top-(--app-header-pinned,0px) z-10 -mx-4 -my-2 flex flex-wrap items-center justify-between gap-2 bg-background/80 px-4 py-2 backdrop-blur-lg md:static md:m-0 md:bg-transparent md:p-0 md:backdrop-blur-none">
+        <div className="sticky top-(--app-header-pinned,0px) z-10 -mx-4 -my-2 flex flex-wrap items-center justify-between gap-3 bg-background/80 px-4 py-2 backdrop-blur-lg md:static md:m-0 md:bg-transparent md:p-0 md:backdrop-blur-none">
           {bucket.data ? (
             <Breadcrumbs bucketId={bucketId} bucketName={bucket.data.name} prefix={prefix} />
           ) : (
             <Breadcrumbs.Skeleton />
           )}
-          <UploadButton onFiles={upload} />
+          <div className="flex w-full items-center gap-2 sm:w-auto">
+            <div className="relative flex-1 sm:w-64">
+              <Icon
+                name="search"
+                className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground"
+              />
+              <input
+                type="text"
+                value={localSearch}
+                onChange={(e) => setLocalSearch(e.target.value)}
+                placeholder="Search files and folders..."
+                className="h-9 w-full rounded-md border border-input bg-background/60 pr-8 pl-8 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+              />
+              {localSearch && (
+                <button
+                  type="button"
+                  onClick={handleClearSearch}
+                  className="absolute top-1/2 right-2.5 -translate-y-1/2 cursor-pointer text-muted-foreground hover:text-foreground"
+                  aria-label="Clear search"
+                >
+                  <Icon name="x" className="size-4" />
+                </button>
+              )}
+            </div>
+            <UploadButton onFiles={upload} />
+          </div>
         </div>
 
         <DropZone onFiles={upload} className="md:flex md:min-h-0 md:flex-col">
           <FolderContents
             bucketId={bucketId}
             prefix={prefix}
+            search={search}
+            sortBy={sortBy}
+            order={order}
             folder={folder}
             publicBaseUrl={bucket.data?.publicBaseUrl ?? ""}
+            onSortChange={handleSortChange}
+            onClearSearch={handleClearSearch}
           />
         </DropZone>
 
@@ -112,11 +212,26 @@ function FilesPage() {
 interface FolderContentsProps {
   bucketId: string;
   prefix: string;
+  search: string;
+  sortBy: SortBy;
+  order: SortOrder;
   folder: UseInfiniteQueryResult<InfiniteData<ObjectPage>>;
   publicBaseUrl: string;
+  onSortChange(sortBy: SortBy, order: SortOrder): void;
+  onClearSearch(): void;
 }
 
-function FolderContents({ bucketId, prefix, folder, publicBaseUrl }: FolderContentsProps) {
+function FolderContents({
+  bucketId,
+  prefix,
+  search,
+  sortBy,
+  order,
+  folder,
+  publicBaseUrl,
+  onSortChange,
+  onClearSearch,
+}: FolderContentsProps) {
   if (folder.isPending) return <ObjectTable.Skeleton />;
   if (folder.isError) {
     return <QueryError error={folder.error} onRetry={() => folder.refetch()} backTo="/buckets" />;
@@ -125,6 +240,20 @@ function FolderContents({ bucketId, prefix, folder, publicBaseUrl }: FolderConte
   const folders = folder.data.pages.flatMap((p) => p.folders);
   const objects = folder.data.pages.flatMap((p) => p.objects);
   if (folders.length === 0 && objects.length === 0) {
+    if (search) {
+      return (
+        <EmptyState
+          icon="search"
+          title="No matching objects found"
+          description={`No files or folders match "${search}" in this location.`}
+          action={
+            <Button variant="outline" onClick={onClearSearch}>
+              Clear search
+            </Button>
+          }
+        />
+      );
+    }
     return (
       <EmptyState
         icon="folder-open"
@@ -139,6 +268,9 @@ function FolderContents({ bucketId, prefix, folder, publicBaseUrl }: FolderConte
       folders={folders}
       objects={objects}
       publicBaseUrl={publicBaseUrl}
+      sortBy={sortBy}
+      order={order}
+      onSortChange={onSortChange}
     />
   );
 }

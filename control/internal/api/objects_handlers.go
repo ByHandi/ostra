@@ -15,6 +15,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/ByHandi/ostra/control/internal/objects"
+	"github.com/ByHandi/ostra/control/internal/service"
 )
 
 // downloadLinkTTL is how long a download link stays valid; long enough to start the
@@ -29,7 +30,14 @@ const (
 func (h *Handler) listObjects(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	limit, _ := strconv.Atoi(q.Get("limit"))
-	page, err := h.svc.ListObjects(r.Context(), chi.URLParam(r, "id"), q.Get("prefix"), q.Get("cursor"), limit)
+	page, err := h.svc.ListObjects(r.Context(), chi.URLParam(r, "id"), service.ListObjectsOptions{
+		Prefix: q.Get("prefix"),
+		Cursor: q.Get("cursor"),
+		Limit:  limit,
+		Search: q.Get("search"),
+		SortBy: q.Get("sortBy"),
+		Order:  q.Get("order"),
+	})
 	respond(w, r, http.StatusOK, page, err)
 }
 
