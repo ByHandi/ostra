@@ -3,6 +3,7 @@ import { Link, useLocation } from "@tanstack/react-router";
 import { useTransition } from "react";
 
 import { LogoMark } from "@/components/logo";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import Icon from "@/components/ui/icon";
 import {
@@ -106,17 +107,31 @@ function AppSidebar({ user, onLogout }: Props) {
         <SidebarMenu>
           {user && (
             <SidebarMenuItem hidden={!open}>
-              <SidebarMenuButton asChild tooltip={user.name} className="h-auto py-1.5">
-                <Link to="/settings">
-                  <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-sidebar-accent text-xs font-medium text-sidebar-accent-foreground">
-                    {initials(user.name)}
-                  </span>
-                  <span className="flex min-w-0 flex-col leading-tight">
-                    <span className="truncate text-sm font-medium">{user.name}</span>
-                    <span className="truncate text-xs text-sidebar-foreground/70">
-                      {user.email}
+              <SidebarMenuButton
+                asChild
+                tooltip={user.role ? `${user.name} (${user.role})` : user.name}
+                className="h-auto py-1.5"
+              >
+                <Link to="/settings" className="flex items-center justify-between gap-2">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-sidebar-accent text-xs font-medium text-sidebar-accent-foreground">
+                      {initials(user.name)}
                     </span>
-                  </span>
+                    <span className="flex min-w-0 flex-col leading-tight">
+                      <span className="truncate text-sm font-medium">{user.name}</span>
+                      <span className="truncate text-xs text-sidebar-foreground/70">
+                        {user.email}
+                      </span>
+                    </span>
+                  </div>
+                  {user.role && (
+                    <Badge
+                      variant={user.role === "admin" ? "default" : "secondary"}
+                      className="h-4 shrink-0 px-1.5 py-0 text-[10px] font-normal capitalize"
+                    >
+                      {user.role}
+                    </Badge>
+                  )}
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

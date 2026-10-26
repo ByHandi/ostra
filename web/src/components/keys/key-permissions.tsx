@@ -16,6 +16,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ApiError } from "@/lib/api/errors";
+import { useIsAdmin } from "@/lib/api/session";
 import {
   type AccessKeyDetail,
   type Bucket,
@@ -88,6 +89,7 @@ interface PermissionRowProps {
 
 function PermissionRow({ keyId, bucket, permissions }: PermissionRowProps) {
   const queryClient = useQueryClient();
+  const isAdmin = useIsAdmin();
 
   const mutation = useMutation({
     mutationFn: (next: Permissions) => setKeyPermissions(keyId, bucket.id, next),
@@ -123,8 +125,12 @@ function PermissionRow({ keyId, bucket, permissions }: PermissionRowProps) {
             className="mx-auto"
             aria-label={`${p.label} for ${bucket.name}`}
             checked={shown[p.key]}
-            disabled={mutation.isPending}
-            onCheckedChange={(checked) => mutation.mutate({ ...shown, [p.key]: checked === true })}
+            disabled={!isAdmin || mutation.isPending}
+            onCheckedChange={
+              isAdmin
+                ? (checked) => mutation.mutate({ ...shown, [p.key]: checked === true })
+                : undefined
+            }
           />
         </TableCell>
       ))}

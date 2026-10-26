@@ -18,6 +18,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ApiError } from "@/lib/api/errors";
+import { useIsAdmin } from "@/lib/api/session";
 import { bucketCorsQuery, deleteBucketCors, storageKeys } from "@/lib/api/storage";
 
 interface BucketCorsProps {
@@ -27,6 +28,7 @@ interface BucketCorsProps {
 export function BucketCors({ bucketId }: BucketCorsProps) {
   const queryClient = useQueryClient();
   const corsQuery = useQuery(bucketCorsQuery(bucketId));
+  const isAdmin = useIsAdmin();
 
   const deleteMutation = useMutation({
     mutationFn: () => deleteBucketCors(bucketId),
@@ -66,7 +68,7 @@ export function BucketCors({ bucketId }: BucketCorsProps) {
       title="CORS rules"
       description="Cross-Origin Resource Sharing rules permit web applications on other origins to upload or download files directly."
       action={
-        rules.length > 0 && (
+        isAdmin && rules.length > 0 ? (
           <div className="flex gap-2">
             <CorsEditorDialog
               bucketId={bucketId}
@@ -97,7 +99,7 @@ export function BucketCors({ bucketId }: BucketCorsProps) {
               }
             />
           </div>
-        )
+        ) : undefined
       }
     >
       {rules.length === 0 ? (
@@ -105,7 +107,7 @@ export function BucketCors({ bucketId }: BucketCorsProps) {
           icon="arrow-left-right"
           title="No CORS rules configured"
           description="Direct browser uploads and cross-origin requests to this bucket are blocked by default."
-          action={<CorsEditorDialog bucketId={bucketId} />}
+          action={isAdmin ? <CorsEditorDialog bucketId={bucketId} /> : undefined}
         />
       ) : (
         <div className="overflow-x-auto">

@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import Icon from "@/components/ui/icon";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useIsAdmin } from "@/lib/api/session";
 import type { BucketDetail } from "@/lib/api/storage";
 import { formatBytes, formatDate, formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -92,6 +93,7 @@ function WebsiteAccessValue({ bucket }: { bucket: BucketDetail }) {
 }
 
 function BucketSummary({ bucket }: { bucket: BucketDetail }) {
+  const isAdmin = useIsAdmin();
   const items = [
     { label: "Objects", value: <ObjectsValue bucket={bucket} /> },
     { label: "Size", value: <SizeValue bucket={bucket} /> },
@@ -144,19 +146,21 @@ function BucketSummary({ bucket }: { bucket: BucketDetail }) {
           </div>
         </div>
 
-        <SetQuotaDialog
-          bucket={bucket}
-          trigger={
-            <Button
-              variant="outline"
-              size="xs"
-              startContent={<Icon name="scale" className="size-3.5" />}
-              className="self-start sm:self-auto"
-            >
-              {hasQuotas ? "Edit quotas" : "Set quotas"}
-            </Button>
-          }
-        />
+        {isAdmin && (
+          <SetQuotaDialog
+            bucket={bucket}
+            trigger={
+              <Button
+                variant="outline"
+                size="xs"
+                startContent={<Icon name="scale" className="size-3.5" />}
+                className="self-start sm:self-auto"
+              >
+                {hasQuotas ? "Edit quotas" : "Set quotas"}
+              </Button>
+            }
+          />
+        )}
       </div>
     </div>
   );

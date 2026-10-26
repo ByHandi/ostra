@@ -1,11 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 
+import { AdminAction } from "@/components/admin-action";
 import AppHeader from "@/components/app-header";
 import BucketTable from "@/components/buckets/bucket-table";
 import { CreateBucketDialog } from "@/components/buckets/create-bucket-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { QueryError } from "@/components/query-error";
+import { Button } from "@/components/ui/button";
+import Icon from "@/components/ui/icon";
+import { useIsAdmin } from "@/lib/api/session";
 import { bucketsQuery } from "@/lib/api/storage";
 import { pageMeta } from "@/lib/page-meta";
 
@@ -20,13 +24,30 @@ export const Route = createFileRoute("/(app)/buckets/")({
 
 function Buckets() {
   const buckets = useQuery(bucketsQuery());
+  const isAdmin = useIsAdmin();
 
   return (
     <>
       <AppHeader
         title="Buckets"
         description="Containers for objects. Accessed through the S3 API with an access key, or publicly through a custom domain."
-        endContent={<CreateBucketDialog />}
+        endContent={
+          <AdminAction
+            fallback={
+              <Button
+                variant="outline"
+                size="sm"
+                disabled
+                startContent={<Icon name="plus" className="size-4" />}
+              >
+                Create bucket
+              </Button>
+            }
+            tooltip="Administrator role required to create buckets"
+          >
+            <CreateBucketDialog />
+          </AdminAction>
+        }
       />
 
       {/* Desktop: a flex column, so the table shrinks to the viewport and scrolls inside. */}
@@ -39,8 +60,12 @@ function Buckets() {
           <EmptyState
             icon="archive"
             title="No buckets yet"
-            description="Create your first bucket to start storing objects."
-            action={<CreateBucketDialog />}
+            description={
+              isAdmin
+                ? "Create your first bucket to start storing objects."
+                : "No buckets have been created in this cluster."
+            }
+            action={isAdmin ? <CreateBucketDialog /> : undefined}
           />
         ) : (
           <BucketTable buckets={buckets.data} />

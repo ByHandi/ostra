@@ -263,7 +263,7 @@ once the control-plane runs as more than one instance.
       Deleting a user or changing their role ends their sessions; the last admin cannot be
       deleted or demoted
 - [x] CLI: `createuser --role`, plus `setrole`; `ADMIN_EMAIL` keeps creating an `admin`
-- [ ] Dashboard: hide or disable write actions for `viewer`, show the role on the Settings page
+- [x] Dashboard: hide or disable write actions for `viewer`, show the role on the Settings page
 - [ ] Audit log: who did what to which bucket/key/domain/user, with IP and time, written in the
       same transaction as the change where possible. Admin-only page with filters, and old entries
       removed after a retention period (e.g. `AUDIT_LOG_RETENTION`, default 90 days)

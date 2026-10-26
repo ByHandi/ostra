@@ -7,6 +7,7 @@ import { BucketTabs } from "@/components/buckets/bucket-tabs";
 import { SetQuotaDialog } from "@/components/buckets/set-quota-dialog";
 import { QueryError } from "@/components/query-error";
 import Icon from "@/components/ui/icon";
+import { useIsAdmin } from "@/lib/api/session";
 import { bucketQuery } from "@/lib/api/storage";
 import { pageMeta } from "@/lib/page-meta";
 
@@ -142,6 +143,7 @@ function BucketQuickLinks({
 function BucketPage() {
   const { bucketId } = Route.useParams();
   const bucket = useQuery(bucketQuery(bucketId));
+  const isAdmin = useIsAdmin();
 
   return (
     <>
@@ -150,7 +152,7 @@ function BucketPage() {
         title={bucket.data?.name ?? "Bucket"}
         description="Overview of storage usage, object count, and bucket status."
         bottomContent={<BucketTabs bucketId={bucketId} />}
-        endContent={bucket.data && <SetQuotaDialog bucket={bucket.data} />}
+        endContent={isAdmin && bucket.data && <SetQuotaDialog bucket={bucket.data} />}
       />
 
       <div className="flex flex-col gap-6 p-4 md:p-6">

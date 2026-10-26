@@ -38,13 +38,19 @@ export function DropZone({
   onFiles,
   children,
   className,
+  disabled = false,
 }: {
   onFiles(files: FileList): void;
   children: ReactNode;
   className?: string;
+  disabled?: boolean;
 }) {
   const [over, setOver] = useState(false);
   const hasFiles = (e: DragEvent) => e.dataTransfer.types.includes("Files");
+
+  if (disabled) {
+    return <div className={cn("relative", className)}>{children}</div>;
+  }
 
   return (
     <div

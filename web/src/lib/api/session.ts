@@ -1,4 +1,4 @@
-import { queryOptions } from "@tanstack/react-query";
+import { queryOptions, useQuery } from "@tanstack/react-query";
 
 import { api } from "./client";
 import { ApiError } from "./errors";
@@ -38,4 +38,16 @@ export function sessionContextQuery() {
     // The shell reads this on every navigation; refetching that often is waste.
     staleTime: 5 * 60_000,
   });
+}
+
+/** Returns the signed-in user from the session query cache. */
+export function useCurrentUser(): CurrentUser | undefined {
+  const { data } = useQuery(sessionContextQuery());
+  return data?.user;
+}
+
+/** Returns true if the signed-in user has the admin role. */
+export function useIsAdmin(): boolean {
+  const user = useCurrentUser();
+  return user?.role === "admin";
 }

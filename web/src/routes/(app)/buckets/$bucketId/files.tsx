@@ -8,6 +8,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { useEffect, useState } from "react";
 
+import { AdminAction } from "@/components/admin-action";
 import AppHeader from "@/components/app-header";
 import { BucketTabs } from "@/components/buckets/bucket-tabs";
 import { EmptyState } from "@/components/empty-state";
@@ -19,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import Icon from "@/components/ui/icon";
 import { useUploadManager } from "@/hooks/use-upload-manager";
 import { type ObjectPage, type SortBy, type SortOrder, folderQuery } from "@/lib/api/objects";
+import { useIsAdmin } from "@/lib/api/session";
 import { bucketQuery } from "@/lib/api/storage";
 import { pageMeta } from "@/lib/page-meta";
 
@@ -125,6 +127,7 @@ function FilesPage() {
   const bucket = useQuery(bucketQuery(bucketId));
   const folder = useInfiniteQuery(folderQuery(bucketId, prefix, search, sortBy, order));
   const { start } = useUploadManager();
+  const isAdmin = useIsAdmin();
 
   const upload = (files: FileList) => start(bucketId, files, prefix);
 
@@ -175,11 +178,21 @@ function FilesPage() {
                 </button>
               )}
             </div>
-            <UploadButton onFiles={upload} />
+            <AdminAction
+              fallback={
+                <div className="flex items-center gap-1.5 rounded-md border border-border/60 bg-muted/30 px-2.5 py-1.5 text-xs text-muted-foreground">
+                  <Icon name="eye" className="size-3.5 text-muted-foreground" />
+                  <span>Read-only</span>
+                </div>
+              }
+              tooltip="Administrator role required to upload files"
+            >
+              <UploadButton onFiles={upload} />
+            </AdminAction>
           </div>
         </div>
 
-        <DropZone onFiles={upload} className="md:flex md:min-h-0 md:flex-col">
+        <DropZone onFiles={upload} disabled={!isAdmin} className="md:flex md:min-h-0 md:flex-col">
           <FolderContents
             bucketId={bucketId}
             prefix={prefix}
@@ -232,6 +245,7 @@ function FolderContents({
   onSortChange,
   onClearSearch,
 }: FolderContentsProps) {
+  const isAdmin = useIsAdmin();
   if (folder.isPending) return <ObjectTable.Skeleton />;
   if (folder.isError) {
     return <QueryError error={folder.error} onRetry={() => folder.refetch()} backTo="/buckets" />;
@@ -258,7 +272,11 @@ function FolderContents({
       <EmptyState
         icon="folder-open"
         title={prefix ? "This folder is empty" : "This bucket is empty"}
-        description="Drop files here or use Upload. Folders are created from the file paths you upload into."
+        description={
+          isAdmin
+            ? "Drop files here or use Upload. Folders are created from the file paths you upload into."
+            : "There are no files or folders in this location."
+        }
       />
     );
   }

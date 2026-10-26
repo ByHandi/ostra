@@ -1,11 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 
+import { AdminAction } from "@/components/admin-action";
 import AppHeader from "@/components/app-header";
 import { CreateDomainDialog } from "@/components/domains/create-domain-dialog";
 import DomainTable from "@/components/domains/domain-table";
 import { EmptyState } from "@/components/empty-state";
 import { QueryError } from "@/components/query-error";
+import { Button } from "@/components/ui/button";
+import Icon from "@/components/ui/icon";
+import { useIsAdmin } from "@/lib/api/session";
 import { domainsQuery } from "@/lib/api/storage";
 import { pageMeta } from "@/lib/page-meta";
 
@@ -20,13 +24,30 @@ export const Route = createFileRoute("/(app)/domains/")({
 
 function Domains() {
   const domains = useQuery(domainsQuery());
+  const isAdmin = useIsAdmin();
 
   return (
     <>
       <AppHeader
         title="Custom Domains"
         description="Serve a bucket's contents publicly on your own domain, with automatic HTTPS."
-        endContent={<CreateDomainDialog />}
+        endContent={
+          <AdminAction
+            fallback={
+              <Button
+                variant="outline"
+                size="sm"
+                disabled
+                startContent={<Icon name="plus" className="size-4" />}
+              >
+                Register domain
+              </Button>
+            }
+            tooltip="Administrator role required to register custom domains"
+          >
+            <CreateDomainDialog />
+          </AdminAction>
+        }
       />
 
       {/* Desktop: a flex column, so the table shrinks to the viewport and scrolls inside. */}
@@ -39,8 +60,12 @@ function Domains() {
           <EmptyState
             icon="globe"
             title="No custom domains yet"
-            description="Add a domain, set up two DNS records, and the domain goes live automatically once verified."
-            action={<CreateDomainDialog />}
+            description={
+              isAdmin
+                ? "Add a domain, set up two DNS records, and the domain goes live automatically once verified."
+                : "No custom domains have been registered yet."
+            }
+            action={isAdmin ? <CreateDomainDialog /> : undefined}
           />
         ) : (
           <DomainTable domains={domains.data} />

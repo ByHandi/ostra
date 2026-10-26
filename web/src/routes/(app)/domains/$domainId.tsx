@@ -11,6 +11,7 @@ import { QueryError } from "@/components/query-error";
 import { Button } from "@/components/ui/button";
 import Icon from "@/components/ui/icon";
 import { ApiError } from "@/lib/api/errors";
+import { useIsAdmin } from "@/lib/api/session";
 import { deleteDomain, domainQuery, storageKeys, verifyDomain } from "@/lib/api/storage";
 import { pageMeta } from "@/lib/page-meta";
 
@@ -37,6 +38,7 @@ function DomainPage() {
   const domain = useQuery(domainQuery(domainId));
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const isAdmin = useIsAdmin();
 
   const invalidateLists = () => {
     queryClient.invalidateQueries({ queryKey: storageKeys.domains, exact: true });
@@ -78,7 +80,7 @@ function DomainPage() {
         title={d?.domain ?? "Custom domain"}
         description={d ? `Serves the contents of bucket ${d.bucketName}.` : undefined}
         endContent={
-          d && (
+          isAdmin && d ? (
             <div className="flex gap-2">
               {d.status !== "active" && (
                 <Button
@@ -108,7 +110,7 @@ function DomainPage() {
                 }
               />
             </div>
-          )
+          ) : undefined
         }
       />
 

@@ -3,6 +3,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 
 import { toast } from "sonner";
 
+import { AdminAction } from "@/components/admin-action";
 import AppHeader from "@/components/app-header";
 import { BucketCors } from "@/components/buckets/bucket-cors";
 import { BucketLifecycle } from "@/components/buckets/bucket-lifecycle";
@@ -11,11 +12,13 @@ import { ConfigureWebsiteDialog } from "@/components/buckets/configure-website-d
 import { SetQuotaDialog } from "@/components/buckets/set-quota-dialog";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { QueryError } from "@/components/query-error";
+import { ReadOnlyBanner } from "@/components/read-only-banner";
 import Section from "@/components/section";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import Icon from "@/components/ui/icon";
 import { ApiError } from "@/lib/api/errors";
+import { useIsAdmin } from "@/lib/api/session";
 import { type BucketDetail, bucketQuery, deleteBucket, storageKeys } from "@/lib/api/storage";
 import { formatBytes, formatNumber } from "@/lib/format";
 import { pageMeta } from "@/lib/page-meta";
@@ -64,6 +67,7 @@ function BucketSettingsPage() {
       />
 
       <div className="flex flex-col gap-6 p-4 md:p-6">
+        <ReadOnlyBanner message="You are viewing this bucket in read-only mode. Modifying quotas, website hosting, CORS rules, lifecycle rules, or deleting the bucket requires an administrator account." />
         {bucket.isPending ? (
           <>
             <Section.Skeleton rows={2} />
@@ -88,13 +92,14 @@ function BucketSettingsPage() {
 }
 
 function StorageQuotasSection({ bucket }: { bucket: BucketDetail }) {
+  const isAdmin = useIsAdmin();
   const hasQuotas = Boolean(bucket.quotas?.maxSize || bucket.quotas?.maxObjects);
 
   return (
     <Section
       title="Storage quotas"
       description="Maximum capacity and object count limits enforced by Garage."
-      action={<SetQuotaDialog bucket={bucket} />}
+      action={isAdmin ? <SetQuotaDialog bucket={bucket} /> : undefined}
     >
       {hasQuotas ? (
         <dl className="grid gap-4 sm:grid-cols-2">
@@ -122,11 +127,13 @@ function StorageQuotasSection({ bucket }: { bucket: BucketDetail }) {
 }
 
 function WebsiteSection({ bucket }: { bucket: BucketDetail }) {
+  const isAdmin = useIsAdmin();
+
   return (
     <Section
       title="Static website hosting"
       description="Host static HTML, client-side SPAs, or public assets directly from this bucket."
-      action={<ConfigureWebsiteDialog bucket={bucket} />}
+      action={isAdmin ? <ConfigureWebsiteDialog bucket={bucket} /> : undefined}
     >
       {bucket.websiteAccess ? (
         <div className="space-y-3">
@@ -188,21 +195,35 @@ function DangerZoneSection({
             Only empty buckets without custom domains can be deleted. This action cannot be undone.
           </div>
         </div>
-        <ConfirmDialog
-          title={`Delete bucket ${bucket.name}?`}
-          description="Only an empty bucket with no custom domains can be deleted. This action can't be undone."
-          confirmText="Delete bucket"
-          onConfirm={onRemove}
-          trigger={
+        <AdminAction
+          fallback={
             <Button
               variant="destructive"
               size="sm"
+              disabled
               startContent={<Icon name="trash-2" className="size-4" />}
             >
               Delete bucket
             </Button>
           }
-        />
+          tooltip="Administrator role required to delete buckets"
+        >
+          <ConfirmDialog
+            title={`Delete bucket ${bucket.name}?`}
+            description="Only an empty bucket with no custom domains can be deleted. This action can't be undone."
+            confirmText="Delete bucket"
+            onConfirm={onRemove}
+            trigger={
+              <Button
+                variant="destructive"
+                size="sm"
+                startContent={<Icon name="trash-2" className="size-4" />}
+              >
+                Delete bucket
+              </Button>
+            }
+          />
+        </AdminAction>
       </div>
     </Section>
   );

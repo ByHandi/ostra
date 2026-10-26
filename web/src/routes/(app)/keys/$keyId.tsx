@@ -3,6 +3,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 
 import { toast } from "sonner";
 
+import { AdminAction } from "@/components/admin-action";
 import AppHeader from "@/components/app-header";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { CopyButton } from "@/components/copy-button";
@@ -16,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import Icon from "@/components/ui/icon";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError } from "@/lib/api/errors";
+import { useIsAdmin } from "@/lib/api/session";
 import { bucketsQuery, deleteKey, keyQuery, storageKeys } from "@/lib/api/storage";
 import { formatDate } from "@/lib/format";
 import { getKeyExpirationStatus } from "@/lib/key-expiration";
@@ -42,6 +44,7 @@ function KeyPage() {
   const buckets = useQuery(bucketsQuery());
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const isAdmin = useIsAdmin();
 
   const remove = async () => {
     try {
@@ -69,21 +72,35 @@ function KeyPage() {
           k && (
             <div className="flex items-center gap-2">
               <ConnectionSnippetsDialog keyId={k.id} keyName={k.name} />
-              <ConfirmDialog
-                title={`Delete access key ${k.name || k.id}?`}
-                description="Apps still using this key lose access immediately. This action can't be undone."
-                confirmText="Delete key"
-                onConfirm={remove}
-                trigger={
+              <AdminAction
+                fallback={
                   <Button
                     variant="destructive"
                     size="sm"
+                    disabled
                     startContent={<Icon name="trash-2" className="size-4" />}
                   >
                     Delete
                   </Button>
                 }
-              />
+                tooltip="Administrator role required to delete access keys"
+              >
+                <ConfirmDialog
+                  title={`Delete access key ${k.name || k.id}?`}
+                  description="Apps still using this key lose access immediately. This action can't be undone."
+                  confirmText="Delete key"
+                  onConfirm={remove}
+                  trigger={
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      startContent={<Icon name="trash-2" className="size-4" />}
+                    >
+                      Delete
+                    </Button>
+                  }
+                />
+              </AdminAction>
             </div>
           )
         }
@@ -108,7 +125,11 @@ function KeyPage() {
 
             <Section
               title="Bucket permissions"
-              description="Check a box to grant a permission. Changes are saved immediately."
+              description={
+                isAdmin
+                  ? "Check a box to grant a permission. Changes are saved immediately."
+                  : "Bucket access permissions for this key (read-only view)."
+              }
             >
               {!k || buckets.isPending ? (
                 <KeyPermissions.Skeleton />
@@ -170,20 +191,34 @@ function KeyInfo({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <EditKeyExpirationDialog
-            keyId={id}
-            keyName={name}
-            currentExpiresAt={expiresAt}
-            trigger={
+          <AdminAction
+            fallback={
               <Button
                 variant="outline"
                 size="sm"
+                disabled
                 startContent={<Icon name="calendar" className="size-4" />}
               >
                 Edit expiration
               </Button>
             }
-          />
+            tooltip="Administrator role required to change key expiration"
+          >
+            <EditKeyExpirationDialog
+              keyId={id}
+              keyName={name}
+              currentExpiresAt={expiresAt}
+              trigger={
+                <Button
+                  variant="outline"
+                  size="sm"
+                  startContent={<Icon name="calendar" className="size-4" />}
+                >
+                  Edit expiration
+                </Button>
+              }
+            />
+          </AdminAction>
           <ConnectionSnippetsDialog
             keyId={id}
             keyName={name}
