@@ -9,6 +9,7 @@ import (
 )
 
 type Querier interface {
+	CountAdmins(ctx context.Context) (int64, error)
 	CountUsers(ctx context.Context) (int64, error)
 	CreateDomain(ctx context.Context, arg CreateDomainParams) (Domain, error)
 	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
@@ -31,6 +32,7 @@ type Querier interface {
 	MarkDomainError(ctx context.Context, arg MarkDomainErrorParams) (Domain, error)
 	SetSetting(ctx context.Context, arg SetSettingParams) error
 	UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error
+	UpdateUserRole(ctx context.Context, arg UpdateUserRoleParams) error
 }
 
 var _ Querier = (*Queries)(nil)

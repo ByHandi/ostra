@@ -255,14 +255,14 @@ More than one person on the dashboard, with an `admin` role (everything, includi
 `viewer` role (read-only). Stays on SQLite: the write load is tiny, and Postgres is only needed
 once the control-plane runs as more than one instance.
 
-- [ ] Migration: `role` column on `users` (`admin` / `viewer`), existing accounts become `admin`
-- [ ] Authorization in the API, not only the UI: `viewer` gets read endpoints only, checked per
+- [x] Migration: `role` column on `users` (`admin` / `viewer`), existing accounts become `admin`
+- [x] Authorization in the API, not only the UI: `viewer` gets read endpoints only, checked per
       route with tests. `Authenticate` already loads the user on every request, so a role change
       applies immediately instead of when the access token expires
 - [ ] Users page (admin only): list, create with a one-time password, change role, delete.
       Deleting a user or changing their role ends their sessions; the last admin cannot be
       deleted or demoted
-- [ ] CLI: `createuser --role`, plus `setrole`; `ADMIN_EMAIL` keeps creating an `admin`
+- [x] CLI: `createuser --role`, plus `setrole`; `ADMIN_EMAIL` keeps creating an `admin`
 - [ ] Dashboard: hide or disable write actions for `viewer`, show the role on the Settings page
 - [ ] Audit log: who did what to which bucket/key/domain/user, with IP and time, written in the
       same transaction as the change where possible. Admin-only page with filters, and old entries

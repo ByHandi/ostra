@@ -90,11 +90,17 @@ type meResponse struct {
 	ID    int64  `json:"id"`
 	Name  string `json:"name"`
 	Email string `json:"email"`
+	Role  string `json:"role"`
 }
 
 func (h *Handler) me(w http.ResponseWriter, r *http.Request) {
 	u := currentUser(r)
-	writeData(w, http.StatusOK, meResponse{ID: u.ID, Name: u.Name, Email: u.Email})
+	writeData(w, http.StatusOK, meResponse{
+		ID:    u.ID,
+		Name:  u.Name,
+		Email: u.Email,
+		Role:  u.Role,
+	})
 }
 
 func (h *Handler) changePassword(w http.ResponseWriter, r *http.Request) {

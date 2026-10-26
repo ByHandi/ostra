@@ -22,6 +22,22 @@ import (
 // the string comparison expires_at > now is correct.
 const timeLayout = "2006-01-02T15:04:05.000Z"
 
+// User roles.
+const (
+	RoleAdmin  = "admin"
+	RoleViewer = "viewer"
+)
+
+// ValidateRole returns nil if the role is valid ("admin" or "viewer").
+func ValidateRole(role string) error {
+	switch role {
+	case RoleAdmin, RoleViewer:
+		return nil
+	default:
+		return ErrInvalidRole
+	}
+}
+
 var (
 	// ErrInvalidCredentials is used for both an unknown email and a wrong password,
 	// so it cannot be used to guess which emails are registered.
@@ -29,6 +45,8 @@ var (
 	ErrSessionExpired     = errors.New("session expired, please log in again")
 	ErrUserExists         = errors.New("a user with this email already exists")
 	ErrUserNotFound       = errors.New("user not found")
+	ErrInvalidRole        = errors.New(`role must be "admin" or "viewer"`)
+	ErrDemoteLastAdmin    = errors.New("cannot demote the last admin")
 )
 
 // FieldError is an input error tied to a single form field.
@@ -208,7 +226,7 @@ func (s *Service) ChangePassword(ctx context.Context, userID int64, current, nex
 }
 
 // CreateUser is used by the CLI `control createuser`.
-func (s *Service) CreateUser(ctx context.Context, email, name, password string) (store.User, error) {
+func (s *Service) CreateUser(ctx context.Context, email, name, password, role string) (store.User, error) {
 	email = strings.TrimSpace(email)
 	if _, err := mail.ParseAddress(email); err != nil {
 		return store.User{}, fmt.Errorf("email %q is not valid", email)
@@ -216,6 +234,12 @@ func (s *Service) CreateUser(ctx context.Context, email, name, password string) 
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return store.User{}, errors.New("name is required")
+	}
+	if role == "" {
+		role = RoleAdmin
+	}
+	if err := ValidateRole(role); err != nil {
+		return store.User{}, err
 	}
 	if err := validatePassword(password); err != nil {
 		return store.User{}, err
@@ -231,7 +255,12 @@ func (s *Service) CreateUser(ctx context.Context, email, name, password string) 
 	if err != nil {
 		return store.User{}, err
 	}
-	return s.q.CreateUser(ctx, store.CreateUserParams{Email: email, Name: name, PasswordHash: hash})
+	return s.q.CreateUser(ctx, store.CreateUserParams{
+		Email:        email,
+		Name:         name,
+		PasswordHash: hash,
+		Role:         role,
+	})
 }
 
 // BootstrapAdmin creates the first account from ADMIN_EMAIL/ADMIN_PASSWORD at startup. It does
@@ -242,11 +271,48 @@ func (s *Service) BootstrapAdmin(ctx context.Context, email, name, password stri
 	if err != nil || count > 0 {
 		return store.User{}, false, err
 	}
-	user, err = s.CreateUser(ctx, email, name, password)
+	user, err = s.CreateUser(ctx, email, name, password, RoleAdmin)
 	if err != nil {
 		return store.User{}, false, err
 	}
 	return user, true, nil
+}
+
+// SetRole changes a user's role ("admin" or "viewer").
+// Demoting the last admin is rejected with ErrDemoteLastAdmin.
+// Changing a user's role revokes all of their active sessions.
+func (s *Service) SetRole(ctx context.Context, email, role string) error {
+	email = strings.TrimSpace(email)
+	role = strings.TrimSpace(role)
+	if err := ValidateRole(role); err != nil {
+		return err
+	}
+	user, err := s.q.GetUserByEmail(ctx, email)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ErrUserNotFound
+	}
+	if err != nil {
+		return err
+	}
+	if user.Role == role {
+		return nil
+	}
+	if user.Role == RoleAdmin && role != RoleAdmin {
+		count, err := s.q.CountAdmins(ctx)
+		if err != nil {
+			return err
+		}
+		if count <= 1 {
+			return ErrDemoteLastAdmin
+		}
+	}
+	if err := s.q.UpdateUserRole(ctx, store.UpdateUserRoleParams{
+		Role: role,
+		ID:   user.ID,
+	}); err != nil {
+		return err
+	}
+	return s.q.DeleteUserSessions(ctx, user.ID)
 }
 
 // SetPassword is used by the CLI `control setpassword` to reset a password without the old one.

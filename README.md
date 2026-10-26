@@ -244,14 +244,14 @@ Responses use the same envelope as the `shadcn-vite` template and `go-service-bo
   "error": { "type": "validation", "message": "...", "errors": { "domain": ["..."] } } }
 ```
 
-**Auth.** A JWT access token (15 minutes) is sent in the `Authorization: Bearer` header. The refresh token (30 days, rotated on every use) lives in the httpOnly cookie `ostra_refresh`, scoped to `/api/auth`. Login allows 5 attempts per IP, then 1 attempt every 12 seconds.
+**Auth.** A JWT access token (15 minutes) is sent in the `Authorization: Bearer` header. The refresh token (30 days, rotated on every use) lives in the httpOnly cookie `ostra_refresh`, scoped to `/api/auth`. Login allows 5 attempts per IP, then 1 attempt every 12 seconds. Users have an `admin` or `viewer` role; all mutating endpoints require the `admin` role and reject `viewer` requests with `403 Forbidden`.
 
 | Method | Path | Description |
 |---|---|---|
 | POST | `/api/auth/login` | `{"email","password"}` → `access_token` + cookie |
 | POST | `/api/auth/refresh-token` | Exchange the cookie for new tokens |
 | POST | `/api/auth/logout` | Revoke the session, clear the cookie |
-| GET | `/api/me` | The signed-in user |
+| GET | `/api/me` | The signed-in user (`id`, `name`, `email`, `role`) |
 | POST | `/api/me/password` | `{"currentPassword","newPassword"}`, ends other sessions |
 | GET | `/api/version` | Build version and commit |
 | GET | `/api/overview` | Statistics + cluster health |
@@ -290,7 +290,7 @@ Responses use the same envelope as the `shadcn-vite` template and `go-service-bo
 | `caddy/Caddyfile` | Production (Let's Encrypt) |
 | `caddy/Caddyfile.dev` | Development (`local_certs`) |
 | `control/Dockerfile` | Multi-stage: dashboard build (Node), then the Go binary with the dashboard embedded |
-| `control/cmd/control` | Entry point: server, `createuser`, `setpassword`, `version`, `healthcheck` |
+| `control/cmd/control` | Entry point: server, `createuser`, `setpassword`, `setrole`, `version`, `healthcheck` |
 | `control/internal/service` | Business logic: buckets, access keys, custom domains, worker |
 | `control/internal/auth` | Login, JWT, refresh tokens, rate limiting, argon2id |
 | `control/internal/garage` | Garage v2 admin API client |

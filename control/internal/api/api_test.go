@@ -12,12 +12,19 @@ import (
 	"time"
 
 	"github.com/ByHandi/ostra/control/internal/auth"
+	"github.com/ByHandi/ostra/control/internal/garage"
 	"github.com/ByHandi/ostra/control/internal/service"
 	"github.com/ByHandi/ostra/control/internal/store"
 )
 
-// stubGarage is not used by the endpoints tested here.
+// stubGarage provides stubs for read endpoints tested here.
 type stubGarage struct{ service.Garage }
+
+func (stubGarage) Health(context.Context) (garage.ClusterHealth, error) {
+	return garage.ClusterHealth{}, nil
+}
+func (stubGarage) ListBuckets(context.Context) ([]garage.Bucket, error) { return nil, nil }
+func (stubGarage) ListKeys(context.Context) ([]garage.Key, error)       { return nil, nil }
 
 func newTestServer(t *testing.T) *httptest.Server {
 	t.Helper()
@@ -35,7 +42,10 @@ func newTestServer(t *testing.T) *httptest.Server {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := authSvc.CreateUser(context.Background(), "admin@example.com", "Admin", "secret123"); err != nil {
+	if _, err := authSvc.CreateUser(context.Background(), "admin@example.com", "Admin", "secret123", auth.RoleAdmin); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := authSvc.CreateUser(context.Background(), "viewer@example.com", "Viewer", "secret123", auth.RoleViewer); err != nil {
 		t.Fatal(err)
 	}
 	svc := service.New(store.New(db), stubGarage{}, nil, service.Options{})
@@ -121,7 +131,7 @@ func TestAuthFlow(t *testing.T) {
 	token, cookie := accessToken(t, r), r.cookie
 
 	me := call(t, srv, "GET", "/api/me", token, nil, "")
-	if data, _ := me.body.Data.(map[string]any); me.status != 200 || data["email"] != "admin@example.com" {
+	if data, _ := me.body.Data.(map[string]any); me.status != 200 || data["email"] != "admin@example.com" || data["role"] != "admin" {
 		t.Fatalf("GET /api/me = %d %+v", me.status, me.body)
 	}
 
@@ -456,5 +466,83 @@ func TestKeyExpirationValidation(t *testing.T) {
 	// Validation: invalid format expiresAt
 	if r := call(t, srv, "PUT", "/api/keys/GK1/expiration", token, nil, `{"expiresAt":"not-a-date"}`); r.status != http.StatusBadRequest || len(r.body.Error.Errors["expiresAt"]) != 1 {
 		t.Fatalf("update key with invalid format = %d %+v", r.status, r.body.Error)
+	}
+}
+
+func TestViewerRoleAuthorization(t *testing.T) {
+	srv := newTestServer(t)
+
+	// Log in as viewer
+	login := call(t, srv, "POST", "/api/auth/login", "", nil, `{"email":"viewer@example.com","password":"secret123"}`)
+	if login.status != http.StatusOK {
+		t.Fatalf("viewer login status = %d", login.status)
+	}
+	viewerToken := accessToken(t, login)
+
+	// Viewer can read profile and gets role "viewer"
+	me := call(t, srv, "GET", "/api/me", viewerToken, nil, "")
+	if data, _ := me.body.Data.(map[string]any); me.status != 200 || data["role"] != "viewer" {
+		t.Fatalf("GET /api/me for viewer: status=%d, data=%+v", me.status, me.body)
+	}
+
+	// Viewer can access read endpoints
+	readEndpoints := []string{
+		"/api/overview",
+		"/api/buckets",
+		"/api/keys",
+		"/api/domains",
+	}
+	for _, ep := range readEndpoints {
+		if r := call(t, srv, "GET", ep, viewerToken, nil, ""); r.status != http.StatusOK {
+			t.Errorf("viewer GET %s = %d, want 200", ep, r.status)
+		}
+	}
+
+	// Viewer can change their own password (not 403; returns validation error on empty payload)
+	if r := call(t, srv, "POST", "/api/me/password", viewerToken, nil, `{}`); r.status == http.StatusForbidden {
+		t.Errorf("POST /api/me/password for viewer returned 403 Forbidden")
+	}
+
+	// Viewer write attempts must be rejected with 403 Forbidden
+	type blockedReq struct {
+		method string
+		path   string
+		body   string
+	}
+	blocked := []blockedReq{
+		// Buckets
+		{"POST", "/api/buckets", `{"name":"new-bucket"}`},
+		{"DELETE", "/api/buckets/b1", ""},
+		{"PUT", "/api/buckets/b1/quotas", `{"maxSize":100}`},
+		{"PUT", "/api/buckets/b1/website", `{"enabled":true}`},
+		{"PUT", "/api/buckets/b1/cors", `{"rules":[]}`},
+		{"DELETE", "/api/buckets/b1/cors", ""},
+		{"PUT", "/api/buckets/b1/lifecycle", `{"rules":[]}`},
+		{"DELETE", "/api/buckets/b1/lifecycle", ""},
+
+		// Objects mutating
+		{"PUT", "/api/buckets/b1/objects?key=test.txt", "hello"},
+		{"DELETE", "/api/buckets/b1/objects", `{"keys":["test.txt"]}`},
+		{"PUT", "/api/buckets/b1/objects/metadata?key=test.txt", `{}`},
+		{"POST", "/api/buckets/b1/objects/copy", `{"sourceKey":"a","destinationKey":"b"}`},
+		{"POST", "/api/buckets/b1/objects/move", `{"sourceKey":"a","destinationKey":"b"}`},
+
+		// Keys
+		{"POST", "/api/keys", `{"name":"new-key"}`},
+		{"DELETE", "/api/keys/k1", ""},
+		{"PUT", "/api/keys/k1/expiration", `{"expiresAt":null}`},
+		{"PUT", "/api/keys/k1/buckets/b1", `{"permissions":"read"}`},
+
+		// Domains
+		{"POST", "/api/domains", `{"domain":"example.com"}`},
+		{"POST", "/api/domains/d1/verify", ""},
+		{"DELETE", "/api/domains/d1", ""},
+	}
+
+	for _, req := range blocked {
+		r := call(t, srv, req.method, req.path, viewerToken, nil, req.body)
+		if r.status != http.StatusForbidden || r.body.Error == nil || r.body.Error.Type != "forbidden" {
+			t.Errorf("viewer %s %s: status = %d, want 403; body = %+v", req.method, req.path, r.status, r.body)
+		}
 	}
 }

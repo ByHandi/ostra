@@ -9,6 +9,17 @@ The release workflow uses the contents of that version's section as the GitHub R
 
 ## [Unreleased]
 
+### Added
+
+- User roles and API authorization: support `admin` (full access) and `viewer` (read-only) roles
+  backed by SQLite migration `00004_user_roles.sql`. Mutating API endpoints (buckets, access keys,
+  custom domains, and object write operations) enforce admin privileges and reject viewer requests
+  with `403 Forbidden`.
+- CLI commands: `--role` flag on `control createuser` (defaulting to `admin`), and new
+  `control setrole <email> <role>` command to update user roles with demotion protection for the
+  last admin and automatic session revocation on role changes.
+- Current user role returned in `GET /api/me` payload.
+
 ## [0.4.0] - 2026-10-26
 
 ### Added
