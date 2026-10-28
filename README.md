@@ -1,5 +1,7 @@
 # Ostra
 
+> Official website & landing page: **[https://ostra.byhandi.my.id](https://ostra.byhandi.my.id)**
+
 Self-hosted object storage in the spirit of Cloudflare R2: **Garage** stores the data, **Caddy** sits in front with automatic TLS, and a **control-plane** (Go + React dashboard) manages buckets, access keys, and per-bucket custom domains.
 
 ```
@@ -44,12 +46,12 @@ You need a server with Docker and ports 80/443 reachable from the internet.
 
 **1. DNS.** Point these records at the server (replace `example.com` with your domain):
 
-| Record | Purpose |
-|---|---|
-| `console.example.com` | Dashboard |
-| `s3.example.com` | S3 API |
-| `edge.example.com` | CNAME target for users' custom domains |
-| `*.web.example.com` | Per-bucket web access (optional) |
+| Record                | Purpose                                |
+| --------------------- | -------------------------------------- |
+| `console.example.com` | Dashboard                              |
+| `s3.example.com`      | S3 API                                 |
+| `edge.example.com`    | CNAME target for users' custom domains |
+| `*.web.example.com`   | Per-bucket web access (optional)       |
 
 **2. Configure and start.**
 
@@ -78,10 +80,10 @@ Or set `ADMIN_EMAIL` and `ADMIN_PASSWORD` (optionally `ADMIN_NAME`) in `.env` be
 
 When ports 80/443 and TLS belong to something else, such as Coolify's or Dokploy's Traefik, a Cloudflare Tunnel, or Nginx Proxy Manager, use `docker-compose.external-proxy.yml` instead. It is the same stack without the bundled Caddy, so the proxy terminates TLS and routes each hostname over the Docker network:
 
-| Hostname | Service |
-|---|---|
-| `console.example.com` | `control:8080` |
-| `s3.example.com` | `garage:3900` |
+| Hostname                                             | Service                                 |
+| ---------------------------------------------------- | --------------------------------------- |
+| `console.example.com`                                | `control:8080`                          |
+| `s3.example.com`                                     | `garage:3900`                           |
 | Any other host (custom domains, `*.web.example.com`) | `garage:3902`, with the original `Host` |
 
 ```bash
@@ -109,7 +111,7 @@ Limits that apply to any setup whose traffic goes through Cloudflare:
 A request for a custom domain reaches the tunnel with its own `Host` (for example `files.customer.com`), and Garage needs that `Host` to find the bucket. It therefore matches none of the tunnel's hostname rules, so both the tunnel and the proxy behind it need a catch-all that passes it through unchanged. The steps below assume Coolify's Traefik behind the tunnel, as in Coolify's Full TLS guide.
 
 1. **Fallback origin.** Add a public hostname `edge.example.com` to the tunnel with the same service and Origin Server Name as the other routes. In the zone, enable SSL/TLS → Custom Hostnames and set `edge.example.com` as the fallback origin. It matches the default `EDGE_HOSTNAME`, so the DNS records Ostra shows users stay correct.
-2. **Tunnel catch-all.** A remotely managed tunnel's last ingress rule is `http_status:404`. Replace it through the API (a token with *Account → Cloudflare Tunnel → Edit*) so unmatched hostnames go to the proxy. Use the same service as the existing routes, and keep `matchSNItoHost` off so `cloudflared` checks the certificate against `edge.example.com`:
+2. **Tunnel catch-all.** A remotely managed tunnel's last ingress rule is `http_status:404`. Replace it through the API (a token with _Account → Cloudflare Tunnel → Edit_) so unmatched hostnames go to the proxy. Use the same service as the existing routes, and keep `matchSNItoHost` off so `cloudflared` checks the certificate against `edge.example.com`:
 
    ```bash
    api=https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/cfd_tunnel/$CF_TUNNEL_ID/configurations
@@ -121,6 +123,7 @@ A request for a custom domain reaches the tunnel with its own `Host` (for exampl
    ```
 
    The PUT replaces the whole configuration, which is why it starts from the current one. To undo, PUT `{config: <tunnel.json>}`.
+
 3. **Proxy catch-all.** `docker-compose.external-proxy.yml` labels `garage` with a Traefik router that sends every host no other router matches to Garage's web endpoint (priority 1, below every `Host()` rule, so other apps keep their routes). Coolify's proxy picks it up on deploy, so there is nothing to configure. Only one catch-all can win: if the proxy already has one (for example a default redirect for unknown hosts), remove it or this one never matches.
 4. **Per domain.** When a user registers `files.customer.com` in Ostra, add it under Custom Hostnames as well. The user creates the CNAME to `edge.example.com` and the `_ostra.` TXT record that Ostra shows. Cloudflare validates the certificate through that CNAME, and Ostra activates the domain once its own DNS check passes. Only subdomains work: an apex custom hostname needs Cloudflare's apex proxying (Enterprise).
 
@@ -214,6 +217,7 @@ The first account can also come from the environment: with `ADMIN_EMAIL` and `AD
   ```
 
   The workflow runs CI, pushes a multi-arch image to `ghcr.io/byhandi/ostra` (tags `0.1.0`, `0.1`, and `latest`), and creates a GitHub Release from the CHANGELOG section. Tags with a suffix such as `-rc.1` become pre-releases and leave `latest` untouched.
+
 - **Dependabot** opens at most one grouped PR per ecosystem per month (Go, npm, Docker, Compose, GitHub Actions). CI also runs every Monday so newly disclosed vulnerabilities fail govulncheck/npm audit even without new commits.
 
 ## Custom domain flow
@@ -246,67 +250,67 @@ Responses use the same envelope as the `shadcn-vite` template and `go-service-bo
 
 **Auth.** A JWT access token (15 minutes) is sent in the `Authorization: Bearer` header. The refresh token (30 days, rotated on every use) lives in the httpOnly cookie `ostra_refresh`, scoped to `/api/auth`. Login allows 5 attempts per IP, then 1 attempt every 12 seconds. Users have an `admin` or `viewer` role; all mutating endpoints require the `admin` role and reject `viewer` requests with `403 Forbidden`.
 
-| Method | Path | Description |
-|---|---|---|
-| POST | `/api/auth/login` | `{"email","password"}` → `access_token` + cookie |
-| POST | `/api/auth/refresh-token` | Exchange the cookie for new tokens |
-| POST | `/api/auth/logout` | Revoke the session, clear the cookie |
-| GET | `/api/me` | The signed-in user (`id`, `name`, `email`, `role`) |
-| POST | `/api/me/password` | `{"currentPassword","newPassword"}`, ends other sessions |
-| GET/POST | `/api/users` | List / create (`{"email","role"}`) (admin only; one-time password returned on creation) |
-| PATCH | `/api/users/{id}/role` | `{"role"}` (admin only; rejects self-demotion or demoting the last admin) |
-| DELETE | `/api/users/{id}` | Delete user (admin only; rejects self-deletion or deleting the last admin) |
-| GET | `/api/version` | Build version and commit |
-| GET | `/api/overview` | Statistics + cluster health |
-| GET/POST | `/api/buckets` | List / create (`{"name"}`) |
-| GET/DELETE | `/api/buckets/{id}` | Details (keys + domains) / delete (must be empty, no domains) |
-| PUT | `/api/buckets/{id}/quotas` | `{"maxSize","maxObjects"}` (bytes / count, null to clear), sets quotas |
-| PUT | `/api/buckets/{id}/website` | `{"enabled","indexDocument","errorDocument"}` static website hosting |
-| GET/PUT/DELETE | `/api/buckets/{id}/cors` | Get, set, or clear bucket CORS rules (`{"rules":[...]}`) |
-| GET/PUT/DELETE | `/api/buckets/{id}/lifecycle` | Get, set, or clear lifecycle rules (`{"expirationDays","abortIncompleteMultipartUploadDays"}`) |
-| GET/POST | `/api/keys` | List / create (`{"name","expiresAt"}`; the secret is only returned here) |
-| GET/DELETE | `/api/keys/{id}` | Per-bucket permissions / delete |
-| PUT | `/api/keys/{id}/expiration` | `{"expiresAt"}` (future RFC 3339 timestamp, null to clear) |
-| PUT | `/api/keys/{id}/buckets/{bucketId}` | `{"read","write","owner"}`, sets permissions exactly |
-| GET/POST | `/api/domains` | List / register (`{"domain","bucket"}`) |
-| GET/DELETE | `/api/domains/{id}` | Details + `dnsRecords` / delete |
-| POST | `/api/domains/{id}/verify` | Check DNS now |
-| GET | `/api/buckets/{id}/objects` | List a folder: `?prefix=` (`""` or ending in `/`), `&cursor=`, `&limit=` (max 1000), `&search=`, `&sortBy=name\|size\|lastModified`, `&order=asc\|desc` |
-| PUT | `/api/buckets/{id}/objects?key=` | Upload the raw request body as that file (capped by `MAX_UPLOAD_SIZE_MB`) |
-| DELETE | `/api/buckets/{id}/objects` | Delete one file (`?key=`) or a whole folder (`?prefix=`) |
-| POST | `/api/buckets/{id}/objects/download-link` | `{"key"}` → a signed `/api/downloads/{token}` link, valid 5 minutes |
-| POST | `/api/buckets/{id}/objects/share-link` | `{"key","expiresIn"}` → signed download link, where expiry is `1h`, `1d`, or `7d` |
-| POST | `/api/buckets/{id}/objects/preview-link` | `{"key"}` → 5-minute signed inline preview link for supported image, video, PDF, or text files |
-| GET | `/api/buckets/{id}/objects/metadata` | `?key=` → object metadata and HTTP headers (`contentType`, `cacheControl`, `contentDisposition`) |
-| PUT | `/api/buckets/{id}/objects/metadata` | `?key=` + `{"contentType","cacheControl","contentDisposition"}` → update HTTP headers via in-place copy |
-| POST | `/api/buckets/{id}/objects/copy` | `{"src","dest"}` → copy one file or an entire folder (`"prefix/"`) |
-| POST | `/api/buckets/{id}/objects/move` | `{"src","dest"}` → rename or move one file or folder (`"prefix/"`) |
-| GET | `/api/downloads/{token}` | Download or preview the file (no session needed; the signed token is the authorization) |
+| Method         | Path                                      | Description                                                                                                                                             |
+| -------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| POST           | `/api/auth/login`                         | `{"email","password"}` → `access_token` + cookie                                                                                                        |
+| POST           | `/api/auth/refresh-token`                 | Exchange the cookie for new tokens                                                                                                                      |
+| POST           | `/api/auth/logout`                        | Revoke the session, clear the cookie                                                                                                                    |
+| GET            | `/api/me`                                 | The signed-in user (`id`, `name`, `email`, `role`)                                                                                                      |
+| POST           | `/api/me/password`                        | `{"currentPassword","newPassword"}`, ends other sessions                                                                                                |
+| GET/POST       | `/api/users`                              | List / create (`{"email","role"}`) (admin only; one-time password returned on creation)                                                                 |
+| PATCH          | `/api/users/{id}/role`                    | `{"role"}` (admin only; rejects self-demotion or demoting the last admin)                                                                               |
+| DELETE         | `/api/users/{id}`                         | Delete user (admin only; rejects self-deletion or deleting the last admin)                                                                              |
+| GET            | `/api/version`                            | Build version and commit                                                                                                                                |
+| GET            | `/api/overview`                           | Statistics + cluster health                                                                                                                             |
+| GET/POST       | `/api/buckets`                            | List / create (`{"name"}`)                                                                                                                              |
+| GET/DELETE     | `/api/buckets/{id}`                       | Details (keys + domains) / delete (must be empty, no domains)                                                                                           |
+| PUT            | `/api/buckets/{id}/quotas`                | `{"maxSize","maxObjects"}` (bytes / count, null to clear), sets quotas                                                                                  |
+| PUT            | `/api/buckets/{id}/website`               | `{"enabled","indexDocument","errorDocument"}` static website hosting                                                                                    |
+| GET/PUT/DELETE | `/api/buckets/{id}/cors`                  | Get, set, or clear bucket CORS rules (`{"rules":[...]}`)                                                                                                |
+| GET/PUT/DELETE | `/api/buckets/{id}/lifecycle`             | Get, set, or clear lifecycle rules (`{"expirationDays","abortIncompleteMultipartUploadDays"}`)                                                          |
+| GET/POST       | `/api/keys`                               | List / create (`{"name","expiresAt"}`; the secret is only returned here)                                                                                |
+| GET/DELETE     | `/api/keys/{id}`                          | Per-bucket permissions / delete                                                                                                                         |
+| PUT            | `/api/keys/{id}/expiration`               | `{"expiresAt"}` (future RFC 3339 timestamp, null to clear)                                                                                              |
+| PUT            | `/api/keys/{id}/buckets/{bucketId}`       | `{"read","write","owner"}`, sets permissions exactly                                                                                                    |
+| GET/POST       | `/api/domains`                            | List / register (`{"domain","bucket"}`)                                                                                                                 |
+| GET/DELETE     | `/api/domains/{id}`                       | Details + `dnsRecords` / delete                                                                                                                         |
+| POST           | `/api/domains/{id}/verify`                | Check DNS now                                                                                                                                           |
+| GET            | `/api/buckets/{id}/objects`               | List a folder: `?prefix=` (`""` or ending in `/`), `&cursor=`, `&limit=` (max 1000), `&search=`, `&sortBy=name\|size\|lastModified`, `&order=asc\|desc` |
+| PUT            | `/api/buckets/{id}/objects?key=`          | Upload the raw request body as that file (capped by `MAX_UPLOAD_SIZE_MB`)                                                                               |
+| DELETE         | `/api/buckets/{id}/objects`               | Delete one file (`?key=`) or a whole folder (`?prefix=`)                                                                                                |
+| POST           | `/api/buckets/{id}/objects/download-link` | `{"key"}` → a signed `/api/downloads/{token}` link, valid 5 minutes                                                                                     |
+| POST           | `/api/buckets/{id}/objects/share-link`    | `{"key","expiresIn"}` → signed download link, where expiry is `1h`, `1d`, or `7d`                                                                       |
+| POST           | `/api/buckets/{id}/objects/preview-link`  | `{"key"}` → 5-minute signed inline preview link for supported image, video, PDF, or text files                                                          |
+| GET            | `/api/buckets/{id}/objects/metadata`      | `?key=` → object metadata and HTTP headers (`contentType`, `cacheControl`, `contentDisposition`)                                                        |
+| PUT            | `/api/buckets/{id}/objects/metadata`      | `?key=` + `{"contentType","cacheControl","contentDisposition"}` → update HTTP headers via in-place copy                                                 |
+| POST           | `/api/buckets/{id}/objects/copy`          | `{"src","dest"}` → copy one file or an entire folder (`"prefix/"`)                                                                                      |
+| POST           | `/api/buckets/{id}/objects/move`          | `{"src","dest"}` → rename or move one file or folder (`"prefix/"`)                                                                                      |
+| GET            | `/api/downloads/{token}`                  | Download or preview the file (no session needed; the signed token is the authorization)                                                                 |
 
 ## Repository layout
 
-| Path | Contents |
-|---|---|
-| `docker-compose.yml` | Production: Garage, control-plane, Caddy |
-| `docker-compose.dev.yml` | Development override: debug ports, relaxed settings, `awscli` (profile `tools`) |
-| `garage/garage.toml.tmpl` | Garage config template; `__BASE_DOMAIN__` is filled in by the `garage-config` service |
-| `caddy/Caddyfile` | Production (Let's Encrypt) |
-| `caddy/Caddyfile.dev` | Development (`local_certs`) |
-| `control/Dockerfile` | Multi-stage: dashboard build (Node), then the Go binary with the dashboard embedded |
-| `control/cmd/control` | Entry point: server, `createuser`, `setpassword`, `setrole`, `version`, `healthcheck` |
-| `control/internal/service` | Business logic: buckets, access keys, custom domains, worker |
-| `control/internal/auth` | Login, JWT, refresh tokens, rate limiting, argon2id |
-| `control/internal/garage` | Garage v2 admin API client |
-| `control/internal/dnscheck` | CNAME/A + TXT checks |
-| `control/internal/api` | chi routers: dashboard + `/api` (:8080) and internal (:9000) |
-| `control/internal/ui` | Serves the embedded dashboard (SPA fallback, CSP, asset caching) |
-| `control/db` | goose migrations + sqlc queries (`cd control/db && sqlc generate`) |
-| `web/` | Dashboard: Vite + React + TanStack Router/Query + shadcn |
-| `scripts/gen-env.sh` | Create/complete `.env` (`--dev` for local) |
-| `scripts/init-dev.sh` | Development setup, safe to re-run |
-| `scripts/backup.sh`, `scripts/restore.sh` | Back up and restore all data |
-| `.github/workflows/` | CI and releases |
-| `CHANGELOG.md` | Per-version changes (used as release notes) |
+| Path                                      | Contents                                                                              |
+| ----------------------------------------- | ------------------------------------------------------------------------------------- |
+| `docker-compose.yml`                      | Production: Garage, control-plane, Caddy                                              |
+| `docker-compose.dev.yml`                  | Development override: debug ports, relaxed settings, `awscli` (profile `tools`)       |
+| `garage/garage.toml.tmpl`                 | Garage config template; `__BASE_DOMAIN__` is filled in by the `garage-config` service |
+| `caddy/Caddyfile`                         | Production (Let's Encrypt)                                                            |
+| `caddy/Caddyfile.dev`                     | Development (`local_certs`)                                                           |
+| `control/Dockerfile`                      | Multi-stage: dashboard build (Node), then the Go binary with the dashboard embedded   |
+| `control/cmd/control`                     | Entry point: server, `createuser`, `setpassword`, `setrole`, `version`, `healthcheck` |
+| `control/internal/service`                | Business logic: buckets, access keys, custom domains, worker                          |
+| `control/internal/auth`                   | Login, JWT, refresh tokens, rate limiting, argon2id                                   |
+| `control/internal/garage`                 | Garage v2 admin API client                                                            |
+| `control/internal/dnscheck`               | CNAME/A + TXT checks                                                                  |
+| `control/internal/api`                    | chi routers: dashboard + `/api` (:8080) and internal (:9000)                          |
+| `control/internal/ui`                     | Serves the embedded dashboard (SPA fallback, CSP, asset caching)                      |
+| `control/db`                              | goose migrations + sqlc queries (`cd control/db && sqlc generate`)                    |
+| `web/`                                    | Dashboard: Vite + React + TanStack Router/Query + shadcn                              |
+| `scripts/gen-env.sh`                      | Create/complete `.env` (`--dev` for local)                                            |
+| `scripts/init-dev.sh`                     | Development setup, safe to re-run                                                     |
+| `scripts/backup.sh`, `scripts/restore.sh` | Back up and restore all data                                                          |
+| `.github/workflows/`                      | CI and releases                                                                       |
+| `CHANGELOG.md`                            | Per-version changes (used as release notes)                                           |
 
 ## Production notes
 
