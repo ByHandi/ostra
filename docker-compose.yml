@@ -5,7 +5,7 @@ name: ostra
 services:
   # Renders garage.toml from the template with BASE_DOMAIN, then exits.
   garage-config:
-    image: busybox:1.37.0
+    image: busybox:1.38.0
     environment:
       BASE_DOMAIN: ${BASE_DOMAIN:?set BASE_DOMAIN in .env, e.g. example.com}
     volumes:
